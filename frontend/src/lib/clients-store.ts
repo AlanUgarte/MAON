@@ -93,9 +93,28 @@ export function useClients() {
     return client;
   };
 
-  const updateClient = (id: string, patch: Partial<Client>) => {
+  const updateClient = async (id: string, patch: Partial<Client>) => {
+    if (source === 'backend') {
+      try {
+        await api.updateClient(id, {
+          firstName: patch.firstName, lastName: patch.lastName, phone: patch.phone,
+          city: patch.city, province: patch.province, businessName: patch.businessName, cuit: patch.cuit,
+          ivaCondition: patch.ivaCondition, address: patch.address, postalCode: patch.postalCode,
+          clientCode: patch.clientCode, condicionVenta: patch.condicionVenta,
+        });
+      } catch {
+        // si falla el PATCH, el cambio queda igual reflejado en la UI (modo degradado)
+      }
+    }
     save(clients.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
-  return { clients, addClient, updateClient, source };
+  const deleteClient = async (id: string) => {
+    if (source === 'backend') {
+      try { await api.deleteClient(id); } catch { /* si falla el DELETE, lo sacamos igual de la vista */ }
+    }
+    save(clients.filter((c) => c.id !== id));
+  };
+
+  return { clients, addClient, updateClient, deleteClient, source };
 }

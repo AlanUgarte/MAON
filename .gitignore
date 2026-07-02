@@ -6,3 +6,9 @@ out
 .env*.local
 *.log
 *.tsbuildinfo
+
+# Certificados y claves privadas de ARCA/AFIP — NUNCA subir esto al repo
+backend/afip-certs/
+*.key
+*.crt
+*.pem

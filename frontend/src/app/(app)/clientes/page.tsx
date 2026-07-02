@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X, Pencil, Trash2 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,11 +19,12 @@ const emptyForm = {
 };
 
 export default function ClientesPage() {
-  const { clients: CLIENTS, addClient } = useClients();
+  const { clients: CLIENTS, addClient, updateClient, deleteClient } = useClients();
   const [view, setView] = useState<'tabla' | 'kanban'>('tabla');
   const [filter, setFilter] = useState<Stage | 'TODOS'>('TODOS');
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
 
@@ -34,17 +35,39 @@ export default function ClientesPage() {
   const rows = filter === 'TODOS' ? searched : searched.filter((c) => c.stage === filter);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const openNew = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setShowNew(true); };
+  const openEdit = (c: (typeof CLIENTS)[number]) => {
+    setEditingId(c.id);
+    setForm({
+      firstName: c.firstName, lastName: c.lastName ?? '', phone: c.phone, businessName: c.businessName ?? '',
+      cuit: c.cuit ?? '', ivaCondition: c.ivaCondition, address: c.address ?? '', city: c.city ?? '',
+      province: c.province ?? '', postalCode: c.postalCode ?? '', clientCode: c.clientCode ?? '',
+      condicionVenta: c.condicionVenta ?? 'Contado',
+    });
+    setFormError('');
+    setShowNew(true);
+  };
+
   const submitNew = () => {
     if (!form.firstName || !form.phone) return setFormError('Nombre y teléfono son obligatorios');
     setFormError('');
-    addClient({
-      ...form,
-      stage: 'NUEVO_LEAD', product: '', source: 'WHATSAPP', leadScore: 0,
-      intent: 'BAJA', sentiment: 'NEUTRO', tags: [], lastInboundAt: new Date().toISOString(),
-      unread: 0, summary: '', objection: 'NINGUNA', seller: '-',
-    });
+    if (editingId) {
+      updateClient(editingId, form);
+    } else {
+      addClient({
+        ...form,
+        stage: 'NUEVO_LEAD', product: '', source: 'WHATSAPP', leadScore: 0,
+        intent: 'BAJA', sentiment: 'NEUTRO', tags: [], lastInboundAt: new Date().toISOString(),
+        unread: 0, summary: '', objection: 'NINGUNA', seller: '-',
+      });
+    }
     setForm(emptyForm);
+    setEditingId(null);
     setShowNew(false);
+  };
+
+  const removeClient = (id: string) => {
+    if (confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) deleteClient(id);
   };
 
   const inp = 'h-9 w-full rounded-lg border border-line/15 bg-surface-2/60 px-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none';
@@ -70,14 +93,14 @@ export default function ClientesPage() {
             <button onClick={() => setView('tabla')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'tabla' ? 'bg-primary/15 text-primary' : 'text-muted')}><List className="h-4 w-4" /> Tabla</button>
             <button onClick={() => setView('kanban')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'kanban' ? 'bg-primary/15 text-primary' : 'text-muted')}><LayoutGrid className="h-4 w-4" /> Kanban</button>
           </div>
-          <Button onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Nuevo</Button>
+          <Button onClick={openNew}><Plus className="h-4 w-4" /> Nuevo</Button>
         </div>
 
         {showNew && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowNew(false)}>
             <div className="card w-full max-w-lg space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <div className="text-base font-semibold text-content">Nuevo cliente</div>
+                <div className="text-base font-semibold text-content">{editingId ? 'Editar cliente' : 'Nuevo cliente'}</div>
                 <button onClick={() => setShowNew(false)}><X className="h-4 w-4 text-muted" /></button>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -97,7 +120,7 @@ export default function ClientesPage() {
                 <input className={inp} placeholder="Condición de venta" value={form.condicionVenta} onChange={set('condicionVenta')} />
               </div>
               {formError && <div className="rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-xs text-rose">{formError}</div>}
-              <Button className="w-full" onClick={submitNew}>Guardar cliente</Button>
+              <Button className="w-full" onClick={submitNew}>{editingId ? 'Guardar cambios' : 'Guardar cliente'}</Button>
             </div>
           </div>
         )}
@@ -123,6 +146,7 @@ export default function ClientesPage() {
                     <th className="px-4 py-3 font-medium">Origen</th>
                     <th className="px-4 py-3 font-medium">Vendedor</th>
                     <th className="px-4 py-3 font-medium">Últ. mensaje</th>
+                    <th className="px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,6 +167,12 @@ export default function ClientesPage() {
                       <td className="px-4 py-3"><Badge tone={c.source === 'META_ADS' ? 'primary' : 'emerald'}>{c.source === 'META_ADS' ? 'Meta Ads' : 'WhatsApp'}</Badge></td>
                       <td className="px-4 py-3"><span className="text-muted">{c.seller.split(' ')[0]}</span></td>
                       <td className="px-4 py-3"><span className="text-[12px] text-muted">{timeAgo(c.lastInboundAt)}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(c)} aria-label="Editar" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><Pencil className="h-4 w-4" /></button>
+                          <button onClick={() => removeClient(c.id)} aria-label="Eliminar" className="rounded-lg p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

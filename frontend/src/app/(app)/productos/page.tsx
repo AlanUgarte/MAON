@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink, Download } from 'lucide-react';
+import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink, Download, Pencil, Trash2 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { PRODUCT_ROWS } from '@/lib/mock';
 import { api } from '@/lib/api';
@@ -42,6 +42,7 @@ export default function ProductosPage() {
   const [showImport, setShowImport] = useState(false);
   const [showGpt, setShowGpt] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [importText, setImportText] = useState('');
   const emptyNew = { name: '', brand: '', category: 'Galletitas', price: '', margin: '', units: '', img: '' };
   const [newProd, setNewProd] = useState(emptyNew);
@@ -111,10 +112,43 @@ export default function ProductosPage() {
     setImportText(''); setShowImport(false);
   };
 
+  const openNew = () => { setEditingId(null); setNewProd(emptyNew); setNewError(''); setShowNew(true); };
+  const openEdit = (p: Prod) => {
+    setEditingId(p.id);
+    setNewProd({
+      name: p.name, brand: p.brand, category: p.category ?? 'Galletitas',
+      price: String(p.price), margin: p.margin === null ? '' : String(p.margin), units: String(p.units || ''), img: p.img,
+    });
+    setNewError('');
+    setShowNew(true);
+  };
+
   const submitNewProd = async () => {
     if (!newProd.name.trim() || !Number(newProd.price)) return setNewError('Nombre y precio son obligatorios');
     setNewError('');
     const margin = newProd.margin === '' ? null : Number(newProd.margin) || 0;
+
+    if (editingId) {
+      if (productSource === 'backend' && !editingId.startsWith('new') && !editingId.startsWith('imp')) {
+        try {
+          const updated = await api.updateProduct(editingId, {
+            name: newProd.name.trim(), category: newProd.category, brand: newProd.brand.trim() || undefined,
+            unitsPerBulk: Number(newProd.units) || undefined, marginPct: margin ?? undefined,
+            price: Number(newProd.price) || 0, images: newProd.img.trim() ? [newProd.img.trim()] : [],
+          });
+          setItems((arr) => arr.map((p) => (p.id === editingId ? fromBackendProduct(updated) : p)));
+          setEditingId(null); setNewProd(emptyNew); setShowNew(false);
+          return;
+        } catch { /* si falla el PATCH, se aplica igual el cambio localmente abajo */ }
+      }
+      setItems((arr) => arr.map((p) => (p.id === editingId ? {
+        ...p, name: newProd.name.trim(), brand: newProd.brand.trim() || '-', category: newProd.category,
+        price: Number(newProd.price) || 0, units: Number(newProd.units) || 0, img: newProd.img.trim(), margin,
+      } : p)));
+      setEditingId(null); setNewProd(emptyNew); setShowNew(false);
+      return;
+    }
+
     if (productSource === 'backend') {
       try {
         const created = await api.createProduct({
@@ -138,6 +172,14 @@ export default function ProductosPage() {
     }, ...arr]);
     setNewProd(emptyNew);
     setShowNew(false);
+  };
+
+  const removeProduct = async (p: Prod) => {
+    if (!confirm(`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`)) return;
+    if (productSource === 'backend' && !p.id.startsWith('new') && !p.id.startsWith('imp')) {
+      try { await api.deleteProduct(p.id); } catch { /* si falla el DELETE, lo sacamos igual de la vista */ }
+    }
+    setItems((arr) => arr.filter((x) => x.id !== p.id));
   };
 
   const buildPrompt = () => {
@@ -206,7 +248,7 @@ export default function ProductosPage() {
           <button onClick={() => setShowImport(true)} className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line/15 bg-surface px-4 text-[13px] font-semibold text-content hover:bg-surface-2"><Upload className="h-4 w-4" /> Importar</button>
           <button onClick={() => setShowGpt(true)} className="flex h-[38px] items-center gap-2 rounded-[10px] border px-4 text-[13px] font-semibold" style={{ borderColor: '#4285F4', color: '#4285F4' }}><Sparkles className="h-4 w-4" /> Catálogo con Gemini</button>
           <button onClick={downloadCatalog} className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line/15 bg-surface px-4 text-[13px] font-semibold text-content hover:bg-surface-2"><Download className="h-4 w-4" /> Descargar catálogo</button>
-          <button onClick={() => setShowNew(true)} className="flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white"><Plus className="h-4 w-4" /> Nuevo</button>
+          <button onClick={openNew} className="flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white"><Plus className="h-4 w-4" /> Nuevo</button>
         </div>
 
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -254,7 +296,11 @@ export default function ProductosPage() {
         {view === 'cards' ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((p) => (
-              <div key={p.id} className="rounded-2xl border border-line/10 bg-surface p-4">
+              <div key={p.id} className="group relative rounded-2xl border border-line/10 bg-surface p-4">
+                <div className="absolute right-3 top-3 hidden gap-1 group-hover:flex">
+                  <button onClick={() => openEdit(p)} aria-label="Editar" className="rounded-lg bg-surface-2 p-1.5 text-muted hover:text-content"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => removeProduct(p)} aria-label="Eliminar" className="rounded-lg bg-surface-2 p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
                 <div className="flex gap-3">
                   <ProdImg src={p.img} cat={p.category!} size={56} />
                   <div className="min-w-0 flex-1">
@@ -287,7 +333,7 @@ export default function ProductosPage() {
               <thead>
                 <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wide text-muted">
                   <th className="p-3">Producto</th><th className="p-3">Marca</th><th className="p-3">Cat.</th><th className="p-3">Bulto</th>
-                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Venta unidad</th>
+                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Venta unidad</th><th className="p-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -302,6 +348,12 @@ export default function ProductosPage() {
                     <td className="p-3"><input type="number" value={p.margin ?? ''} placeholder={String(gPct)} onChange={(e) => setMargin(p.id, e.target.value)} className="h-[30px] w-[62px] rounded-lg border border-line/15 bg-surface px-2 text-center font-bold" /></td>
                     <td className="p-3 font-bold text-emerald">{money(ventaB(p))}</td>
                     <td className="p-3 text-emerald">{p.units ? money(ventaU(p)) : '-'}</td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(p)} aria-label="Editar" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => removeProduct(p)} aria-label="Eliminar" className="rounded-lg p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -313,7 +365,7 @@ export default function ProductosPage() {
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onClick={() => setShowNew(false)}>
           <div className="w-full max-w-[440px] rounded-2xl border border-line/10 bg-surface p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between"><div className="font-bold">Nuevo producto</div><button onClick={() => setShowNew(false)}><X className="h-5 w-5" /></button></div>
+            <div className="mb-3 flex items-center justify-between"><div className="font-bold">{editingId ? 'Editar producto' : 'Nuevo producto'}</div><button onClick={() => setShowNew(false)}><X className="h-5 w-5" /></button></div>
             <div className="grid grid-cols-2 gap-2">
               <input value={newProd.name} onChange={(e) => setNewProd((f) => ({ ...f, name: e.target.value }))} placeholder="Nombre*" className="col-span-2 h-9 rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]" />
               <input value={newProd.brand} onChange={(e) => setNewProd((f) => ({ ...f, brand: e.target.value }))} placeholder="Marca" className="h-9 rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]" />
@@ -328,7 +380,7 @@ export default function ProductosPage() {
             {newError && <div className="mt-2 rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-xs text-rose">{newError}</div>}
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => setShowNew(false)} className="h-9 rounded-[10px] border border-line/15 px-4 text-[13px] font-semibold">Cancelar</button>
-              <button onClick={submitNewProd} className="h-9 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white">Guardar</button>
+              <button onClick={submitNewProd} className="h-9 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white">{editingId ? 'Guardar cambios' : 'Guardar'}</button>
             </div>
           </div>
         </div>

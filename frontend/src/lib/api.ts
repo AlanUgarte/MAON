@@ -75,6 +75,8 @@ export const api = {
   clients: (params = '') => request<any>(`/clients${params}`),
   client: (id: string) => request<any>(`/clients/${id}`),
   createClient: (dto: any) => request<any>('/clients', { method: 'POST', body: JSON.stringify(dto) }),
+  updateClient: (id: string, dto: any) => request<any>(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  deleteClient: (id: string) => request<any>(`/clients/${id}`, { method: 'DELETE' }),
   updateStage: (id: string, stage: string) =>
     request<any>(`/clients/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
 
@@ -96,6 +98,8 @@ export const api = {
   // Productos
   products: (params = '') => request<any>(`/products${params}`),
   createProduct: (dto: any) => request<any>('/products', { method: 'POST', body: JSON.stringify(dto) }),
+  updateProduct: (id: string, dto: any) => request<any>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
 
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
