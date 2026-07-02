@@ -1,0 +1,576 @@
+// =============================================================
+//  CRM COMERCIAL · WhatsApp Business + Meta Ads + IA (Claude)
+//  Prisma Schema completo
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------- ENUMS -----------------------------
+
+enum Role {
+  ADMINISTRADOR
+  SUPERVISOR
+  VENDEDOR
+}
+
+/// Estado comercial del lead/cliente (pipeline)
+enum ClientStage {
+  NUEVO_LEAD
+  CONTACTADO
+  INTERESADO
+  NEGOCIANDO
+  ESPERANDO_RESPUESTA
+  VENTA_CERRADA
+  VENTA_PERDIDA
+}
+
+/// Origen del lead
+enum LeadSource {
+  META_ADS
+  WHATSAPP
+  ORGANICO
+  REFERIDO
+  MANUAL
+}
+
+/// Intención de compra detectada por IA
+enum BuyingIntent {
+  ALTA
+  MEDIA
+  BAJA
+  DESCONOCIDA
+}
+
+enum Sentiment {
+  POSITIVO
+  NEUTRO
+  NEGATIVO
+}
+
+/// Tipo de objeción detectada
+enum ObjectionType {
+  PRECIO
+  ENVIO
+  CONFIANZA
+  TIEMPO_ENTREGA
+  COMPETENCIA
+  NINGUNA
+}
+
+enum MessageDirection {
+  ENTRANTE
+  SALIENTE
+}
+
+enum MessageType {
+  TEXTO
+  IMAGEN
+  AUDIO
+  VIDEO
+  DOCUMENTO
+  UBICACION
+  PLANTILLA
+  SISTEMA
+}
+
+/// Quién/qué generó el mensaje saliente
+enum MessageAuthor {
+  CLIENTE
+  VENDEDOR
+  AUTOMATIZACION
+  IA
+  SISTEMA
+}
+
+enum ConversationStatus {
+  ABIERTA
+  PENDIENTE
+  CERRADA
+}
+
+enum CampaignStatus {
+  BORRADOR
+  PROGRAMADA
+  ENVIANDO
+  COMPLETADA
+  CANCELADA
+}
+
+enum CampaignRecipientStatus {
+  PENDIENTE
+  ENVIADO
+  ENTREGADO
+  LEIDO
+  RESPONDIDO
+  FALLIDO
+}
+
+enum AutomationTrigger {
+  SIN_RESPUESTA_HORAS
+  SIN_RESPUESTA_DIAS
+  COMPRA_REALIZADA
+  TIEMPO_DESDE_COMPRA
+  CAMBIO_ESTADO
+  NUEVO_LEAD
+}
+
+enum AutomationActionType {
+  ENVIAR_MENSAJE
+  ENVIAR_PLANTILLA
+  CREAR_SEGUIMIENTO
+  CAMBIAR_ESTADO
+  AGREGAR_ETIQUETA
+}
+
+enum FollowUpStatus {
+  PENDIENTE
+  COMPLETADO
+  VENCIDO
+}
+
+enum SaleStatus {
+  PENDIENTE
+  PAGADA
+  ENVIADA
+  ENTREGADA
+  CANCELADA
+}
+
+/// Condición frente al IVA (AFIP/ARCA)
+enum IvaCondition {
+  RESPONSABLE_INSCRIPTO
+  MONOTRIBUTO
+  CONSUMIDOR_FINAL
+  EXENTO
+}
+
+/// Letra del comprobante fiscal
+enum ComprobanteLetra {
+  A
+  B
+  C
+  R
+}
+
+// ------------------------- USERS -----------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  fullName  String
+  role      Role     @default(VENDEDOR)
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedClients Client[]       @relation("AssignedSeller")
+  messages        Message[]      @relation("SellerMessages")
+  notes           Note[]
+  followUps       FollowUp[]
+  campaigns       Campaign[]
+  sales           Sale[]
+
+  @@index([role])
+  comprobantes  Comprobante[] @relation("ComprobanteSeller")
+}
+
+// ------------------------- TAGS ------------------------------
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#7C5CFC")
+  createdAt DateTime @default(now())
+
+  clients ClientTag[]
+}
+
+model ClientTag {
+  clientId String
+  tagId    String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, tagId])
+}
+
+// ------------------------ CLIENTS ----------------------------
+
+model Client {
+  id          String  @id @default(cuid())
+  // Información personal
+  firstName   String
+  lastName    String?
+  phone       String  @unique // E.164, ej: +5493411234567
+  email       String?
+  city        String?
+  province    String?
+  avatarUrl   String?
+
+  // Datos fiscales (para facturación)
+  businessName   String?      // Razón social, si difiere del nombre
+  cuit           String?
+  ivaCondition   IvaCondition @default(CONSUMIDOR_FINAL)
+  address        String?
+  postalCode     String?
+  clientCode     String?      @unique // Código de cliente (ej: C029105)
+  condicionVenta String       @default("Contado")
+
+  // Información comercial
+  stage           ClientStage @default(NUEVO_LEAD)
+  source          LeadSource  @default(WHATSAPP)
+  interestedProductId String?
+  interestedProduct   Product?  @relation(fields: [interestedProductId], references: [id])
+
+  // Atribución Meta Ads
+  metaCampaignId String?
+  metaAdSetId    String?
+  metaAdId       String?
+  metaCampaign   MetaCampaign? @relation(fields: [metaCampaignId], references: [id])
+
+  // IA / scoring
+  leadScore     Int          @default(0) // 0–100
+  buyingIntent  BuyingIntent @default(DESCONOCIDA)
+  sentiment     Sentiment    @default(NEUTRO)
+  aiSummary     String?
+  lastObjection ObjectionType @default(NINGUNA)
+
+  // Asignación
+  assignedSellerId String?
+  assignedSeller   User?   @relation("AssignedSeller", fields: [assignedSellerId], references: [id])
+
+  lastContactAt   DateTime?
+  lastInboundAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tags          ClientTag[]
+  conversations Conversation[]
+  notes         Note[]
+  followUps     FollowUp[]
+  sales         Sale[]
+  aiAnalyses    AIAnalysis[]
+  campaignRecipients CampaignRecipient[]
+
+  @@index([stage])
+  @@index([assignedSellerId])
+  @@index([buyingIntent])
+  @@index([lastInboundAt])
+  @@index([metaCampaignId])
+  comprobantes  Comprobante[]
+}
+
+// --------------------- CONVERSATIONS -------------------------
+
+model Conversation {
+  id        String             @id @default(cuid())
+  clientId  String
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status    ConversationStatus @default(ABIERTA)
+  channel   String             @default("whatsapp")
+  waContactId String?          // wa_id de WhatsApp Cloud API
+  unreadCount Int              @default(0)
+  lastMessageAt DateTime?
+  lastMessagePreview String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  messages Message[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      MessageDirection
+  author         MessageAuthor    @default(CLIENTE)
+  type           MessageType      @default(TEXTO)
+  content        String
+  mediaUrl       String?
+  waMessageId    String?          @unique // id del mensaje en WhatsApp
+  isRead         Boolean          @default(false)
+  // Si lo envió un vendedor
+  sellerId       String?
+  seller         User?            @relation("SellerMessages", fields: [sellerId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// ------------------------ AI LOG -----------------------------
+
+/// Registro de cada análisis de IA (auditoría + ahorro de costos)
+model AIAnalysis {
+  id           String        @id @default(cuid())
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Resultado
+  buyingIntent BuyingIntent?
+  leadScore    Int?
+  sentiment    Sentiment?
+  objection    ObjectionType?
+  nextAction   String?
+  summary      String?
+  suggestions  String[]      @default([])
+  // Telemetría de costos
+  usedAI       Boolean       @default(false) // false = resuelto por reglas/predefinido
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  rawResponse  Json?
+  createdAt    DateTime      @default(now())
+
+  @@index([clientId])
+  @@index([usedAI])
+}
+
+// ------------------------ PRODUCTS ---------------------------
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  sku         String   @unique
+  category    String?
+  brand       String?
+  /// Unidades por bulto (ej: 24 en "24*200 GR")
+  unitsPerBulk Int?
+  /// Margen de ganancia % de este artículo (si es null usa el general del negocio)
+  marginPct   Float?
+  price       Decimal  @db.Decimal(12, 2)
+  cost        Decimal? @db.Decimal(12, 2)
+  stock       Int      @default(0)
+  description String?
+  images      String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  interestedClients Client[]
+  saleItems         SaleItem[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// -------------------------- SALES ----------------------------
+
+model Sale {
+  id        String     @id @default(cuid())
+  clientId  String
+  client    Client     @relation(fields: [clientId], references: [id])
+  sellerId  String?
+  seller    User?      @relation(fields: [sellerId], references: [id])
+  total     Decimal    @db.Decimal(12, 2)
+  status    SaleStatus @default(PENDIENTE)
+  // Atribución para reportes por campaña
+  metaCampaignId String?
+  metaCampaign   MetaCampaign? @relation(fields: [metaCampaignId], references: [id])
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items SaleItem[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  unitPrice Decimal @db.Decimal(12, 2)
+
+  @@index([saleId])
+}
+
+// ------------------------ CAMPAIGNS --------------------------
+
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  message     String
+  templateName String?
+  imageUrl    String?
+  /// ACTIVE_WINDOW = gratis (solo conversaciones abiertas) · TEMPLATE = plantilla paga
+  mode        String         @default("ACTIVE_WINDOW")
+  status      CampaignStatus @default(BORRADOR)
+  // Filtros aplicados (snapshot del segmento)
+  filters     Json?
+  createdById String?
+  createdBy   User?          @relation(fields: [createdById], references: [id])
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  // Métricas agregadas
+  totalRecipients Int @default(0)
+  sentCount       Int @default(0)
+  deliveredCount  Int @default(0)
+  readCount       Int @default(0)
+  repliedCount    Int @default(0)
+  failedCount     Int @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  recipients CampaignRecipient[]
+
+  @@index([status])
+}
+
+model CampaignRecipient {
+  id         String                  @id @default(cuid())
+  campaignId String
+  campaign   Campaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status     CampaignRecipientStatus @default(PENDIENTE)
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  repliedAt   DateTime?
+  error       String?
+
+  @@unique([campaignId, clientId])
+  @@index([status])
+}
+
+// ----------------------- AUTOMATIONS -------------------------
+
+model Automation {
+  id          String               @id @default(cuid())
+  name        String
+  isActive    Boolean              @default(true)
+  trigger     AutomationTrigger
+  // Parámetros del disparador, ej: { "hours": 48 } o { "days": 7 }
+  triggerConfig Json?
+  actionType  AutomationActionType
+  // Contenido de la acción, ej: { "message": "..." } / { "stage": "INTERESADO" }
+  actionConfig Json?
+  // Condiciones de segmento opcionales (mismo formato que filtros de campaña)
+  conditions  Json?
+  lastRunAt   DateTime?
+  runCount    Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([isActive])
+}
+
+// ----------------------- FOLLOW-UPS --------------------------
+
+model FollowUp {
+  id          String         @id @default(cuid())
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   User?         @relation(fields: [assignedToId], references: [id])
+  title       String
+  notes       String?
+  dueAt       DateTime
+  status      FollowUpStatus @default(PENDIENTE)
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@index([status])
+  @@index([dueAt])
+  @@index([clientId])
+}
+
+// ------------------------ META ADS ---------------------------
+
+model MetaCampaign {
+  id          String   @id @default(cuid())
+  metaId      String   @unique // id real de la campaña en Meta
+  name        String
+  objective   String?
+  status      String?
+  spend       Decimal? @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clients Client[]
+  sales   Sale[]
+}
+
+
+enum ComprobanteTipo {
+  FACTURA
+  REMITO
+  NOTA_CREDITO
+  NOTA_CREDITO_REMITO
+}
+
+/// Comprobante comercial: factura, remito o nota de crédito (incluye N/C en remito y N/C en blanco).
+model Comprobante {
+  id          String          @id @default(cuid())
+  numero      String          @unique // ej: FC 0001-00000012
+  tipo        ComprobanteTipo
+  letra       ComprobanteLetra @default(A)
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id])
+  sellerId    String?
+  seller      User?           @relation("ComprobanteSeller", fields: [sellerId], references: [id])
+  // Importes
+  subtotal    Decimal         @db.Decimal(12, 2)
+  iva         Decimal         @default(0) @db.Decimal(12, 2)
+  total       Decimal         @db.Decimal(12, 2)
+  sign        Int             @default(1) // +1 factura/remito (debe), -1 nota de crédito (haber)
+  // Nota de crédito en blanco (sin productos, importe manual)
+  enBlanco    Boolean         @default(false)
+  descripcion String?
+  // Fiscal (AFIP): se completa al obtener el CAE en producción
+  cae         String?
+  caeVto      DateTime?
+  issuedAt    DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  items ComprobanteItem[]
+
+  @@index([clientId])
+  @@index([tipo])
+  @@index([issuedAt])
+}
+
+model ComprobanteItem {
+  id            String      @id @default(cuid())
+  comprobanteId String
+  comprobante   Comprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  productId     String?     // referencia opcional al producto
+  detalle       String
+  cantidad      Int         @default(1)
+  unitPrice     Decimal     @db.Decimal(12, 2)
+  subtotal      Decimal     @db.Decimal(12, 2)
+  /// Alícuota de IVA de este ítem (0.21, 0.105 o 0 = exento). Un comprobante puede mezclar alícuotas.
+  ivaRate       Float       @default(0.21)
+
+  @@index([comprobanteId])
+}

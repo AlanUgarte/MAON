@@ -1,0 +1,190 @@
+'use client';
+import { useState } from 'react';
+import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X } from 'lucide-react';
+import { Topbar } from '@/components/app/topbar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ScoreBar } from '@/components/app/score-gauge';
+import { StatusBadge } from '@/components/app/status-badge';
+import { PIPELINE, STAGE_LABEL, IVA_CONDITION_LABEL, type Stage, type IvaCondition } from '@/lib/mock';
+import { useClients } from '@/lib/clients-store';
+import { cn, initials, timeAgo } from '@/lib/utils';
+
+const STAGES: Stage[] = ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA', 'VENTA_CERRADA', 'VENTA_PERDIDA'];
+
+const emptyForm = {
+  firstName: '', lastName: '', phone: '', businessName: '', cuit: '',
+  ivaCondition: 'CONSUMIDOR_FINAL' as IvaCondition, address: '', city: '', province: '',
+  postalCode: '', clientCode: '', condicionVenta: 'Contado',
+};
+
+export default function ClientesPage() {
+  const { clients: CLIENTS, addClient } = useClients();
+  const [view, setView] = useState<'tabla' | 'kanban'>('tabla');
+  const [filter, setFilter] = useState<Stage | 'TODOS'>('TODOS');
+  const [search, setSearch] = useState('');
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState('');
+
+  const q = search.trim().toLowerCase();
+  const searched = q
+    ? CLIENTS.filter((c) => [c.firstName, c.lastName, c.phone, c.businessName, c.cuit].some((v) => v?.toLowerCase().includes(q)))
+    : CLIENTS;
+  const rows = filter === 'TODOS' ? searched : searched.filter((c) => c.stage === filter);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submitNew = () => {
+    if (!form.firstName || !form.phone) return setFormError('Nombre y teléfono son obligatorios');
+    setFormError('');
+    addClient({
+      ...form,
+      stage: 'NUEVO_LEAD', product: '', source: 'WHATSAPP', leadScore: 0,
+      intent: 'BAJA', sentiment: 'NEUTRO', tags: [], lastInboundAt: new Date().toISOString(),
+      unread: 0, summary: '', objection: 'NINGUNA', seller: '-',
+    });
+    setForm(emptyForm);
+    setShowNew(false);
+  };
+
+  const inp = 'h-9 w-full rounded-lg border border-line/15 bg-surface-2/60 px-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none';
+
+  return (
+    <>
+      <Topbar title="Clientes" subtitle={`${CLIENTS.length} contactos en tu cartera`} />
+      <main className="flex-1 space-y-4 p-5 lg:p-7">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              placeholder="Buscar por nombre, teléfono, razón social o CUIT…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none"
+            />
+          </div>
+          <Button variant="outline" size="md"><SlidersHorizontal className="h-4 w-4" /> Filtros</Button>
+          <Button variant="outline" size="md"><Download className="h-4 w-4" /> Exportar</Button>
+          <div className="flex items-center rounded-xl border border-line/15 bg-surface-2/40 p-0.5">
+            <button onClick={() => setView('tabla')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'tabla' ? 'bg-primary/15 text-primary' : 'text-muted')}><List className="h-4 w-4" /> Tabla</button>
+            <button onClick={() => setView('kanban')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'kanban' ? 'bg-primary/15 text-primary' : 'text-muted')}><LayoutGrid className="h-4 w-4" /> Kanban</button>
+          </div>
+          <Button onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Nuevo</Button>
+        </div>
+
+        {showNew && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowNew(false)}>
+            <div className="card w-full max-w-lg space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div className="text-base font-semibold text-content">Nuevo cliente</div>
+                <button onClick={() => setShowNew(false)}><X className="h-4 w-4 text-muted" /></button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input className={inp} placeholder="Nombre*" value={form.firstName} onChange={set('firstName')} />
+                <input className={inp} placeholder="Apellido" value={form.lastName} onChange={set('lastName')} />
+                <input className={inp} placeholder="Teléfono*" value={form.phone} onChange={set('phone')} />
+                <input className={inp} placeholder="Código cliente" value={form.clientCode} onChange={set('clientCode')} />
+                <input className={cn(inp, 'col-span-2')} placeholder="Razón social (si difiere del nombre)" value={form.businessName} onChange={set('businessName')} />
+                <input className={inp} placeholder="CUIT" value={form.cuit} onChange={set('cuit')} />
+                <select className={inp} value={form.ivaCondition} onChange={set('ivaCondition')}>
+                  {(Object.keys(IVA_CONDITION_LABEL) as IvaCondition[]).map((k) => <option key={k} value={k}>{IVA_CONDITION_LABEL[k]}</option>)}
+                </select>
+                <input className={cn(inp, 'col-span-2')} placeholder="Dirección" value={form.address} onChange={set('address')} />
+                <input className={inp} placeholder="Localidad" value={form.city} onChange={set('city')} />
+                <input className={inp} placeholder="Provincia" value={form.province} onChange={set('province')} />
+                <input className={inp} placeholder="Código postal" value={form.postalCode} onChange={set('postalCode')} />
+                <input className={inp} placeholder="Condición de venta" value={form.condicionVenta} onChange={set('condicionVenta')} />
+              </div>
+              {formError && <div className="rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-xs text-rose">{formError}</div>}
+              <Button className="w-full" onClick={submitNew}>Guardar cliente</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Chips de etapa */}
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setFilter('TODOS')} className={cn('rounded-full px-3 py-1.5 text-xs font-medium transition', filter === 'TODOS' ? 'bg-primary text-white' : 'bg-surface-2/60 text-muted hover:text-content')}>Todos</button>
+          {STAGES.map((s) => (
+            <button key={s} onClick={() => setFilter(s)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium transition', filter === s ? 'bg-primary text-white' : 'bg-surface-2/60 text-muted hover:text-content')}>{STAGE_LABEL[s]}</button>
+          ))}
+        </div>
+
+        {view === 'tabla' ? (
+          <div className="card overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wide text-muted">
+                    <th className="px-4 py-3 font-medium">Cliente</th>
+                    <th className="px-4 py-3 font-medium">Producto</th>
+                    <th className="px-4 py-3 font-medium">Estado</th>
+                    <th className="px-4 py-3 font-medium">Lead score</th>
+                    <th className="px-4 py-3 font-medium">Origen</th>
+                    <th className="px-4 py-3 font-medium">Vendedor</th>
+                    <th className="px-4 py-3 font-medium">Últ. mensaje</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((c) => (
+                    <tr key={c.id} className="border-b border-line/5 transition hover:bg-surface-2/40">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-sky/80 text-[11px] font-bold text-white">{initials(`${c.firstName} ${c.lastName}`)}</div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-content">{c.firstName} {c.lastName}</div>
+                            <div className="text-[11px] text-muted">{c.city}, {c.province}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><span className="text-muted">{c.product}</span></td>
+                      <td className="px-4 py-3"><StatusBadge stage={c.stage} /></td>
+                      <td className="px-4 py-3"><ScoreBar value={c.leadScore} /></td>
+                      <td className="px-4 py-3"><Badge tone={c.source === 'META_ADS' ? 'primary' : 'emerald'}>{c.source === 'META_ADS' ? 'Meta Ads' : 'WhatsApp'}</Badge></td>
+                      <td className="px-4 py-3"><span className="text-muted">{c.seller.split(' ')[0]}</span></td>
+                      <td className="px-4 py-3"><span className="text-[12px] text-muted">{timeAgo(c.lastInboundAt)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {STAGES.map((s) => {
+              const items = searched.filter((c) => c.stage === s);
+              const count = q ? items.length : PIPELINE.find((p) => p.stage === s)?.count ?? items.length;
+              return (
+                <div key={s} className="w-[260px] shrink-0">
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <span className="text-[13px] font-semibold text-content">{STAGE_LABEL[s]}</span>
+                    <Badge tone="muted">{count}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {items.length === 0 && <div className="rounded-xl border border-dashed border-line/15 p-4 text-center text-[11px] text-muted">Sin clientes</div>}
+                    {items.map((c) => (
+                      <div key={c.id} className="card cursor-grab space-y-2 p-3 shadow-card transition hover:border-primary/25">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-sky/80 text-[10px] font-bold text-white">{initials(`${c.firstName} ${c.lastName}`)}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px] font-medium text-content">{c.firstName} {c.lastName}</div>
+                            <div className="truncate text-[11px] text-muted">{c.product}</div>
+                          </div>
+                        </div>
+                        <ScoreBar value={c.leadScore} />
+                        <div className="flex items-center justify-between">
+                          {c.tags.map((t) => <Badge key={t.name} tone={t.color as any}>{t.name}</Badge>)}
+                          <span className="text-[10px] text-muted">{timeAgo(c.lastInboundAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </>
+  );
+}
