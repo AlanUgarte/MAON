@@ -16,7 +16,10 @@ export function useProductCatalog() {
       .then((r) => r.json())
       .then((rows: ProductRow[]) => {
         if (cancelled || !rows.length) return;
-        setProducts([...PRODUCT_ROWS, ...rows]);
+        // ponytail: red de seguridad contra duplicados (nombre+marca) si un futuro import se solapa con la semilla.
+        const seedKeys = new Set(PRODUCT_ROWS.map((p) => `${p.name.trim().toUpperCase()}|${p.brand.trim().toUpperCase()}`));
+        const deduped = rows.filter((p) => !seedKeys.has(`${p.name.trim().toUpperCase()}|${p.brand.trim().toUpperCase()}`));
+        setProducts([...PRODUCT_ROWS, ...deduped]);
         setSource('full');
       })
       .catch(() => {}); // sin conexión: se queda con el catálogo semilla de siempre

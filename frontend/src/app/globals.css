@@ -14,8 +14,8 @@
   --line: 38 43 32;         /* usado con baja opacidad */
   --content: 38 43 32;      /* #262B20 */
   --muted: 126 131 109;     /* #7E836D */
-  --primary: 86 104 43;     /* #56682B oliva */
-  --primary-soft: 86 104 43;
+  --primary: 27 51 88;      /* #1B3358 azul marino (mismo de la tienda) */
+  --primary-soft: 27 51 88;
   --emerald: 78 125 44;     /* #4E7D2C verde */
   --amber: 224 138 43;      /* #E08A2B */
   --rose: 203 74 51;        /* #CB4A33 */
@@ -31,8 +31,8 @@
   --line: 236 238 224;
   --content: 236 238 224;   /* #ECEEE0 */
   --muted: 154 160 136;     /* #9AA088 */
-  --primary: 138 158 90;
-  --primary-soft: 138 158 90;
+  --primary: 74 133 199;    /* azul más claro para contraste en modo oscuro */
+  --primary-soft: 74 133 199;
   --emerald: 122 170 70;
   --amber: 224 138 43;
   --rose: 220 90 70;

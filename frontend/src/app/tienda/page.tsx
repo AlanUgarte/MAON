@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -65,6 +65,7 @@ export default function TiendaPage() {
   const [formError, setFormError] = useState('');
   const [sent, setSent] = useState(false);
   const [bump, setBump] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
   const brands = useMemo(() => [...new Set(catalog.map((p) => p.brand))].sort(), [catalog]);
@@ -322,13 +323,18 @@ export default function TiendaPage() {
         </aside>
 
         <section className="flex-1">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div className="text-[13px] font-medium text-neutral-500">{filtered.length} producto{filtered.length === 1 ? '' : 's'}</div>
-            {(category || brand || search || priceMin || priceMax) && (
-              <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
-                Limpiar filtros
+            <div className="flex items-center gap-3">
+              <button onClick={() => setShowFilters(true)} className="flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-700 md:hidden">
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
               </button>
-            )}
+              {(category || brand || search || priceMin || priceMax) && (
+                <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {filtered.map((p) => {
@@ -511,6 +517,72 @@ export default function TiendaPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Filtros (mobile) */}
+      <div
+        className={`fixed inset-0 z-[70] bg-black/45 transition-opacity duration-200 md:hidden ${showFilters ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={() => setShowFilters(false)}
+      />
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[80] max-h-[80vh] overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl transition-transform duration-300 ease-out md:hidden ${showFilters ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-[15px] font-bold text-neutral-800">Filtros</div>
+          <button onClick={() => setShowFilters(false)}><X className="h-5 w-5 text-neutral-400" /></button>
+        </div>
+
+        <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Precio (venta)</div>
+        <div className="mb-4 flex items-center gap-1.5">
+          <input
+            type="number" min={0} value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="Desde"
+            className="h-10 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[13px] outline-none focus:border-transparent focus:ring-2"
+            style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+          />
+          <span className="text-neutral-300">–</span>
+          <input
+            type="number" min={0} value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="Hasta"
+            className="h-10 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[13px] outline-none focus:border-transparent focus:ring-2"
+            style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+          />
+        </div>
+
+        <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Marca</div>
+        {brands.length > 10 && (
+          <input
+            value={brandQuery} onChange={(e) => setBrandQuery(e.target.value)} placeholder="Buscar marca..."
+            className="mb-2 h-10 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[13px] outline-none focus:border-transparent focus:ring-2"
+            style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+          />
+        )}
+        <div className="max-h-[260px] space-y-1 overflow-y-auto pr-1">
+          <button
+            onClick={() => setBrand('')}
+            className="block w-full rounded-lg px-2 py-2 text-left text-[13px] transition hover:bg-neutral-50"
+            style={!brand ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+          >
+            Todas las marcas
+          </button>
+          {brandsShown.map((b) => (
+            <button
+              key={b}
+              onClick={() => setBrand(b)}
+              className="block w-full rounded-lg px-2 py-2 text-left text-[13px] transition hover:bg-neutral-50"
+              style={brand === b ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+            >
+              {b}
+            </button>
+          ))}
+          {brandsShown.length === 0 && <div className="px-2 py-1.5 text-[12px] text-neutral-400">Sin resultados</div>}
+        </div>
+
+        <button
+          onClick={() => setShowFilters(false)}
+          className="mt-4 w-full rounded-full py-3 text-sm font-bold text-white"
+          style={{ background: BRAND }}
+        >
+          Ver {filtered.length} producto{filtered.length === 1 ? '' : 's'}
+        </button>
       </div>
     </div>
   );

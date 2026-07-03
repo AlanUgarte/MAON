@@ -4,6 +4,7 @@ import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink
 import { Topbar } from '@/components/app/topbar';
 import { PRODUCT_ROWS } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
+import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { api } from '@/lib/api';
 
 const CATICON: Record<string, string> = {
@@ -36,6 +37,7 @@ function fromBackendProduct(bp: any): Prod {
 
 export default function ProductosPage() {
   const { products: fullCatalog } = useProductCatalog();
+  const { settings } = useTiendaSettings();
   const [items, setItems] = useState<Prod[]>(() => PRODUCT_ROWS.map((p) => ({ ...p, margin: null })));
   const [productSource, setProductSource] = useState<'backend' | 'local'>('local');
 
@@ -48,7 +50,9 @@ export default function ProductosPage() {
   const [cat, setCat] = useState('');
   const [sort, setSort] = useState('rank');
   const [q, setQ] = useState('');
-  const [gPct, setGPct] = useState(30);
+  const [gPct, setGPct] = useState(Math.round(settings.margenVenta * 100));
+  // El margen por defecto acá tiene que ser el mismo que el de venta pública (Tienda → General).
+  useEffect(() => setGPct(Math.round(settings.margenVenta * 100)), [settings.margenVenta]);
   const [showImport, setShowImport] = useState(false);
   const [showGpt, setShowGpt] = useState(false);
   const [showNew, setShowNew] = useState(false);
