@@ -9,9 +9,11 @@ import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
 
-const BRAND = '#3E5C1F';     // verde oscuro de marca
-const BRAND_SOFT = '#F3F6EC';
-const ACCENT = '#E38A1F';    // ámbar
+const BRAND = '#1B3358';     // azul marino elegante de marca
+const BRAND_DARK = '#0E2036';
+const BRAND_LIGHT = '#2E5A8C';
+const BRAND_SOFT = '#EEF2F8';
+const ACCENT = '#E38A1F';    // ámbar, contraste cálido sobre el azul
 const WHATSAPP = '#25D366';
 
 const CAT_ICON: Record<string, string> = {
@@ -184,9 +186,9 @@ export default function TiendaPage() {
 
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 px-4 py-3 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 sm:gap-4">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3 sm:gap-4">
           <div className="flex shrink-0 items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${BRAND}, #5A7A34)` }}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${BRAND_LIGHT}, ${BRAND})` }}>
               <Zap className="h-5 w-5" fill="currentColor" />
             </div>
             <div className="hidden leading-none sm:block">
@@ -220,7 +222,7 @@ export default function TiendaPage() {
         </div>
 
         {/* Categorías */}
-        <div className="mx-auto mt-3 flex max-w-6xl gap-1.5 overflow-x-auto pb-0.5">
+        <div className="mx-auto mt-3 flex max-w-[1600px] gap-1.5 overflow-x-auto pb-0.5">
           <button
             onClick={() => setCategory('')}
             className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
@@ -242,10 +244,10 @@ export default function TiendaPage() {
       </header>
 
       {/* Hero */}
-      <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, #2C4416 70%)` }}>
+      <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}>
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
-        <div className="relative mx-auto max-w-6xl animate-fade-up">
+        <div className="relative mx-auto max-w-[1600px] animate-fade-up">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
             <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
           </div>
@@ -264,8 +266,8 @@ export default function TiendaPage() {
       </div>
 
       {/* Body */}
-      <main className="mx-auto flex max-w-6xl gap-6 p-4 pt-6">
-        <aside className="hidden w-[220px] shrink-0 md:block">
+      <main className="mx-auto flex max-w-[1600px] gap-6 p-4 pt-6">
+        <aside className="hidden w-[240px] shrink-0 md:block">
           <div className="sticky top-[140px] space-y-4">
             <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
               <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Precio (venta)</div>
@@ -326,7 +328,7 @@ export default function TiendaPage() {
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {filtered.map((p) => {
               const inCart = qtyInCart(p.id);
               return (
@@ -336,7 +338,7 @@ export default function TiendaPage() {
                     <ProdImg src={p.img} size={104} className="transition group-hover:scale-105" />
                   </div>
                   <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400">{p.brand}</div>
-                  <div className="line-clamp-2 min-h-[32px] text-[13px] font-medium leading-tight text-neutral-800">{p.name}</div>
+                  <div className="line-clamp-3 min-h-[52px] text-[13px] font-medium leading-tight text-neutral-800" title={p.name}>{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1.5">
                     <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p))}</span>
                   </div>
@@ -373,7 +375,7 @@ export default function TiendaPage() {
 
       {/* Footer */}
       <footer className="mt-10 border-t border-black/5 bg-white px-4 py-8 text-center text-[12px] text-neutral-500">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2">
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center gap-2">
           <div className="flex items-center gap-2 font-display text-base font-extrabold" style={{ color: BRAND }}>
             <Zap className="h-4 w-4" fill="currentColor" /> MAON
           </div>
