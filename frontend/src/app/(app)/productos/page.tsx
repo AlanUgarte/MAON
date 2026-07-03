@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 
 const CATICON: Record<string, string> = {
   Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
-  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕',
+  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕', Harinas: '🌾',
 };
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 const moneyD = (n: number) => '$' + n.toLocaleString('es-AR', { maximumFractionDigits: 2 });

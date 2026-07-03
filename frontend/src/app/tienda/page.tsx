@@ -16,7 +16,7 @@ const WHATSAPP = '#25D366';
 
 const CAT_ICON: Record<string, string> = {
   Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
-  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕',
+  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕', Harinas: '🌾',
 };
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
