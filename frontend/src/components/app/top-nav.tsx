@@ -47,12 +47,12 @@ export function TopNav() {
           href={item.href}
           onClick={() => setOpen(false)}
           className={cn(
-            'flex items-center gap-2 rounded-[10px] px-3.5 py-2 text-sm font-medium transition-colors',
-            mobile && 'w-full',
+            'flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2.5 py-2 text-[13px] font-medium transition-colors',
+            mobile && 'w-full !gap-2 !px-3.5 !text-sm',
             active ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2 hover:text-content',
           )}
         >
-          <Icon className="h-[17px] w-[17px]" />
+          <Icon className="h-[16px] w-[16px] shrink-0" />
           {item.label}
           {item.badge && (
             <span className={cn(
@@ -67,7 +67,7 @@ export function TopNav() {
   return (
     <>
       <header className="sticky top-0 z-30 flex h-[58px] items-center gap-2 border-b border-line/10 bg-surface px-4">
-        <button onClick={() => setOpen(!open)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-line/15 text-content lg:hidden">
+        <button onClick={() => setOpen(!open)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-line/15 text-content xl:hidden">
           {open ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
         </button>
         <Link href="/dashboard" className="flex items-center gap-2 pr-2">
@@ -75,12 +75,12 @@ export function TopNav() {
           <span className="font-display text-lg font-extrabold tracking-tight text-primary">COMPVEN</span>
         </Link>
 
-        <nav className="mx-auto hidden items-center gap-1 lg:flex">{items()}</nav>
+        <nav className="mx-auto hidden items-center gap-0.5 xl:flex">{items()}</nav>
 
-        <div className="ml-auto flex items-center gap-2.5 lg:ml-0">
+        <div className="ml-auto flex items-center gap-2 xl:ml-0">
           <ThemeToggle />
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{initials(user?.fullName || '')}</span>
-          <div className="hidden leading-tight sm:block">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{initials(user?.fullName || '')}</span>
+          <div className="hidden leading-tight 2xl:block">
             <div className="text-[13px] font-semibold text-content">{user?.fullName ?? '—'}</div>
             {user?.role && <div className="text-[10px] text-muted">{ROLE_LABEL[user.role] ?? user.role}</div>}
           </div>
@@ -91,7 +91,7 @@ export function TopNav() {
       </header>
 
       {open && (
-        <div className="sticky top-[58px] z-30 flex flex-col gap-1 border-b border-line/10 bg-surface p-2 lg:hidden">
+        <div className="sticky top-[58px] z-30 flex flex-col gap-1 border-b border-line/10 bg-surface p-2 xl:hidden">
           {items(true)}
         </div>
       )}
