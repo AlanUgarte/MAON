@@ -10,6 +10,7 @@ import { useChatThreads } from '@/lib/chat-store';
 // Reemplazar por el WhatsApp Business real de MAON antes de compartir el link con clientes de verdad.
 const NEGOCIO_WHATSAPP = '5493412708638';
 const MIN_COMPRA = 50000;
+const ENVIO_GRATIS = 85000;
 const MARGEN_VENTA = 0.30; // margen por defecto para el precio público (el catálogo interno guarda costo, no precio de venta)
 
 const BRAND = '#3E5C1F';     // verde oscuro de marca
@@ -77,6 +78,8 @@ export default function TiendaPage() {
   const subtotal = cartLines.reduce((a, l) => a + l.subtotal, 0);
   const faltante = Math.max(0, MIN_COMPRA - subtotal);
   const progreso = Math.min(100, Math.round((subtotal / MIN_COMPRA) * 100));
+  const envioGratis = subtotal >= ENVIO_GRATIS;
+  const faltanteEnvio = Math.max(0, ENVIO_GRATIS - subtotal);
 
   useEffect(() => {
     if (!bump) return;
@@ -103,7 +106,8 @@ export default function TiendaPage() {
 
   const buildOrderText = () => {
     const lines = cartLines.map((l) => `• ${l.qty}x ${l.product.name} — ${money(l.subtotal)}`).join('\n');
-    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\nTotal: ${money(subtotal)}\n\nNombre: ${form.name}\nTeléfono: ${form.phone}`;
+    const envio = envioGratis ? '\nEnvío: GRATIS 🎉' : '';
+    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\nTotal: ${money(subtotal)}${envio}\n\nNombre: ${form.name}\nTeléfono: ${form.phone}`;
   };
 
   const sendOrder = () => {
@@ -135,7 +139,7 @@ export default function TiendaPage() {
     <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
       {/* Barra superior */}
       <div className="flex items-center justify-center gap-1.5 px-4 py-2 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: BRAND }}>
-        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(MIN_COMPRA)} · ENVÍOS A TODO EL PAÍS
+        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(MIN_COMPRA)} · ENVÍO GRATIS DESDE {money(ENVIO_GRATIS)}
       </div>
 
       {/* Header */}
@@ -336,6 +340,10 @@ export default function TiendaPage() {
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, background: faltante > 0 ? ACCENT : '#22C55E' }} />
           </div>
+          <div className="mt-2 flex items-center gap-1.5 text-[11.5px] font-medium" style={{ color: envioGratis ? '#22C55E' : '#666' }}>
+            <Truck className="h-3.5 w-3.5" />
+            {envioGratis ? '¡Tenés envío gratis! 🎉' : `Te faltan ${money(faltanteEnvio)} para envío gratis`}
+          </div>
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -405,6 +413,7 @@ export default function TiendaPage() {
               </div>
               <div className="mt-3 max-h-[160px] overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
                 {cartLines.map((l) => <div key={l.productId} className="flex justify-between py-0.5"><span>{l.qty}x {l.product.name}</span><span className="shrink-0 pl-2">{money(l.subtotal)}</span></div>)}
+                <div className="flex justify-between py-0.5"><span>Envío</span><span className="shrink-0 pl-2 font-semibold" style={{ color: envioGratis ? '#22C55E' : undefined }}>{envioGratis ? 'GRATIS' : 'A coordinar'}</span></div>
                 <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
               </div>
               {formError && <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
