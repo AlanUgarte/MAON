@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search, Send, Phone, Sparkles, Target, MessageSquareWarning,
@@ -16,6 +16,8 @@ import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
+import { useTiendaSettings } from '@/lib/tienda-settings-store';
+import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
 import { api } from '@/lib/api';
 import { cn, initials, timeAgo } from '@/lib/utils';
 
@@ -26,18 +28,41 @@ const OBJECTION_LABEL: Record<string, string> = {
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
-function buildPriceListHtml(products: ProductRow[]) {
-  const rows = products.map((p) => `<tr><td>${p.name}</td><td>${p.brand}</td><td style="text-align:right">${money(p.price)}</td></tr>`).join('');
+// Agrupa por categoría y muestra el precio de VENTA (costo + margen), nunca el costo interno.
+function buildPriceListHtml(products: ProductRow[], margenVenta: number) {
+  const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + margenVenta));
+  const byCat = new Map<string, ProductRow[]>();
+  [...products].sort((a, b) => a.name.localeCompare(b.name)).forEach((p) => {
+    const cat = p.category || 'Otros';
+    (byCat.get(cat) ?? byCat.set(cat, []).get(cat)!).push(p);
+  });
+  const sections = [...byCat.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([cat, items]) => `
+    <h2>${cat} <span class="count">${items.length} artículos</span></h2>
+    <table>
+      <thead><tr><th>Descripción del artículo</th><th>Marca</th><th style="text-align:right">Precio en bulto</th></tr></thead>
+      <tbody>${items.map((p) => `<tr><td>${p.name}</td><td>${p.brand}</td><td style="text-align:right">${money(ventaBulto(p))}</td></tr>`).join('')}</tbody>
+    </table>`).join('');
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista de precios · MAON</title>
-    <style>body{font-family:system-ui,sans-serif;padding:28px;color:#262B20}
-    h1{color:#56682B;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
-    th{text-align:left;color:#7E836D;font-size:11px;text-transform:uppercase;border-bottom:1px solid #E7E9D6;padding:8px}
-    td{padding:8px;border-bottom:1px solid #F0F1E6}.btn{background:#56682B;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:600;margin-top:16px}
-    @media print{.btn{display:none}}</style></head><body>
-    <h1>MAON - Mayorista Online</h1><div style="color:#7E836D;font-size:13px">Lista de precios · ${new Date().toLocaleDateString('es-AR')}</div>
-    <table><thead><tr><th>Descripción del artículo</th><th>Marca</th><th style="text-align:right">Precio en bulto</th></tr></thead>
-    <tbody>${rows}</tbody></table>
-    <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <style>
+      body{font-family:system-ui,-apple-system,sans-serif;padding:32px;color:#1A2233;max-width:900px;margin:auto}
+      .head{border-bottom:3px solid #1B3358;padding-bottom:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:end}
+      h1{color:#1B3358;margin:0;font-size:24px}
+      .sub{color:#7E8AA0;font-size:13px;margin-top:4px}
+      h2{color:#1B3358;font-size:15px;margin:26px 0 8px;border-bottom:1px solid #DCE3EE;padding-bottom:6px;display:flex;justify-content:space-between}
+      .count{color:#7E8AA0;font-size:11px;font-weight:400}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{text-align:left;color:#7E8AA0;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #DCE3EE;padding:6px 8px}
+      td{padding:6px 8px;border-bottom:1px solid #F0F3F8}
+      tr:hover td{background:#F7F9FC}
+      .btn{position:sticky;top:16px;float:right;background:#1B3358;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-weight:600;margin-top:16px}
+      @media print{.btn{display:none}}
+    </style></head><body>
+    <div class="head">
+      <div><h1>MAON — Mayorista Online</h1><div class="sub">Lista de precios de venta · ${new Date().toLocaleDateString('es-AR')} · ${products.length} artículos</div></div>
+      <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
+    ${sections}
     </body></html>`;
 }
 
@@ -52,7 +77,12 @@ function BandejaInner() {
   const searchParams = useSearchParams();
   const { clients: CLIENTS } = useClients();
   const { getThread, appendMessage: appendToClient } = useChatThreads();
-  const { products: PRODUCT_ROWS } = useProductCatalog();
+  const { products: fullCatalog } = useProductCatalog();
+  const { settings } = useTiendaSettings();
+  const PRODUCT_ROWS = useMemo(
+    () => fullCatalog.filter((p) => !settings.hiddenProductIds.includes(p.id)),
+    [fullCatalog, settings.hiddenProductIds],
+  );
   const { orders: tiendaOrders } = useTiendaOrders();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -64,6 +94,7 @@ function BandejaInner() {
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [showInvoiceChoice, setShowInvoiceChoice] = useState(false);
 
   useEffect(() => {
     const fromParam = searchParams.get('clientId');
@@ -131,7 +162,7 @@ function BandejaInner() {
   };
 
   const sendPriceList = () => {
-    const html = buildPriceListHtml(PRODUCT_ROWS);
+    const html = buildPriceListHtml(PRODUCT_ROWS, settings.margenVenta);
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
     appendToClient(active, { content: 'Lista de precios · MAON.pdf', type: 'DOCUMENTO' });
@@ -224,7 +255,7 @@ function BandejaInner() {
               <div className="text-[12.5px] text-content">
                 <b>Pedido de la tienda sin facturar</b> · {money(pendingOrder.subtotal)} · {pendingOrder.items.length} producto{pendingOrder.items.length === 1 ? '' : 's'}
               </div>
-              <Button size="sm" onClick={() => router.push(`/facturacion?clientId=${active.id}&autoOrderId=${pendingOrder.id}`)}>
+              <Button size="sm" onClick={() => setShowInvoiceChoice(true)}>
                 Confirmar pedido y facturar
               </Button>
             </div>
@@ -421,6 +452,13 @@ function BandejaInner() {
           </div>
         </div>
       </div>
+
+      {showInvoiceChoice && pendingOrder && (
+        <InvoiceChoiceModal
+          onClose={() => setShowInvoiceChoice(false)}
+          onChoose={(tipo, letra) => router.push(`/facturacion?clientId=${active.id}&autoOrderId=${pendingOrder.id}&autoTipo=${tipo}&autoLetra=${letra}`)}
+        />
+      )}
     </>
   );
 }

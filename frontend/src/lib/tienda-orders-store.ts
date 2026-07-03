@@ -18,6 +18,7 @@ export interface TiendaOrder {
   envioGratis: boolean;
   invoiced?: boolean;
   comprobanteNumero?: string;
+  seller?: string;
 }
 
 function load(): TiendaOrder[] {

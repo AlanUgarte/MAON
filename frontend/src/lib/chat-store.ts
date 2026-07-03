@@ -5,11 +5,17 @@ import { useEffect, useState } from 'react';
 import { mockThread, type Client, type ChatMessage } from './mock';
 
 const KEY = 'compven_threads';
+// Mismo criterio que clients-store: los hilos de clientes de ejemplo quedan bajo claves "c_1".."c_N".
+const DEMO_ID_RE = /^c_\d{1,4}$/;
 
 function load(): Record<string, ChatMessage[]> {
   if (typeof window === 'undefined') return {};
   const raw = localStorage.getItem(KEY);
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  const stored: Record<string, ChatMessage[]> = JSON.parse(raw);
+  const real = Object.fromEntries(Object.entries(stored).filter(([id]) => !DEMO_ID_RE.test(id)));
+  if (Object.keys(real).length !== Object.keys(stored).length) localStorage.setItem(KEY, JSON.stringify(real));
+  return real;
 }
 
 export function useChatThreads() {

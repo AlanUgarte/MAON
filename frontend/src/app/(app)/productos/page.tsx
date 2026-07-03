@@ -24,7 +24,7 @@ function ProdImg({ src, cat, size }: { src: string; cat: string; size: number })
         {CATICON[cat] || '📦'}
       </div>
     );
-  return <img src={src} onError={() => setErr(true)} alt="" className="shrink-0 rounded-xl border border-line/15 object-cover" style={{ width: size, height: size }} />;
+  return <img src={src} loading="lazy" decoding="async" onError={() => setErr(true)} alt="" className="shrink-0 rounded-xl border border-line/15 object-cover" style={{ width: size, height: size }} />;
 }
 
 function fromBackendProduct(bp: any): Prod {

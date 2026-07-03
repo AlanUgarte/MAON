@@ -1,13 +1,15 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-store';
-import { useTiendaOrders } from '@/lib/tienda-orders-store';
+import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -23,6 +25,7 @@ const TABS = [
 const RENDER_CAP = 150;
 
 export default function TiendaConfigPage() {
+  const router = useRouter();
   const { settings, save } = useTiendaSettings();
   const { orders } = useTiendaOrders();
   const { products: PRODUCT_ROWS } = useProductCatalog();
@@ -30,6 +33,7 @@ export default function TiendaConfigPage() {
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('general');
   const [q, setQ] = useState('');
+  const [invoicingOrder, setInvoicingOrder] = useState<TiendaOrder | null>(null);
 
   useEffect(() => setForm(settings), [settings]);
 
@@ -235,6 +239,7 @@ export default function TiendaConfigPage() {
                           <div className="text-[11px] text-muted">{o.customerPhone} · {new Date(o.createdAt).toLocaleString('es-AR')}</div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {o.seller && <Badge tone="sky">Vendedor: {o.seller}</Badge>}
                           {o.envioGratis && <Badge tone="emerald">Envío gratis</Badge>}
                           <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
                         </div>
@@ -247,11 +252,20 @@ export default function TiendaConfigPage() {
                           </div>
                         ))}
                       </div>
-                      {o.clientId && (
-                        <a href={`/bandeja?clientId=${o.clientId}`} className="mt-3 inline-block text-[12px] font-semibold text-primary hover:underline">
-                          Ver conversación en Bandeja →
-                        </a>
-                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {o.clientId && (
+                          <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">
+                            Ver conversación en Bandeja →
+                          </a>
+                        )}
+                        {o.invoiced ? (
+                          <Badge tone="emerald">Facturado · {o.comprobanteNumero}</Badge>
+                        ) : (
+                          <Button size="sm" variant="soft" onClick={() => setInvoicingOrder(o)}>
+                            <ReceiptText className="h-3.5 w-3.5" /> Facturar
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -260,6 +274,13 @@ export default function TiendaConfigPage() {
           </Card>
         )}
       </main>
+
+      {invoicingOrder && (
+        <InvoiceChoiceModal
+          onClose={() => setInvoicingOrder(null)}
+          onChoose={(tipo, letra) => router.push(`/facturacion?clientId=${invoicingOrder.clientId}&autoOrderId=${invoicingOrder.id}&autoTipo=${tipo}&autoLetra=${letra}`)}
+        />
+      )}
     </>
   );
 }

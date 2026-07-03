@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Users, TrendingUp, DollarSign, Target, Receipt, Clock,
   Flame, ArrowUpRight, ChevronRight, Pencil, Sparkles,
@@ -14,6 +14,8 @@ import { StatusBadge } from '@/components/app/status-badge';
 import {
   KPIS, SERIES, PIPELINE, SALES_BY_PRODUCT, CAMPAIGN_CONVERSION, CLIENTS,
 } from '@/lib/mock';
+import { useComprobantesStore } from '@/lib/comprobantes-store';
+import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { formatARS, formatNumber, initials } from '@/lib/utils';
 
 const PIPE_COLORS: Record<string, string> = {
@@ -27,10 +29,23 @@ export default function DashboardPage() {
   const topLead = hot[0];
   const maxPipe = Math.max(...PIPELINE.map((p) => p.count));
 
-  // Resumen financiero: el gasto en publicidad lo carga el usuario a mano.
-  const facturado = 4218500;
-  const costoProductos = 1560000;
+  // Resumen financiero: real, a partir del libro de comprobantes emitidos. El gasto en
+  // publicidad se sigue cargando a mano (no hay integración con Meta Ads todavía).
+  const { comprobantes } = useComprobantesStore();
+  const { settings } = useTiendaSettings();
+  const [sellerFilter, setSellerFilter] = useState('');
+  const sellers = useMemo(
+    () => [...new Set(comprobantes.map((c) => c.seller).filter((s) => s && s !== '-'))].sort(),
+    [comprobantes],
+  );
+  const facturasReales = useMemo(
+    () => comprobantes.filter((c) => c.sign > 0 && (!sellerFilter || c.seller === sellerFilter)),
+    [comprobantes, sellerFilter],
+  );
   const [adSpend, setAdSpend] = useState(380000);
+  const facturado = facturasReales.reduce((a, c) => a + c.total, 0);
+  const ventasCount = facturasReales.length;
+  const costoProductos = Math.round(facturado / (1 + settings.margenVenta)); // estimado según el margen configurado
   const neta = facturado - costoProductos - adSpend;
   const roas = adSpend > 0 ? facturado / adSpend : 0;
 
@@ -49,20 +64,27 @@ export default function DashboardPage() {
         {/* Resumen financiero */}
         <Card>
           <CardHeader>
-            <CardTitle>Resumen financiero · junio</CardTitle>
-            <Badge tone="muted">editás el gasto de publicidad a mano</Badge>
+            <CardTitle>Resumen financiero · facturación real</CardTitle>
+            <select
+              value={sellerFilter}
+              onChange={(e) => setSellerFilter(e.target.value)}
+              className="h-8 rounded-lg border border-line/15 bg-surface px-2.5 text-[12px] font-semibold text-content focus:border-primary/50 focus:outline-none"
+            >
+              <option value="">Todos los vendedores</option>
+              {sellers.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <div className="rounded-2xl border border-line/10 bg-surface-2/40 p-4">
                 <div className="text-xs text-muted">Facturado</div>
                 <div className="mt-1.5 font-display text-xl font-bold tnum text-emerald">{formatARS(facturado)}</div>
-                <div className="mt-0.5 text-[11px] text-muted">{KPIS.salesMonthCount} ventas</div>
+                <div className="mt-0.5 text-[11px] text-muted">{ventasCount} comprobante{ventasCount === 1 ? '' : 's'}</div>
               </div>
               <div className="rounded-2xl border border-line/10 bg-surface-2/40 p-4">
                 <div className="text-xs text-muted">Costo de productos</div>
                 <div className="mt-1.5 font-display text-xl font-bold tnum text-content">{formatARS(costoProductos)}</div>
-                <div className="mt-0.5 text-[11px] text-muted">automático</div>
+                <div className="mt-0.5 text-[11px] text-muted">estimado según margen</div>
               </div>
               <div className="rounded-2xl border border-amber/30 bg-amber/8 p-4">
                 <div className="flex items-center gap-1 text-xs text-amber"><Pencil className="h-3 w-3" /> Gastos en publicidad</div>

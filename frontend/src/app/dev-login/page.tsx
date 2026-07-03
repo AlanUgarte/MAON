@@ -11,7 +11,7 @@ export default function DevLoginPage() {
 
   useEffect(() => {
     setToken('demo-preview-token');
-    setUser({ id: '1', email: 'admin@crm.com', fullName: 'Ana Administradora', role: 'ADMINISTRADOR' });
+    setUser({ id: '1', email: 'ugartealan776@gmail.com', fullName: 'Alan Ugarte', role: 'ADMINISTRADOR' });
     router.replace('/dashboard');
   }, [router]);
 

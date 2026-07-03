@@ -2,31 +2,17 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PRODUCT_ROWS, IVA_CONDITION_LABEL, type Client } from '@/lib/mock';
+import { PRODUCT_ROWS, IVA_CONDITION_LABEL } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients, fromBackend as fromBackendClient } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
+import {
+  useComprobantesStore, TIPO_LABEL, PREFIX, LETRAS_POR_TIPO,
+  type Tipo, type Letra, type Item, type IvaGroup, type Comprobante,
+} from '@/lib/comprobantes-store';
 import { api } from '@/lib/api';
 import { pesosEnLetras } from '@/lib/utils';
-
-type Tipo = 'FACTURA' | 'REMITO' | 'NOTA_CREDITO' | 'NOTA_CREDITO_REMITO';
-type Letra = 'A' | 'B' | 'C' | 'R';
-
-const TIPO_LABEL: Record<Tipo, string> = {
-  FACTURA: 'Factura',
-  REMITO: 'Remito',
-  NOTA_CREDITO: 'Nota de crédito',
-  NOTA_CREDITO_REMITO: 'Nota de crédito en remito',
-};
-const PREFIX: Record<Tipo, string> = { FACTURA: 'FC', REMITO: 'RE', NOTA_CREDITO: 'NC', NOTA_CREDITO_REMITO: 'NCR' };
-// Letras válidas por tipo: factura/N.C. son fiscales (A/B/C), remitos no son válidos como factura (R)
-const LETRAS_POR_TIPO: Record<Tipo, Letra[]> = {
-  FACTURA: ['A', 'B', 'C'],
-  NOTA_CREDITO: ['A', 'B', 'C'],
-  REMITO: ['R'],
-  NOTA_CREDITO_REMITO: ['R'],
-};
 
 // ponytail: datos del emisor a completar con los reales de MAON cuando estén disponibles
 const EMISOR = {
@@ -42,15 +28,6 @@ const EMISOR = {
   web: '',
   email: '',
 };
-
-interface Item { detalle: string; cantidad: number; unitPrice: number; subtotal: number; ivaRate: number }
-interface IvaGroup { rate: number; neto: number; importe: number }
-interface Comprobante {
-  numero: string; fecha: string; tipo: Tipo; letra: Letra;
-  clientId: string; client: Client;
-  items: Item[]; subtotal: number; ivaGroups: IvaGroup[]; iva: number; total: number; sign: number;
-  cae?: string; caeVto?: string;
-}
 
 const IVA_RATES = [
   { value: 0.21, label: 'IVA 21%' },
@@ -72,9 +49,10 @@ function fromBackendComprobante(bc: any): Comprobante {
   const byRate = new Map<number, number>();
   items.forEach((it) => { if (it.ivaRate > 0) byRate.set(it.ivaRate, (byRate.get(it.ivaRate) ?? 0) + it.subtotal); });
   const ivaGroups: IvaGroup[] = Array.from(byRate.entries()).map(([rate, neto]) => ({ rate, neto, importe: Math.round(neto * rate * 100) / 100 }));
+  const client = fromBackendClient(bc.client);
   return {
     numero: bc.numero, fecha: String(bc.issuedAt ?? bc.createdAt ?? todayISO()).slice(0, 10),
-    tipo: bc.tipo, letra: bc.letra, clientId: bc.clientId, client: fromBackendClient(bc.client),
+    tipo: bc.tipo, letra: bc.letra, clientId: bc.clientId, client, seller: client.seller || '-',
     items, subtotal: Number(bc.subtotal), ivaGroups, iva: Number(bc.iva), total: Number(bc.total),
     sign: bc.sign, cae: bc.cae ?? undefined, caeVto: bc.caeVto ? String(bc.caeVto).slice(0, 10) : undefined,
   };
@@ -96,7 +74,8 @@ function FacturacionInner() {
     if (fromChat) setClientId(fromChat);
   }, [searchParams]);
 
-  // Intenta traer el libro de comprobantes real del backend; si no responde, se queda vacío como siempre
+  // Intenta traer el libro de comprobantes real del backend; si no responde, sigue con el local persistido
+  const { comprobantes: ledger, setComprobantes: setLedger, addComprobante } = useComprobantesStore();
   useEffect(() => {
     let cancelled = false;
     api.comprobantes()
@@ -113,6 +92,7 @@ function FacturacionInner() {
   const [letra, setLetra] = useState<Letra>('A');
   const [cae, setCae] = useState('');
   const [caeVto, setCaeVto] = useState('');
+  const [prefillOrderId, setPrefillOrderId] = useState<string | null>(null);
   const [ivaBlanco, setIvaBlanco] = useState(false); // solo para N/C en blanco (sin ítems)
   const [enBlanco, setEnBlanco] = useState(false);
   const [desc, setDesc] = useState('');
@@ -123,11 +103,9 @@ function FacturacionInner() {
   const [itemIvaRate, setItemIvaRate] = useState(0.21);
   const [margin, setMargin] = useState(30);
   const [draft, setDraft] = useState<Item[]>([]);
-  const [ledger, setLedger] = useState<Comprobante[]>([]);
   const [comprobanteSource, setComprobanteSource] = useState<'backend' | 'local'>('local');
   const [sentToChatNums, setSentToChatNums] = useState<string[]>([]);
   const [libFilter, setLibFilter] = useState('');
-  const [seq, setSeq] = useState<Record<string, number>>({});
   const [formError, setFormError] = useState('');
 
   const isNC = tipo === 'NOTA_CREDITO' || tipo === 'NOTA_CREDITO_REMITO';
@@ -176,7 +154,7 @@ function FacturacionInner() {
           items: opts.items.map((it) => ({ detalle: it.detalle, cantidad: it.cantidad, unitPrice: it.unitPrice, ivaRate: it.ivaRate })),
         });
         const entry = fromBackendComprobante(created);
-        setLedger((l) => [entry, ...l]);
+        addComprobante(entry);
         printComprobante(entry);
         return entry;
       } catch {
@@ -185,24 +163,28 @@ function FacturacionInner() {
     }
 
     const client = CLIENTS.find((x) => x.id === opts.clientId)!;
-    const seqKey = `${opts.tipo}_${opts.letra}`;
-    const nextN = (seq[seqKey] || 0) + 1;
-    setSeq((s) => ({ ...s, [seqKey]: nextN }));
-    const numero = `${PREFIX[opts.tipo]} 0001-${String(nextN).padStart(8, '0')}`;
+    // El próximo número se calcula a partir del libro ya persistido (no un contador en memoria),
+    // así no se pisan números si se recarga la página entre una factura y otra.
+    const prefix = `${PREFIX[opts.tipo]} 0001-`;
+    const maxN = ledger
+      .filter((e) => e.tipo === opts.tipo && e.letra === opts.letra)
+      .reduce((m, e) => Math.max(m, parseInt(e.numero.replace(prefix, ''), 10) || 0), 0);
+    const numero = `${prefix}${String(maxN + 1).padStart(8, '0')}`;
     const entry: Comprobante = {
-      numero, fecha: todayISO(), tipo: opts.tipo, letra: opts.letra, clientId: opts.clientId, client,
+      numero, fecha: todayISO(), tipo: opts.tipo, letra: opts.letra, clientId: opts.clientId, client, seller: client.seller || '-',
       items: opts.items, subtotal: opts.subtotal, ivaGroups: opts.ivaGroups, iva: opts.ivaImporte,
       total: Math.round((opts.subtotal + opts.ivaImporte) * 100) / 100,
       sign: (opts.tipo === 'NOTA_CREDITO' || opts.tipo === 'NOTA_CREDITO_REMITO') ? -1 : 1,
       cae: opts.cae, caeVto: opts.caeVto,
     };
-    setLedger((l) => [entry, ...l]);
+    addComprobante(entry);
     printComprobante(entry);
     return entry;
   };
 
-  // Llegó desde Bandeja con "Confirmar pedido y facturar": genera el remito solo, sin re-tipear los ítems,
-  // lo manda al chat del cliente y vuelve a Bandeja — el vendedor no tiene que tocar nada más.
+  // Llegó desde Bandeja (o de la lista de Pedidos) con "Confirmar pedido y facturar": ya eligió
+  // Remito, Factura B o Factura A. Remito/Factura B se generan solos; Factura A necesita CAE
+  // manual de ARCA, así que solo precarga los ítems en el formulario para completarlo.
   useEffect(() => {
     const autoOrderId = searchParams.get('autoOrderId');
     if (!autoOrderId || autoInvoiceRef.current) return;
@@ -211,16 +193,29 @@ function FacturacionInner() {
     const client = CLIENTS.find((c) => c.id === order.clientId);
     if (!client) return;
 
+    const autoTipo = (searchParams.get('autoTipo') as Tipo) || 'REMITO';
+    const autoLetra = (searchParams.get('autoLetra') as Letra) || 'R';
     autoInvoiceRef.current = true;
     const items: Item[] = order.items.map((it) => ({
       detalle: it.name, cantidad: it.qty, unitPrice: it.unitPrice, subtotal: it.unitPrice * it.qty, ivaRate: 0,
     }));
+
+    if (autoLetra === 'A') {
+      setClientId(order.clientId);
+      setTipo(autoTipo);
+      setLetra(autoLetra);
+      setDraft(items);
+      setPrefillOrderId(order.id);
+      setTab('emitir');
+      return;
+    }
+
     commitEntry({
-      tipo: 'REMITO', letra: 'R', clientId: order.clientId,
+      tipo: autoTipo, letra: autoLetra, clientId: order.clientId,
       items, subtotal: order.subtotal, ivaGroups: [], ivaImporte: 0,
     }).then((entry) => {
       markInvoiced(order.id, entry.numero);
-      sendToChat(client, { content: `${TIPO_LABEL.REMITO} ${entry.letra} · ${entry.numero}.pdf`, type: 'DOCUMENTO' });
+      sendToChat(client, { content: `${TIPO_LABEL[autoTipo]} ${entry.letra} · ${entry.numero}.pdf`, type: 'DOCUMENTO' });
       router.replace(`/bandeja?clientId=${order.clientId}`);
     });
   }, [searchParams, tiendaOrders, CLIENTS]);
@@ -241,6 +236,16 @@ function FacturacionInner() {
       tipo, letra, clientId, items, subtotal, ivaGroups, ivaImporte,
       cae: requiereCae ? cae.trim() : undefined,
       caeVto: requiereCae ? caeVto : undefined,
+    }).then((entry) => {
+      // Si este comprobante venía de "Confirmar pedido y facturar" (Factura A pendiente de CAE),
+      // marcamos el pedido como facturado y lo mandamos al chat, igual que el resto de automatizaciones.
+      if (prefillOrderId) {
+        const client = CLIENTS.find((c) => c.id === clientId);
+        markInvoiced(prefillOrderId, entry.numero);
+        if (client) sendToChat(client, { content: `${TIPO_LABEL[tipo]} ${entry.letra} · ${entry.numero}.pdf`, type: 'DOCUMENTO' });
+        setPrefillOrderId(null);
+        router.push(`/bandeja?clientId=${clientId}`);
+      }
     });
     setDraft([]); setDesc(''); setImporte(''); setCae(''); setCaeVto('');
   };

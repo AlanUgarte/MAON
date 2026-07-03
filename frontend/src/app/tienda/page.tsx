@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
@@ -22,6 +23,7 @@ const CAT_ICON: Record<string, string> = {
 };
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+const PAGE_SIZE = 24;
 
 interface CartLine { productId: string; qty: number }
 
@@ -35,6 +37,8 @@ function ProdImg({ src, size, className = '' }: { src: string; size: number; cla
   return (
     <img
       src={src}
+      loading="lazy"
+      decoding="async"
       onError={() => setErr(true)}
       alt=""
       className={`shrink-0 rounded-xl border border-black/5 object-cover ${className}`}
@@ -43,7 +47,9 @@ function ProdImg({ src, size, className = '' }: { src: string; size: number; cla
   );
 }
 
-export default function TiendaPage() {
+function TiendaInner() {
+  const searchParams = useSearchParams();
+  const vendedor = searchParams.get('vendedor')?.trim() || '';
   const { addClient } = useClients();
   const { appendMessage } = useChatThreads();
   const { settings } = useTiendaSettings();
@@ -66,6 +72,7 @@ export default function TiendaPage() {
   const [sent, setSent] = useState(false);
   const [bump, setBump] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
   const brands = useMemo(() => [...new Set(catalog.map((p) => p.brand))].sort(), [catalog]);
@@ -87,6 +94,10 @@ export default function TiendaPage() {
         (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
     });
   }, [catalog, search, category, brand, priceMin, priceMax, settings.margenVenta]);
+
+  // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.
+  useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax]);
+  const visible = filtered.slice(0, visibleCount);
 
   const cartLines = cart.map((c) => {
     const p = catalog.find((x) => x.id === c.productId)!;
@@ -141,7 +152,7 @@ export default function TiendaPage() {
       city: '', province: '', stage: 'NUEVO_LEAD', product: cartLines[0]?.product.name ?? '',
       source: 'WHATSAPP', leadScore: 40, intent: 'ALTA', sentiment: 'NEUTRO', tags: [],
       lastInboundAt: new Date().toISOString(), unread: 1, summary: 'Pedido armado desde la tienda online.',
-      objection: 'NINGUNA', seller: '-', ivaCondition: 'CONSUMIDOR_FINAL',
+      objection: 'NINGUNA', seller: vendedor || '-', ivaCondition: 'CONSUMIDOR_FINAL',
     });
 
     Promise.resolve(client).then((c) => {
@@ -149,7 +160,7 @@ export default function TiendaPage() {
       addOrder({
         customerName: form.name.trim(), customerPhone: form.phone.trim(), clientId: c.id,
         items: cartLines.map((l) => ({ productId: l.productId, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
-        subtotal, envioGratis,
+        subtotal, envioGratis, seller: vendedor || undefined,
       });
     });
 
@@ -337,7 +348,7 @@ export default function TiendaPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {filtered.map((p) => {
+            {visible.map((p) => {
               const inCart = qtyInCart(p.id);
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -378,6 +389,16 @@ export default function TiendaPage() {
               </div>
             )}
           </div>
+          {visibleCount < filtered.length && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+                className="rounded-full border border-black/[0.08] bg-white px-6 py-2.5 text-[13px] font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+              >
+                Ver más productos ({filtered.length - visibleCount} restantes)
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
@@ -585,5 +606,13 @@ export default function TiendaPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function TiendaPage() {
+  return (
+    <Suspense fallback={null}>
+      <TiendaInner />
+    </Suspense>
   );
 }

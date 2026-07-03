@@ -8,12 +8,19 @@ import { CLIENTS, type Client } from './mock';
 
 const KEY = 'compven_clients';
 
+// Los clientes de ejemplo tienen id "c_1".."c_N" (N = cantidad de nombres de mock.ts, siempre corto);
+// los reales se crean como "c_<Date.now()>", un timestamp de 13+ dígitos. Sirve para poder
+// limpiar los de ejemplo del localStorage de un usuario sin tocar los pedidos reales.
+const DEMO_ID_RE = /^c_\d{1,4}$/;
+
 function load(): Client[] {
   if (typeof window === 'undefined') return CLIENTS;
   const raw = localStorage.getItem(KEY);
-  if (raw) return JSON.parse(raw);
-  localStorage.setItem(KEY, JSON.stringify(CLIENTS));
-  return CLIENTS;
+  if (!raw) { localStorage.setItem(KEY, JSON.stringify(CLIENTS)); return CLIENTS; }
+  const stored: Client[] = JSON.parse(raw);
+  const real = stored.filter((c) => !DEMO_ID_RE.test(c.id));
+  if (real.length !== stored.length) localStorage.setItem(KEY, JSON.stringify(real));
+  return real;
 }
 
 /** El backend devuelve los campos del modelo Prisma; acá se completan los campos de UI (mock) que no existen ahí. */
