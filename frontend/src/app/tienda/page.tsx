@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
@@ -48,9 +47,13 @@ function ProdImg({ src, size, className = '' }: { src: string; size: number; cla
 }
 
 function TiendaInner() {
-  const searchParams = useSearchParams();
-  const vendedor = searchParams.get('vendedor')?.trim() || '';
-  const { addClient } = useClients();
+  // ponytail: se lee directo de la URL en vez de useSearchParams() — evita tener que envolver
+  // toda la página en Suspense solo por esto (no hace falta que sea correcto en el primer paint SSR).
+  const [vendedor, setVendedor] = useState('');
+  useEffect(() => {
+    setVendedor(new URLSearchParams(window.location.search).get('vendedor')?.trim() || '');
+  }, []);
+  const { addClient, clients: CLIENTS } = useClients();
   const { appendMessage } = useChatThreads();
   const { settings } = useTiendaSettings();
   const { addOrder } = useTiendaOrders();
@@ -146,8 +149,13 @@ function TiendaInner() {
     if (subtotal < settings.minCompra) return setFormError(`La compra mínima es ${money(settings.minCompra)}`);
     setFormError('');
 
+    // Si ya es cliente (mismo teléfono), el pedido se suma a su misma conversación
+    // en vez de crear un contacto duplicado en Bandeja.
+    const normPhone = (p: string) => p.replace(/\D/g, '');
+    const existing = CLIENTS.find((c) => normPhone(c.phone) === normPhone(form.phone.trim()));
+
     const [firstName, ...rest] = form.name.trim().split(' ');
-    const client = addClient({
+    const client = existing ?? addClient({
       firstName, lastName: rest.join(' '), phone: form.phone.trim(),
       city: '', province: '', stage: 'NUEVO_LEAD', product: cartLines[0]?.product.name ?? '',
       source: 'WHATSAPP', leadScore: 40, intent: 'ALTA', sentiment: 'NEUTRO', tags: [],
@@ -610,9 +618,5 @@ function TiendaInner() {
 }
 
 export default function TiendaPage() {
-  return (
-    <Suspense fallback={null}>
-      <TiendaInner />
-    </Suspense>
-  );
+  return <TiendaInner />;
 }

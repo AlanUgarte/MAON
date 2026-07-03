@@ -1,6 +1,6 @@
 'use client';
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Search, Send, Phone, Sparkles, Target, MessageSquareWarning,
   Copy, Paperclip, Smile, ChevronDown, Bot, CheckCheck,
@@ -74,7 +74,6 @@ function getProductMedia(p: ProductRow): { type: 'IMAGEN' | 'VIDEO'; url: string
 
 function BandejaInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { clients: CLIENTS } = useClients();
   const { getThread, appendMessage: appendToClient } = useChatThreads();
   const { products: fullCatalog } = useProductCatalog();
@@ -96,10 +95,12 @@ function BandejaInner() {
   const [aiError, setAiError] = useState('');
   const [showInvoiceChoice, setShowInvoiceChoice] = useState(false);
 
+  // ponytail: se lee directo de la URL en vez de useSearchParams() — evita envolver toda
+  // la página en Suspense solo por esto (causaba que se cuelgue en local con esta página tan pesada).
   useEffect(() => {
-    const fromParam = searchParams.get('clientId');
+    const fromParam = new URLSearchParams(window.location.search).get('clientId');
     if (fromParam) setActiveId(fromParam);
-  }, [searchParams]);
+  }, []);
 
   // Las sugerencias de IA son por cliente: al cambiar de chat, se limpian.
   useEffect(() => {
@@ -464,9 +465,5 @@ function BandejaInner() {
 }
 
 export default function BandejaPage() {
-  return (
-    <Suspense fallback={null}>
-      <BandejaInner />
-    </Suspense>
-  );
+  return <BandejaInner />;
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PRODUCT_ROWS, IVA_CONDITION_LABEL } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients, fromBackend as fromBackendClient } from '@/lib/clients-store';
@@ -60,19 +60,22 @@ function fromBackendComprobante(bc: any): Comprobante {
 
 function FacturacionInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { clients: CLIENTS } = useClients();
   const { appendMessage: sendToChat } = useChatThreads();
   const { orders: tiendaOrders, markInvoiced } = useTiendaOrders();
   const autoInvoiceRef = useRef(false);
   const [tab, setTab] = useState<'emitir' | 'libro'>('emitir');
   const [clientId, setClientId] = useState('');
+  // ponytail: se lee directo de la URL en vez de useSearchParams() — evita envolver toda
+  // la página en Suspense solo por esto (causaba que se cuelgue en local con esta página tan pesada).
+  const [urlParams, setUrlParams] = useState<URLSearchParams | null>(null);
+  useEffect(() => setUrlParams(new URLSearchParams(window.location.search)), []);
 
   // Llegó desde Bandeja con "/cerrarventa": precarga el cliente para facturarle
   useEffect(() => {
-    const fromChat = searchParams.get('clientId');
+    const fromChat = urlParams?.get('clientId');
     if (fromChat) setClientId(fromChat);
-  }, [searchParams]);
+  }, [urlParams]);
 
   // Intenta traer el libro de comprobantes real del backend; si no responde, sigue con el local persistido
   const { comprobantes: ledger, setComprobantes: setLedger, addComprobante } = useComprobantesStore();
@@ -186,15 +189,15 @@ function FacturacionInner() {
   // Remito, Factura B o Factura A. Remito/Factura B se generan solos; Factura A necesita CAE
   // manual de ARCA, así que solo precarga los ítems en el formulario para completarlo.
   useEffect(() => {
-    const autoOrderId = searchParams.get('autoOrderId');
+    const autoOrderId = urlParams?.get('autoOrderId');
     if (!autoOrderId || autoInvoiceRef.current) return;
     const order = tiendaOrders.find((o) => o.id === autoOrderId);
     if (!order || order.invoiced || !order.clientId) return;
     const client = CLIENTS.find((c) => c.id === order.clientId);
     if (!client) return;
 
-    const autoTipo = (searchParams.get('autoTipo') as Tipo) || 'REMITO';
-    const autoLetra = (searchParams.get('autoLetra') as Letra) || 'R';
+    const autoTipo = (urlParams?.get('autoTipo') as Tipo) || 'REMITO';
+    const autoLetra = (urlParams?.get('autoLetra') as Letra) || 'R';
     autoInvoiceRef.current = true;
     const items: Item[] = order.items.map((it) => ({
       detalle: it.name, cantidad: it.qty, unitPrice: it.unitPrice, subtotal: it.unitPrice * it.qty, ivaRate: 0,
@@ -218,7 +221,7 @@ function FacturacionInner() {
       sendToChat(client, { content: `${TIPO_LABEL[autoTipo]} ${entry.letra} · ${entry.numero}.pdf`, type: 'DOCUMENTO' });
       router.replace(`/bandeja?clientId=${order.clientId}`);
     });
-  }, [searchParams, tiendaOrders, CLIENTS]);
+  }, [urlParams, tiendaOrders, CLIENTS]);
 
   const emitir = () => {
     setFormError('');
@@ -628,9 +631,5 @@ function FacturacionInner() {
 }
 
 export default function FacturacionPage() {
-  return (
-    <Suspense fallback={null}>
-      <FacturacionInner />
-    </Suspense>
-  );
+  return <FacturacionInner />;
 }
