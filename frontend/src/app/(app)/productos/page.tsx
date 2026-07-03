@@ -3,9 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink, Download, Pencil, Trash2 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { PRODUCT_ROWS } from '@/lib/mock';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { api } from '@/lib/api';
 
-const CATICON: Record<string, string> = { Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒' };
+const CATICON: Record<string, string> = {
+  Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
+  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕',
+};
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 const moneyD = (n: number) => '$' + n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
 
@@ -31,8 +35,14 @@ function fromBackendProduct(bp: any): Prod {
 }
 
 export default function ProductosPage() {
+  const { products: fullCatalog } = useProductCatalog();
   const [items, setItems] = useState<Prod[]>(() => PRODUCT_ROWS.map((p) => ({ ...p, margin: null })));
   const [productSource, setProductSource] = useState<'backend' | 'local'>('local');
+
+  useEffect(() => {
+    if (productSource === 'backend') return;
+    setItems(fullCatalog.map((p) => ({ ...p, margin: null })));
+  }, [fullCatalog, productSource]);
   const [view, setView] = useState<'cards' | 'list'>('cards');
   const [brand, setBrand] = useState('');
   const [cat, setCat] = useState('');
@@ -80,6 +90,11 @@ export default function ProductosPage() {
     else if (sort === 'name') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     return r;
   }, [items, brand, cat, sort, q]);
+
+  // ponytail: con el catálogo completo (7000+) sin filtro, evita pintar todo el DOM de una — pedimos buscar/filtrar.
+  const RENDER_CAP = 150;
+  const visible = q || brand || cat ? filtered : filtered.slice(0, RENDER_CAP);
+  const truncated = filtered.length > visible.length;
 
   const avg = items.length ? Math.round(items.reduce((a, p) => a + p.price, 0) / items.length) : 0;
 
@@ -293,9 +308,15 @@ export default function ProductosPage() {
           <span className="text-[11px] text-muted">o editá el % de cada artículo en la vista Lista</span>
         </div>
 
+        {truncated && (
+          <div className="rounded-xl border border-dashed border-line/15 p-3 text-center text-[12px] text-muted">
+            Mostrando {visible.length} de {filtered.length} productos — usá el buscador o los filtros para ver el resto.
+          </div>
+        )}
+
         {view === 'cards' ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((p) => (
+            {visible.map((p) => (
               <div key={p.id} className="group relative rounded-2xl border border-line/10 bg-surface p-4">
                 <div className="absolute right-3 top-3 hidden gap-1 group-hover:flex">
                   <button onClick={() => openEdit(p)} aria-label="Editar" className="rounded-lg bg-surface-2 p-1.5 text-muted hover:text-content"><Pencil className="h-3.5 w-3.5" /></button>
@@ -337,7 +358,7 @@ export default function ProductosPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {visible.map((p) => (
                   <tr key={p.id} className="border-b border-line/10 hover:bg-surface-2">
                     <td className="p-3"><div className="flex items-center gap-2.5"><ProdImg src={p.img} cat={p.category!} size={34} /><span className="font-semibold">{p.name}</span></div></td>
                     <td className="p-3 text-muted">{p.brand}</td>

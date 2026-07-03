@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { StatusBadge, IntentBadge } from '@/components/app/status-badge';
-import { PRODUCT_ROWS, type ProductRow } from '@/lib/mock';
+import { type ProductRow } from '@/lib/mock';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { api } from '@/lib/api';
@@ -24,8 +25,8 @@ const OBJECTION_LABEL: Record<string, string> = {
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
-function buildPriceListHtml() {
-  const rows = PRODUCT_ROWS.map((p) => `<tr><td>${p.name}</td><td>${p.brand}</td><td style="text-align:right">${money(p.price)}</td></tr>`).join('');
+function buildPriceListHtml(products: ProductRow[]) {
+  const rows = products.map((p) => `<tr><td>${p.name}</td><td>${p.brand}</td><td style="text-align:right">${money(p.price)}</td></tr>`).join('');
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista de precios · MAON</title>
     <style>body{font-family:system-ui,sans-serif;padding:28px;color:#262B20}
     h1{color:#56682B;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
@@ -50,6 +51,7 @@ function BandejaInner() {
   const searchParams = useSearchParams();
   const { clients: CLIENTS } = useClients();
   const { getThread, appendMessage: appendToClient } = useChatThreads();
+  const { products: PRODUCT_ROWS } = useProductCatalog();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [search, setSearch] = useState('');
@@ -126,7 +128,7 @@ function BandejaInner() {
   };
 
   const sendPriceList = () => {
-    const html = buildPriceListHtml();
+    const html = buildPriceListHtml(PRODUCT_ROWS);
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
     appendToClient(active, { content: 'Lista de precios · MAON.pdf', type: 'DOCUMENTO' });

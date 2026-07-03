@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PRODUCT_ROWS, IVA_CONDITION_LABEL, type Client } from '@/lib/mock';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients, fromBackend as fromBackendClient } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { api } from '@/lib/api';
@@ -113,6 +114,7 @@ function FacturacionInner() {
   const [enBlanco, setEnBlanco] = useState(false);
   const [desc, setDesc] = useState('');
   const [importe, setImporte] = useState('');
+  const { products: catalogProducts } = useProductCatalog();
   const [prodId, setProdId] = useState(PRODUCT_ROWS[0]?.id ?? '');
   const [qty, setQty] = useState(1);
   const [itemIvaRate, setItemIvaRate] = useState(0.21);
@@ -152,7 +154,7 @@ function FacturacionInner() {
   const total = subtotal + ivaImporte;
 
   const addItem = () => {
-    const p = PRODUCT_ROWS.find((x) => x.id === prodId);
+    const p = catalogProducts.find((x) => x.id === prodId);
     if (!p) return;
     const q = Math.max(1, qty || 1);
     const unit = ventaBulto(p.price);
@@ -438,7 +440,7 @@ function FacturacionInner() {
                   <label style={{ flex: 2, minWidth: 160 }}>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Producto</div>
                     <select style={inp} value={prodId} onChange={(e) => setProdId(e.target.value)}>
-                      {PRODUCT_ROWS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {catalogProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </label>
                   <label style={{ width: 88 }}>

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck } from 'lucide-react';
-import { PRODUCT_ROWS, type ProductRow } from '@/lib/mock';
+import { type ProductRow } from '@/lib/mock';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
@@ -13,7 +14,10 @@ const BRAND_SOFT = '#F3F6EC';
 const ACCENT = '#E38A1F';    // ámbar
 const WHATSAPP = '#25D366';
 
-const CAT_ICON: Record<string, string> = { Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒' };
+const CAT_ICON: Record<string, string> = {
+  Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
+  Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕',
+};
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
@@ -42,12 +46,16 @@ export default function TiendaPage() {
   const { appendMessage } = useChatThreads();
   const { settings } = useTiendaSettings();
   const { addOrder } = useTiendaOrders();
+  const { products } = useProductCatalog();
   const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + settings.margenVenta));
-  const catalog = useMemo(() => PRODUCT_ROWS.filter((p) => !settings.hiddenProductIds.includes(p.id)), [settings.hiddenProductIds]);
+  const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [brand, setBrand] = useState('');
+  const [brandQuery, setBrandQuery] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -58,15 +66,24 @@ export default function TiendaPage() {
 
   const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
   const brands = useMemo(() => [...new Set(catalog.map((p) => p.brand))].sort(), [catalog]);
+  const brandsShown = useMemo(() => {
+    const q = brandQuery.trim().toLowerCase();
+    return q ? brands.filter((b) => b.toLowerCase().includes(q)) : brands;
+  }, [brands, brandQuery]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return catalog.filter((p) =>
-      (!category || p.category === category) &&
-      (!brand || p.brand === brand) &&
-      (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)),
-    );
-  }, [catalog, search, category, brand]);
+    const min = priceMin ? Number(priceMin) : null;
+    const max = priceMax ? Number(priceMax) : null;
+    return catalog.filter((p) => {
+      const venta = ventaBulto(p);
+      return (!category || p.category === category) &&
+        (!brand || p.brand === brand) &&
+        (min === null || venta >= min) &&
+        (max === null || venta <= max) &&
+        (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+    });
+  }, [catalog, search, category, brand, priceMin, priceMax, settings.margenVenta]);
 
   const cartLines = cart.map((c) => {
     const p = catalog.find((x) => x.id === c.productId)!;
@@ -249,26 +266,53 @@ export default function TiendaPage() {
       {/* Body */}
       <main className="mx-auto flex max-w-6xl gap-6 p-4 pt-6">
         <aside className="hidden w-[220px] shrink-0 md:block">
-          <div className="sticky top-[140px] rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-            <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Marca</div>
-            <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
-              <button
-                onClick={() => setBrand('')}
-                className="block w-full rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-neutral-50"
-                style={!brand ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
-              >
-                Todas las marcas
-              </button>
-              {brands.map((b) => (
+          <div className="sticky top-[140px] space-y-4">
+            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+              <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Precio (venta)</div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number" min={0} value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="Desde"
+                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[12px] outline-none focus:border-transparent focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                />
+                <span className="text-neutral-300">–</span>
+                <input
+                  type="number" min={0} value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="Hasta"
+                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[12px] outline-none focus:border-transparent focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+              <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Marca</div>
+              {brands.length > 10 && (
+                <input
+                  value={brandQuery} onChange={(e) => setBrandQuery(e.target.value)} placeholder="Buscar marca..."
+                  className="mb-2 h-8 w-full rounded-lg border border-black/[0.08] bg-neutral-50 px-2 text-[12px] outline-none focus:border-transparent focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                />
+              )}
+              <div className="max-h-[340px] space-y-1 overflow-y-auto pr-1">
                 <button
-                  key={b}
-                  onClick={() => setBrand(b)}
+                  onClick={() => setBrand('')}
                   className="block w-full rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-neutral-50"
-                  style={brand === b ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+                  style={!brand ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
                 >
-                  {b}
+                  Todas las marcas
                 </button>
-              ))}
+                {brandsShown.map((b) => (
+                  <button
+                    key={b}
+                    onClick={() => setBrand(b)}
+                    className="block w-full rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-neutral-50"
+                    style={brand === b ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+                  >
+                    {b}
+                  </button>
+                ))}
+                {brandsShown.length === 0 && <div className="px-2 py-1.5 text-[12px] text-neutral-400">Sin resultados</div>}
+              </div>
             </div>
           </div>
         </aside>
@@ -276,8 +320,8 @@ export default function TiendaPage() {
         <section className="flex-1">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-[13px] font-medium text-neutral-500">{filtered.length} producto{filtered.length === 1 ? '' : 's'}</div>
-            {(category || brand || search) && (
-              <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
+            {(category || brand || search || priceMin || priceMax) && (
+              <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
                 Limpiar filtros
               </button>
             )}

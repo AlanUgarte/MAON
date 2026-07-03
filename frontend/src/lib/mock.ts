@@ -240,7 +240,7 @@ export const CAMPAIGN_CONVERSION = [
 
 export interface ProductRow {
   id: string; name: string; sku: string; category: string;
-  brand: string; units: number; img: string; price: number; stock: number; active: boolean;
+  brand: string; units: number; img: string; price: number; stock: number; active: boolean; line?: string;
 }
 export const PRODUCT_ROWS: ProductRow[] = [
   { id: 'p1', name: "FANTOCHE ALF.TRIPLE NEGRO 24*85 GR.", sku: "TOP1", category: "Alfajores", brand: "FANTOCHE", units: 24, img: "https://www.tyna.com.ar/archivos/imagenes_productos/1090240670.jpg", price: 16527.9, stock: 0, active: true },

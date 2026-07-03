@@ -5,7 +5,7 @@ import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { PRODUCT_ROWS } from '@/lib/mock';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
 
@@ -20,9 +20,12 @@ const TABS = [
   { key: 'pedidos', label: 'Pedidos', icon: ClipboardList },
 ] as const;
 
+const RENDER_CAP = 150;
+
 export default function TiendaConfigPage() {
   const { settings, save } = useTiendaSettings();
   const { orders } = useTiendaOrders();
+  const { products: PRODUCT_ROWS } = useProductCatalog();
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('general');
@@ -50,9 +53,9 @@ export default function TiendaConfigPage() {
 
   const filteredProducts = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return PRODUCT_ROWS;
+    if (!query) return PRODUCT_ROWS.slice(0, RENDER_CAP);
     return PRODUCT_ROWS.filter((p) => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query));
-  }, [q]);
+  }, [q, PRODUCT_ROWS]);
 
   const visibleCount = PRODUCT_ROWS.length - form.hiddenProductIds.length;
 
@@ -177,6 +180,11 @@ export default function TiendaConfigPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto o marca..." className="h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm focus:border-primary/50 focus:outline-none" />
               </div>
+              {!q && PRODUCT_ROWS.length > RENDER_CAP && (
+                <div className="rounded-lg border border-dashed border-line/15 p-2.5 text-center text-[12px] text-muted">
+                  Mostrando {RENDER_CAP} de {PRODUCT_ROWS.length} — usá el buscador para encontrar otros.
+                </div>
+              )}
               <div className="max-h-[520px] overflow-y-auto rounded-xl border border-line/10">
                 <table className="w-full text-[13px]">
                   <tbody>
