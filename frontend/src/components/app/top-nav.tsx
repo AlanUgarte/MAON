@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText, badge: 7 },
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
+  { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
 ];

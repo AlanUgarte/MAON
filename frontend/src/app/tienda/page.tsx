@@ -5,13 +5,7 @@ import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Spark
 import { PRODUCT_ROWS, type ProductRow } from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
-
-// ponytail: número de WhatsApp de prueba (el mismo que ya cargamos como contacto).
-// Reemplazar por el WhatsApp Business real de MAON antes de compartir el link con clientes de verdad.
-const NEGOCIO_WHATSAPP = '5493412708638';
-const MIN_COMPRA = 50000;
-const ENVIO_GRATIS = 85000;
-const MARGEN_VENTA = 0.30; // margen por defecto para el precio público (el catálogo interno guarda costo, no precio de venta)
+import { useTiendaSettings } from '@/lib/tienda-settings-store';
 
 const BRAND = '#3E5C1F';     // verde oscuro de marca
 const BRAND_SOFT = '#F3F6EC';
@@ -21,7 +15,6 @@ const WHATSAPP = '#25D366';
 const CAT_ICON: Record<string, string> = { Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒' };
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
-const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + MARGEN_VENTA));
 
 interface CartLine { productId: string; qty: number }
 
@@ -46,6 +39,8 @@ function ProdImg({ src, size, className = '' }: { src: string; size: number; cla
 export default function TiendaPage() {
   const { addClient } = useClients();
   const { appendMessage } = useChatThreads();
+  const { settings } = useTiendaSettings();
+  const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + settings.margenVenta));
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -76,10 +71,10 @@ export default function TiendaPage() {
   });
   const cartCount = cart.reduce((a, c) => a + c.qty, 0);
   const subtotal = cartLines.reduce((a, l) => a + l.subtotal, 0);
-  const faltante = Math.max(0, MIN_COMPRA - subtotal);
-  const progreso = Math.min(100, Math.round((subtotal / MIN_COMPRA) * 100));
-  const envioGratis = subtotal >= ENVIO_GRATIS;
-  const faltanteEnvio = Math.max(0, ENVIO_GRATIS - subtotal);
+  const faltante = Math.max(0, settings.minCompra - subtotal);
+  const progreso = Math.min(100, Math.round((subtotal / settings.minCompra) * 100));
+  const envioGratis = subtotal >= settings.envioGratisDesde;
+  const faltanteEnvio = Math.max(0, settings.envioGratisDesde - subtotal);
 
   useEffect(() => {
     if (!bump) return;
@@ -112,7 +107,7 @@ export default function TiendaPage() {
 
   const sendOrder = () => {
     if (!form.name.trim() || !form.phone.trim()) return setFormError('Nombre y teléfono son obligatorios');
-    if (subtotal < MIN_COMPRA) return setFormError(`La compra mínima es ${money(MIN_COMPRA)}`);
+    if (subtotal < settings.minCompra) return setFormError(`La compra mínima es ${money(settings.minCompra)}`);
     setFormError('');
 
     const [firstName, ...rest] = form.name.trim().split(' ');
@@ -128,7 +123,7 @@ export default function TiendaPage() {
       appendMessage(c, { content: buildOrderText(), direction: 'ENTRANTE' as any, author: 'CLIENTE' as any });
     });
 
-    const waLink = `https://wa.me/${NEGOCIO_WHATSAPP}?text=${encodeURIComponent(buildOrderText())}`;
+    const waLink = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(buildOrderText())}`;
     window.open(waLink, '_blank');
     setSent(true);
   };
@@ -137,9 +132,14 @@ export default function TiendaPage() {
 
   return (
     <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
-      {/* Barra superior */}
+      {/* Banner superior */}
+      <div className="truncate px-4 py-1.5 text-center text-[11px] font-medium tracking-wide text-white/90" style={{ background: '#1A1A1A' }}>
+        {settings.topBannerText}
+      </div>
+
+      {/* Barra de compra mínima */}
       <div className="flex items-center justify-center gap-1.5 px-4 py-2 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: BRAND }}>
-        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(MIN_COMPRA)} · ENVÍO GRATIS DESDE {money(ENVIO_GRATIS)}
+        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(settings.minCompra)} · ENVÍO GRATIS DESDE {money(settings.envioGratisDesde)}
       </div>
 
       {/* Header */}
@@ -311,7 +311,7 @@ export default function TiendaPage() {
             <Zap className="h-4 w-4" fill="currentColor" /> MAON
           </div>
           <p>Mayorista Online · Golosinas, galletitas y alfajores por bulto.</p>
-          <a href={`https://wa.me/${NEGOCIO_WHATSAPP}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1.5 font-semibold" style={{ color: WHATSAPP }}>
+          <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1.5 font-semibold" style={{ color: WHATSAPP }}>
             <MessageCircle className="h-4 w-4" /> Consultanos por WhatsApp
           </a>
         </div>
@@ -335,7 +335,7 @@ export default function TiendaPage() {
         <div className="border-b border-black/5 p-4">
           <div className="mb-1.5 flex items-center justify-between text-[11.5px] font-medium text-neutral-500">
             <span>{faltante > 0 ? `Te faltan ${money(faltante)} para el mínimo` : '¡Llegaste a la compra mínima! 🎉'}</span>
-            <span>{money(subtotal)} / {money(MIN_COMPRA)}</span>
+            <span>{money(subtotal)} / {money(settings.minCompra)}</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, background: faltante > 0 ? ACCENT : '#22C55E' }} />
