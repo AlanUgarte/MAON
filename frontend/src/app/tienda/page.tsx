@@ -6,6 +6,7 @@ import { PRODUCT_ROWS, type ProductRow } from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
 
 const BRAND = '#3E5C1F';     // verde oscuro de marca
 const BRAND_SOFT = '#F3F6EC';
@@ -40,7 +41,9 @@ export default function TiendaPage() {
   const { addClient } = useClients();
   const { appendMessage } = useChatThreads();
   const { settings } = useTiendaSettings();
+  const { addOrder } = useTiendaOrders();
   const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + settings.margenVenta));
+  const catalog = useMemo(() => PRODUCT_ROWS.filter((p) => !settings.hiddenProductIds.includes(p.id)), [settings.hiddenProductIds]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -53,20 +56,20 @@ export default function TiendaPage() {
   const [sent, setSent] = useState(false);
   const [bump, setBump] = useState(false);
 
-  const categories = useMemo(() => [...new Set(PRODUCT_ROWS.map((p) => p.category))].sort(), []);
-  const brands = useMemo(() => [...new Set(PRODUCT_ROWS.map((p) => p.brand))].sort(), []);
+  const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
+  const brands = useMemo(() => [...new Set(catalog.map((p) => p.brand))].sort(), [catalog]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return PRODUCT_ROWS.filter((p) =>
+    return catalog.filter((p) =>
       (!category || p.category === category) &&
       (!brand || p.brand === brand) &&
       (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)),
     );
-  }, [search, category, brand]);
+  }, [catalog, search, category, brand]);
 
   const cartLines = cart.map((c) => {
-    const p = PRODUCT_ROWS.find((x) => x.id === c.productId)!;
+    const p = catalog.find((x) => x.id === c.productId)!;
     return { ...c, product: p, unitPrice: ventaBulto(p), subtotal: ventaBulto(p) * c.qty };
   });
   const cartCount = cart.reduce((a, c) => a + c.qty, 0);
@@ -121,6 +124,11 @@ export default function TiendaPage() {
 
     Promise.resolve(client).then((c) => {
       appendMessage(c, { content: buildOrderText(), direction: 'ENTRANTE' as any, author: 'CLIENTE' as any });
+      addOrder({
+        customerName: form.name.trim(), customerPhone: form.phone.trim(), clientId: c.id,
+        items: cartLines.map((l) => ({ productId: l.productId, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
+        subtotal, envioGratis,
+      });
     });
 
     const waLink = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(buildOrderText())}`;
@@ -129,6 +137,21 @@ export default function TiendaPage() {
   };
 
   const closeCheckout = () => { setShowCheckout(false); if (sent) { setCart([]); setForm({ name: '', phone: '' }); setSent(false); } };
+
+  if (!settings.storeOpen) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center" style={{ background: '#FAFAF7' }}>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-white" style={{ background: BRAND }}>
+          <Zap className="h-7 w-7" fill="currentColor" />
+        </div>
+        <h1 className="font-display text-xl font-extrabold" style={{ color: BRAND }}>MAON — Mayorista Online</h1>
+        <p className="max-w-xs text-sm text-neutral-500">La tienda está cerrada por el momento. Escribinos por WhatsApp y te ayudamos con tu pedido.</p>
+        <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white" style={{ background: WHATSAPP }}>
+          <MessageCircle className="h-4 w-4" /> Escribir por WhatsApp
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
@@ -207,13 +230,13 @@ export default function TiendaPage() {
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
         <div className="relative mx-auto max-w-6xl animate-fade-up">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
-            <Sparkles className="h-3.5 w-3.5" /> Precios de mayorista, todo el año
+            <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
           </div>
           <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
-            Golosinas, galletitas y alfajores al por mayor
+            {settings.heroTitle}
           </h1>
           <p className="mt-2 max-w-md text-[14px] text-white/80">
-            Armá tu pedido acá y confirmalo directo por WhatsApp — sin vueltas, sin registrarte.
+            {settings.heroSubtitle}
           </p>
           <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-white/85">
             <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" /> Venta por bulto cerrado</span>

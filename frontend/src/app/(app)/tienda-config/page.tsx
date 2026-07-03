@@ -1,18 +1,32 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { Store, ExternalLink, Save, Check } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { PRODUCT_ROWS } from '@/lib/mock';
 import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-store';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
+const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+
+const TABS = [
+  { key: 'general', label: 'General', icon: Store },
+  { key: 'contenido', label: 'Contenido', icon: ImageIcon },
+  { key: 'productos', label: 'Productos', icon: Package },
+  { key: 'pedidos', label: 'Pedidos', icon: ClipboardList },
+] as const;
 
 export default function TiendaConfigPage() {
   const { settings, save } = useTiendaSettings();
+  const { orders } = useTiendaOrders();
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('general');
+  const [q, setQ] = useState('');
 
   useEffect(() => setForm(settings), [settings]);
 
@@ -25,52 +39,218 @@ export default function TiendaConfigPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const toggleProduct = (id: string) => {
+    const next = form.hiddenProductIds.includes(id)
+      ? form.hiddenProductIds.filter((x) => x !== id)
+      : [...form.hiddenProductIds, id];
+    const updated = { ...form, hiddenProductIds: next };
+    setForm(updated);
+    save(updated);
+  };
+
+  const filteredProducts = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return PRODUCT_ROWS;
+    return PRODUCT_ROWS.filter((p) => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query));
+  }, [q]);
+
+  const visibleCount = PRODUCT_ROWS.length - form.hiddenProductIds.length;
+
   return (
     <>
-      <Topbar title="Tienda online" subtitle="Configurá el banner, los mínimos de compra y el WhatsApp de la tienda pública" />
+      <Topbar title="Tienda online" subtitle="Configurá el banner, el contenido, los productos y revisá los pedidos de la tienda pública" />
       <main className="flex-1 space-y-5 p-5 lg:p-7">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Store className="h-4 w-4 text-primary" /> Configuración</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex rounded-[10px] border border-line/15 bg-surface-2 p-0.5">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition ${tab === t.key ? 'bg-primary text-white' : 'text-muted hover:text-content'}`}
+                >
+                  <Icon className="h-3.5 w-3.5" /> {t.label}
+                  {t.key === 'pedidos' && orders.length > 0 && (
+                    <span className={`rounded-full px-1.5 text-[10px] font-bold ${tab === t.key ? 'bg-white/25 text-white' : 'bg-amber/20 text-amber'}`}>{orders.length}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge tone={settings.storeOpen ? 'emerald' : 'rose'} dot>{settings.storeOpen ? 'Tienda abierta' : 'Tienda cerrada'}</Badge>
             <a href="/tienda" target="_blank" rel="noreferrer">
               <Button variant="outline"><ExternalLink className="h-4 w-4" /> Ver tienda</Button>
             </a>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className={labelClass}>Texto del banner superior</label>
-              <input className={inputClass} value={form.topBannerText} onChange={(e) => set('topBannerText', e.target.value)} />
-            </div>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className={labelClass}>Compra mínima ($)</label>
-                <input type="number" className={inputClass} value={form.minCompra} onChange={(e) => set('minCompra', Number(e.target.value))} />
+        {tab === 'general' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Store className="h-4 w-4 text-primary" /> Configuración general</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-xl border border-line/15 bg-surface-2/40 p-3.5">
+                <div>
+                  <div className="text-sm font-semibold text-content">Tienda habilitada</div>
+                  <div className="text-xs text-muted">Si la apagás, los clientes ven un aviso y el botón de WhatsApp en vez del catálogo.</div>
+                </div>
+                <button
+                  onClick={() => set('storeOpen', !form.storeOpen)}
+                  className={`relative h-6 w-11 rounded-full transition ${form.storeOpen ? 'bg-emerald' : 'bg-line/30'}`}
+                >
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${form.storeOpen ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                </button>
               </div>
-              <div>
-                <label className={labelClass}>Envío gratis desde ($)</label>
-                <input type="number" className={inputClass} value={form.envioGratisDesde} onChange={(e) => set('envioGratisDesde', Number(e.target.value))} />
-              </div>
-              <div>
-                <label className={labelClass}>WhatsApp del negocio (sin +, ej: 5493411234567)</label>
-                <input className={inputClass} value={form.whatsappNumber} onChange={(e) => set('whatsappNumber', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Margen de venta (%)</label>
-                <input
-                  type="number"
-                  className={inputClass}
-                  value={Math.round(form.margenVenta * 100)}
-                  onChange={(e) => set('margenVenta', Number(e.target.value) / 100)}
-                />
-              </div>
-            </div>
 
-            <Button onClick={handleSave} className="w-full sm:w-auto">
-              {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
-            </Button>
-          </CardContent>
-        </Card>
+              <div>
+                <label className={labelClass}>Texto del banner superior</label>
+                <input className={inputClass} value={form.topBannerText} onChange={(e) => set('topBannerText', e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Compra mínima ($)</label>
+                  <input type="number" className={inputClass} value={form.minCompra} onChange={(e) => set('minCompra', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className={labelClass}>Envío gratis desde ($)</label>
+                  <input type="number" className={inputClass} value={form.envioGratisDesde} onChange={(e) => set('envioGratisDesde', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className={labelClass}>WhatsApp del negocio (sin +, ej: 5493411234567)</label>
+                  <input className={inputClass} value={form.whatsappNumber} onChange={(e) => set('whatsappNumber', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelClass}>Margen de venta (%)</label>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    value={Math.round(form.margenVenta * 100)}
+                    onChange={(e) => set('margenVenta', Number(e.target.value) / 100)}
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleSave} className="w-full sm:w-auto">
+                {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === 'contenido' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-primary" /> Contenido del banner principal</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className={labelClass}>Etiqueta destacada</label>
+                <input className={inputClass} value={form.heroBadge} onChange={(e) => set('heroBadge', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Título principal</label>
+                <input className={inputClass} value={form.heroTitle} onChange={(e) => set('heroTitle', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Subtítulo</label>
+                <textarea rows={2} className={`${inputClass} h-auto py-2`} value={form.heroSubtitle} onChange={(e) => set('heroSubtitle', e.target.value)} />
+              </div>
+              <Button onClick={handleSave} className="w-full sm:w-auto">
+                {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === 'productos' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Productos en la tienda</CardTitle>
+              <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto o marca..." className="h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm focus:border-primary/50 focus:outline-none" />
+              </div>
+              <div className="max-h-[520px] overflow-y-auto rounded-xl border border-line/10">
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {filteredProducts.map((p) => {
+                      const hidden = form.hiddenProductIds.includes(p.id);
+                      return (
+                        <tr key={p.id} className="border-b border-line/10 last:border-0 hover:bg-surface-2">
+                          <td className="p-2.5">
+                            <div className="font-semibold text-content">{p.name}</div>
+                            <div className="text-[11px] text-muted">{p.brand} · {money(p.price)}</div>
+                          </td>
+                          <td className="w-32 p-2.5 text-right">
+                            <button
+                              onClick={() => toggleProduct(p.id)}
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold ${hidden ? 'bg-rose/12 text-rose' : 'bg-emerald/12 text-emerald'}`}
+                            >
+                              {hidden ? <><EyeOff className="h-3.5 w-3.5" /> Oculto</> : <><Eye className="h-3.5 w-3.5" /> Visible</>}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === 'pedidos' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-primary" /> Pedidos recibidos por la tienda</CardTitle>
+              <span className="text-xs text-muted">{orders.length} pedido{orders.length === 1 ? '' : 's'}</span>
+            </CardHeader>
+            <CardContent>
+              {orders.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-line/15 p-8 text-center text-[13px] text-muted">
+                  Todavía no llegó ningún pedido desde la tienda online.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.map((o) => (
+                    <div key={o.id} className="rounded-xl border border-line/10 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-content">{o.customerName}</div>
+                          <div className="text-[11px] text-muted">{o.customerPhone} · {new Date(o.createdAt).toLocaleString('es-AR')}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {o.envioGratis && <Badge tone="emerald">Envío gratis</Badge>}
+                          <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 space-y-1 border-t border-line/10 pt-2.5 text-[12.5px] text-muted">
+                        {o.items.map((it, i) => (
+                          <div key={i} className="flex justify-between">
+                            <span>{it.qty}x {it.name}</span>
+                            <span className="tnum">{money(it.unitPrice * it.qty)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {o.clientId && (
+                        <a href={`/bandeja?clientId=${o.clientId}`} className="mt-3 inline-block text-[12px] font-semibold text-primary hover:underline">
+                          Ver conversación en Bandeja →
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </main>
     </>
   );
