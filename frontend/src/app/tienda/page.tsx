@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck } from 'lucide-react';
 import { PRODUCT_ROWS, type ProductRow } from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
@@ -12,15 +12,34 @@ const NEGOCIO_WHATSAPP = '5493412708638';
 const MIN_COMPRA = 50000;
 const MARGEN_VENTA = 0.30; // margen por defecto para el precio público (el catálogo interno guarda costo, no precio de venta)
 
+const BRAND = '#3E5C1F';     // verde oscuro de marca
+const BRAND_SOFT = '#F3F6EC';
+const ACCENT = '#E38A1F';    // ámbar
+const WHATSAPP = '#25D366';
+
+const CAT_ICON: Record<string, string> = { Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒' };
+
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + MARGEN_VENTA));
 
 interface CartLine { productId: string; qty: number }
 
-function ProdImg({ src, size }: { src: string; size: number }) {
+function ProdImg({ src, size, className = '' }: { src: string; size: number; className?: string }) {
   const [err, setErr] = useState(false);
-  if (!src || err) return <div className="flex shrink-0 items-center justify-center rounded-xl bg-[#F6F8EC] text-2xl" style={{ width: size, height: size }}>📦</div>;
-  return <img src={src} onError={() => setErr(true)} alt="" className="shrink-0 rounded-xl border border-black/5 object-cover" style={{ width: size, height: size }} />;
+  if (!src || err) {
+    return (
+      <div className={`flex shrink-0 items-center justify-center rounded-xl text-3xl ${className}`} style={{ width: size, height: size, background: BRAND_SOFT }}>📦</div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      onError={() => setErr(true)}
+      alt=""
+      className={`shrink-0 rounded-xl border border-black/5 object-cover ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
 }
 
 export default function TiendaPage() {
@@ -36,6 +55,7 @@ export default function TiendaPage() {
   const [form, setForm] = useState({ name: '', phone: '' });
   const [formError, setFormError] = useState('');
   const [sent, setSent] = useState(false);
+  const [bump, setBump] = useState(false);
 
   const categories = useMemo(() => [...new Set(PRODUCT_ROWS.map((p) => p.category))].sort(), []);
   const brands = useMemo(() => [...new Set(PRODUCT_ROWS.map((p) => p.brand))].sort(), []);
@@ -56,6 +76,13 @@ export default function TiendaPage() {
   const cartCount = cart.reduce((a, c) => a + c.qty, 0);
   const subtotal = cartLines.reduce((a, l) => a + l.subtotal, 0);
   const faltante = Math.max(0, MIN_COMPRA - subtotal);
+  const progreso = Math.min(100, Math.round((subtotal / MIN_COMPRA) * 100));
+
+  useEffect(() => {
+    if (!bump) return;
+    const t = setTimeout(() => setBump(false), 260);
+    return () => clearTimeout(t);
+  }, [bump]);
 
   const addToCart = (productId: string) => {
     setCart((prev) => {
@@ -63,6 +90,7 @@ export default function TiendaPage() {
       if (existing) return prev.map((c) => (c.productId === productId ? { ...c, qty: c.qty + 1 } : c));
       return [...prev, { productId, qty: 1 }];
     });
+    setBump(true);
   };
   const changeQty = (productId: string, delta: number) => {
     setCart((prev) => prev
@@ -83,7 +111,6 @@ export default function TiendaPage() {
     if (subtotal < MIN_COMPRA) return setFormError(`La compra mínima es ${money(MIN_COMPRA)}`);
     setFormError('');
 
-    // Registra el pedido en el CRM: crea/asocia el cliente y deja el pedido como si hubiese llegado por WhatsApp
     const [firstName, ...rest] = form.name.trim().split(' ');
     const client = addClient({
       firstName, lastName: rest.join(' '), phone: form.phone.trim(),
@@ -99,173 +126,304 @@ export default function TiendaPage() {
 
     const waLink = `https://wa.me/${NEGOCIO_WHATSAPP}?text=${encodeURIComponent(buildOrderText())}`;
     window.open(waLink, '_blank');
-
     setSent(true);
   };
 
   const closeCheckout = () => { setShowCheckout(false); if (sent) { setCart([]); setForm({ name: '', phone: '' }); setSent(false); } };
 
   return (
-    <div className="min-h-screen bg-[#F7F8F3]">
+    <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
       {/* Barra superior */}
-      <div className="flex items-center justify-center bg-[#56682B] px-4 py-1.5 text-center text-[11px] font-semibold text-white">
-        COMPRA MÍNIMA {money(MIN_COMPRA)}
+      <div className="flex items-center justify-center gap-1.5 px-4 py-2 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: BRAND }}>
+        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(MIN_COMPRA)} · ENVÍOS A TODO EL PAÍS
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-6xl items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#56682B] text-white"><Zap className="h-5 w-5" fill="currentColor" /></div>
-            <span className="font-display text-lg font-extrabold text-[#56682B]">MAON</span>
+      <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 px-4 py-3 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 sm:gap-4">
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${BRAND}, #5A7A34)` }}>
+              <Zap className="h-5 w-5" fill="currentColor" />
+            </div>
+            <div className="hidden leading-none sm:block">
+              <div className="font-display text-lg font-extrabold tracking-tight" style={{ color: BRAND }}>MAON</div>
+              <div className="text-[10px] font-medium uppercase tracking-widest text-neutral-400">Mayorista Online</div>
+            </div>
           </div>
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="¿Qué estás buscando?"
-              className="h-10 w-full rounded-lg border border-black/10 bg-neutral-50 pl-9 pr-3 text-sm outline-none focus:border-[#56682B]/50"
+              className="h-11 w-full rounded-full border border-black/[0.08] bg-neutral-50 pl-10 pr-4 text-sm text-neutral-800 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
             />
           </div>
-          <button onClick={() => setShowCart(true)} className="relative flex h-10 items-center gap-2 rounded-lg bg-[#56682B] px-4 text-sm font-bold text-white">
-            <ShoppingCart className="h-4 w-4" /> {money(subtotal)}
-            {cartCount > 0 && <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#E08A2B] text-[10px] font-bold">{cartCount}</span>}
+          <button
+            onClick={() => setShowCart(true)}
+            className={`relative flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold text-white shadow-sm transition ${bump ? 'scale-105' : 'scale-100'}`}
+            style={{ background: BRAND }}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            <span className="hidden sm:inline">{money(subtotal)}</span>
+            {cartCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold text-white" style={{ background: ACCENT }}>
+                {cartCount}
+              </span>
+            )}
           </button>
         </div>
+
         {/* Categorías */}
-        <div className="mx-auto mt-3 flex max-w-6xl flex-wrap gap-1.5">
-          <button onClick={() => setCategory('')} className={`rounded-full px-3 py-1 text-[12px] font-semibold ${!category ? 'bg-[#56682B] text-white' : 'bg-neutral-100 text-neutral-600'}`}>Todas</button>
+        <div className="mx-auto mt-3 flex max-w-6xl gap-1.5 overflow-x-auto pb-0.5">
+          <button
+            onClick={() => setCategory('')}
+            className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
+            style={!category ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
+          >
+            Todas
+          </button>
           {categories.map((c) => (
-            <button key={c} onClick={() => setCategory(c!)} className={`rounded-full px-3 py-1 text-[12px] font-semibold ${category === c ? 'bg-[#56682B] text-white' : 'bg-neutral-100 text-neutral-600'}`}>{c}</button>
+            <button
+              key={c}
+              onClick={() => setCategory(c!)}
+              className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
+              style={category === c ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
+            >
+              {CAT_ICON[c!] ?? ''} {c}
+            </button>
           ))}
         </div>
       </header>
 
+      {/* Hero */}
+      <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, #2C4416 70%)` }}>
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
+        <div className="relative mx-auto max-w-6xl animate-fade-up">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
+            <Sparkles className="h-3.5 w-3.5" /> Precios de mayorista, todo el año
+          </div>
+          <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
+            Golosinas, galletitas y alfajores al por mayor
+          </h1>
+          <p className="mt-2 max-w-md text-[14px] text-white/80">
+            Armá tu pedido acá y confirmalo directo por WhatsApp — sin vueltas, sin registrarte.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-white/85">
+            <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" /> Venta por bulto cerrado</span>
+            <span className="flex items-center gap-1.5"><Truck className="h-4 w-4" /> Envíos a todo el país</span>
+            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Pedido confirmado por WhatsApp</span>
+          </div>
+        </div>
+      </div>
+
       {/* Body */}
-      <main className="mx-auto flex max-w-6xl gap-6 p-4">
-        <aside className="hidden w-[200px] shrink-0 md:block">
-          <div className="rounded-xl border border-black/5 bg-white p-4">
-            <div className="mb-2 text-[13px] font-bold">Marca</div>
-            <div className="space-y-1.5">
-              <button onClick={() => setBrand('')} className={`block text-[13px] ${!brand ? 'font-bold text-[#56682B]' : 'text-neutral-600'}`}>Todas</button>
+      <main className="mx-auto flex max-w-6xl gap-6 p-4 pt-6">
+        <aside className="hidden w-[220px] shrink-0 md:block">
+          <div className="sticky top-[140px] rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+            <div className="mb-2.5 text-[13px] font-bold text-neutral-800">Marca</div>
+            <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
+              <button
+                onClick={() => setBrand('')}
+                className="block w-full rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-neutral-50"
+                style={!brand ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+              >
+                Todas las marcas
+              </button>
               {brands.map((b) => (
-                <button key={b} onClick={() => setBrand(b)} className={`block text-[13px] ${brand === b ? 'font-bold text-[#56682B]' : 'text-neutral-600'}`}>{b}</button>
+                <button
+                  key={b}
+                  onClick={() => setBrand(b)}
+                  className="block w-full rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-neutral-50"
+                  style={brand === b ? { color: BRAND, fontWeight: 700, background: BRAND_SOFT } : { color: '#666' }}
+                >
+                  {b}
+                </button>
               ))}
             </div>
           </div>
         </aside>
 
         <section className="flex-1">
-          <div className="mb-3 text-[13px] text-neutral-500">{filtered.length} productos</div>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-[13px] font-medium text-neutral-500">{filtered.length} producto{filtered.length === 1 ? '' : 's'}</div>
+            {(category || brand || search) && (
+              <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
+                Limpiar filtros
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map((p) => {
               const inCart = qtyInCart(p.id);
               return (
-                <div key={p.id} className="rounded-xl border border-black/5 bg-white p-3">
-                  <ProdImg src={p.img} size={110} />
-                  <div className="mt-2 text-[10px] font-semibold uppercase text-neutral-400">{p.brand}</div>
-                  <div className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</div>
-                  <div className="mt-1.5 text-[15px] font-extrabold text-[#56682B]">{money(ventaBulto(p))}</div>
-                  <div className="text-[10px] text-neutral-400">bulto x {p.units || '-'} u.</div>
-                  {inCart === 0 ? (
-                    <button onClick={() => addToCart(p.id)} className="mt-2 w-full rounded-lg bg-[#E08A2B] py-2 text-[12px] font-bold text-white">Agregar</button>
-                  ) : (
-                    <div className="mt-2 flex items-center justify-between rounded-lg border border-[#E08A2B]/40 bg-[#E08A2B]/10 px-1 py-1">
-                      <button onClick={() => changeQty(p.id, -1)} className="flex h-6 w-6 items-center justify-center rounded-md text-[#E08A2B]"><Minus className="h-3.5 w-3.5" /></button>
-                      <span className="text-[13px] font-bold">{inCart}</span>
-                      <button onClick={() => changeQty(p.id, 1)} className="flex h-6 w-6 items-center justify-center rounded-md text-[#E08A2B]"><Plus className="h-3.5 w-3.5" /></button>
-                    </div>
-                  )}
+                <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
+                    <span className="absolute left-2 top-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>Bulto cerrado</span>
+                    <ProdImg src={p.img} size={104} className="transition group-hover:scale-105" />
+                  </div>
+                  <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400">{p.brand}</div>
+                  <div className="line-clamp-2 min-h-[32px] text-[13px] font-medium leading-tight text-neutral-800">{p.name}</div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p))}</span>
+                  </div>
+                  <div className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</div>
+                  <div className="mt-2.5">
+                    {inCart === 0 ? (
+                      <button
+                        onClick={() => addToCart(p.id)}
+                        className="w-full rounded-lg py-2 text-[12px] font-bold text-white transition active:scale-95"
+                        style={{ background: ACCENT }}
+                      >
+                        Agregar
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-between rounded-lg border px-1 py-1" style={{ borderColor: `${ACCENT}55`, background: `${ACCENT}12` }}>
+                        <button onClick={() => changeQty(p.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Minus className="h-3.5 w-3.5" /></button>
+                        <span className="text-[13px] font-bold text-neutral-800">{inCart}</span>
+                        <button onClick={() => changeQty(p.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
+            {filtered.length === 0 && (
+              <div className="col-span-full flex flex-col items-center gap-2 py-16 text-center text-neutral-400">
+                <Search className="h-8 w-8" />
+                <div className="text-sm font-medium">No encontramos productos con esa búsqueda.</div>
+              </div>
+            )}
           </div>
         </section>
       </main>
 
+      {/* Footer */}
+      <footer className="mt-10 border-t border-black/5 bg-white px-4 py-8 text-center text-[12px] text-neutral-500">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2">
+          <div className="flex items-center gap-2 font-display text-base font-extrabold" style={{ color: BRAND }}>
+            <Zap className="h-4 w-4" fill="currentColor" /> MAON
+          </div>
+          <p>Mayorista Online · Golosinas, galletitas y alfajores por bulto.</p>
+          <a href={`https://wa.me/${NEGOCIO_WHATSAPP}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1.5 font-semibold" style={{ color: WHATSAPP }}>
+            <MessageCircle className="h-4 w-4" /> Consultanos por WhatsApp
+          </a>
+        </div>
+      </footer>
+
+      {/* Overlay compartido para carrito y checkout */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/45 transition-opacity duration-300 ${(showCart || showCheckout) ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={() => { setShowCart(false); if (!sent) setShowCheckout(false); }}
+      />
+
       {/* Carrito (drawer) */}
-      {showCart && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={() => setShowCart(false)}>
-          <div className="flex h-full w-full max-w-[420px] flex-col bg-white" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-black/5 bg-[#56682B] p-4 text-white">
-              <div className="flex items-center gap-2 font-bold"><ShoppingCart className="h-4 w-4" /> Mi carrito · {cartCount} producto{cartCount === 1 ? '' : 's'}</div>
-              <button onClick={() => setShowCart(false)}><X className="h-5 w-5" /></button>
-            </div>
+      <div
+        className={`fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[420px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${showCart ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex items-center justify-between p-4 text-white" style={{ background: BRAND }}>
+          <div className="flex items-center gap-2 font-bold"><ShoppingCart className="h-4 w-4" /> Mi carrito · {cartCount} producto{cartCount === 1 ? '' : 's'}</div>
+          <button onClick={() => setShowCart(false)}><X className="h-5 w-5" /></button>
+        </div>
 
-            {faltante > 0 && (
-              <div className="border-b border-black/5 bg-[#FBF4E6] p-3 text-[12px] text-[#8a5a12]">
-                Te faltan {money(faltante)} para completar la compra mínima ({money(MIN_COMPRA)}).
-              </div>
-            )}
-
-            <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {cartLines.length === 0 && <div className="pt-10 text-center text-sm text-neutral-400">Todavía no agregaste productos.</div>}
-              {cartLines.map((l) => (
-                <div key={l.productId} className="flex items-center gap-3 border-b border-black/5 pb-3">
-                  <ProdImg src={l.product.img} size={52} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium">{l.product.name}</div>
-                    <div className="text-[12px] font-bold text-[#56682B]">{money(l.unitPrice)}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <button onClick={() => changeQty(l.productId, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
-                      <span className="text-[12px] font-bold">{l.qty}</span>
-                      <button onClick={() => changeQty(l.productId, 1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Plus className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </div>
-                  <button onClick={() => removeLine(l.productId)} className="text-neutral-400 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-black/5 p-4">
-              <div className="mb-3 flex items-center justify-between text-lg font-extrabold"><span>Total</span><span>{money(subtotal)}</span></div>
-              <button
-                disabled={cartLines.length === 0}
-                onClick={() => { setShowCart(false); setShowCheckout(true); }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E08A2B] py-3 font-bold text-white disabled:opacity-40"
-              >
-                <MessageCircle className="h-4 w-4" /> Confirmar pedido por WhatsApp
-              </button>
-            </div>
+        <div className="border-b border-black/5 p-4">
+          <div className="mb-1.5 flex items-center justify-between text-[11.5px] font-medium text-neutral-500">
+            <span>{faltante > 0 ? `Te faltan ${money(faltante)} para el mínimo` : '¡Llegaste a la compra mínima! 🎉'}</span>
+            <span>{money(subtotal)} / {money(MIN_COMPRA)}</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, background: faltante > 0 ? ACCENT : '#22C55E' }} />
           </div>
         </div>
-      )}
+
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {cartLines.length === 0 && (
+            <div className="flex flex-col items-center gap-2 pt-16 text-center text-neutral-400">
+              <ShoppingCart className="h-9 w-9" />
+              <div className="text-sm font-medium">Todavía no agregaste productos.</div>
+            </div>
+          )}
+          {cartLines.map((l) => (
+            <div key={l.productId} className="flex items-center gap-3 rounded-xl border border-black/5 p-2.5">
+              <ProdImg src={l.product.img} size={54} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-neutral-800">{l.product.name}</div>
+                <div className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <button onClick={() => changeQty(l.productId, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
+                  <span className="w-4 text-center text-[12px] font-bold">{l.qty}</span>
+                  <button onClick={() => changeQty(l.productId, 1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Plus className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+              <button onClick={() => removeLine(l.productId)} className="text-neutral-300 transition hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-black/5 p-4">
+          <div className="mb-3 flex items-center justify-between text-lg font-extrabold text-neutral-800"><span>Total</span><span>{money(subtotal)}</span></div>
+          <button
+            disabled={cartLines.length === 0}
+            onClick={() => { setShowCart(false); setShowCheckout(true); }}
+            className="flex w-full items-center justify-center gap-2 rounded-full py-3 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
+            style={{ background: ACCENT }}
+          >
+            <MessageCircle className="h-4 w-4" /> Confirmar pedido por WhatsApp
+          </button>
+        </div>
+      </div>
 
       {/* Checkout */}
-      {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onClick={closeCheckout}>
-          <div className="w-full max-w-[420px] rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
-            {!sent ? (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="text-base font-bold">Tus datos para el pedido</div>
-                  <button onClick={closeCheckout}><X className="h-5 w-5" /></button>
-                </div>
-                <div className="space-y-2">
-                  <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nombre y apellido*" className="h-10 w-full rounded-lg border border-black/10 px-3 text-sm outline-none focus:border-[#56682B]/50" />
-                  <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="WhatsApp / Teléfono*" className="h-10 w-full rounded-lg border border-black/10 px-3 text-sm outline-none focus:border-[#56682B]/50" />
-                </div>
-                <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-[12px] text-neutral-600">
-                  {cartLines.map((l) => <div key={l.productId} className="flex justify-between"><span>{l.qty}x {l.product.name}</span><span>{money(l.subtotal)}</span></div>)}
-                  <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
-                </div>
-                {formError && <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
-                <button onClick={sendOrder} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 font-bold text-white">
-                  <MessageCircle className="h-4 w-4" /> Enviar pedido por WhatsApp
-                </button>
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366]"><MessageCircle className="h-6 w-6" /></div>
-                <div className="text-base font-bold">¡Se abrió WhatsApp con tu pedido!</div>
-                <p className="mt-1 text-[13px] text-neutral-500">Solo falta que apretes enviar en WhatsApp para confirmarlo. Ya quedó registrado.</p>
-                <button onClick={closeCheckout} className="mt-4 w-full rounded-lg bg-neutral-100 py-2.5 text-sm font-semibold">Seguir comprando</button>
+      <div className={`fixed inset-0 z-[60] flex items-center justify-center p-4 transition-all duration-200 ${showCheckout ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}>
+        <div
+          className={`w-full max-w-[420px] rounded-3xl bg-white p-6 shadow-2xl transition-all duration-200 ${showCheckout ? 'translate-y-0 scale-100' : 'translate-y-3 scale-95'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!sent ? (
+            <>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-[17px] font-bold text-neutral-800">Tus datos para el pedido</div>
+                <button onClick={closeCheckout}><X className="h-5 w-5 text-neutral-400" /></button>
               </div>
-            )}
-          </div>
+              <div className="space-y-2.5">
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Nombre y apellido*"
+                  className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                />
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="WhatsApp / Teléfono*"
+                  className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                />
+              </div>
+              <div className="mt-3 max-h-[160px] overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
+                {cartLines.map((l) => <div key={l.productId} className="flex justify-between py-0.5"><span>{l.qty}x {l.product.name}</span><span className="shrink-0 pl-2">{money(l.subtotal)}</span></div>)}
+                <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
+              </div>
+              {formError && <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
+              <button onClick={sendOrder} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 font-bold text-white shadow-sm transition active:scale-[0.98]" style={{ background: WHATSAPP }}>
+                <MessageCircle className="h-4 w-4" /> Enviar pedido por WhatsApp
+              </button>
+            </>
+          ) : (
+            <div className="py-3 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: `${WHATSAPP}18`, color: WHATSAPP }}>
+                <MessageCircle className="h-7 w-7" />
+              </div>
+              <div className="text-[17px] font-bold text-neutral-800">¡Se abrió WhatsApp con tu pedido!</div>
+              <p className="mx-auto mt-1.5 max-w-[280px] text-[13.5px] text-neutral-500">Solo falta que apretes enviar en WhatsApp para confirmarlo. Ya quedó registrado de nuestro lado.</p>
+              <button onClick={closeCheckout} className="mt-5 w-full rounded-full bg-neutral-100 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-200">Seguir comprando</button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
