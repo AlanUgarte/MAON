@@ -75,7 +75,7 @@ function getProductMedia(p: ProductRow): { type: 'IMAGEN' | 'VIDEO'; url: string
 function BandejaInner() {
   const router = useRouter();
   const { clients: CLIENTS, updateClient } = useClients();
-  const { getThread, appendMessage: appendToClient } = useChatThreads();
+  const { getThread, appendMessage: appendToClient, loadThread } = useChatThreads();
   const { products: fullCatalog } = useProductCatalog();
   const { settings } = useTiendaSettings();
   const PRODUCT_ROWS = useMemo(
@@ -94,6 +94,7 @@ function BandejaInner() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [showInvoiceChoice, setShowInvoiceChoice] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   // ponytail: se lee directo de la URL en vez de useSearchParams() — evita envolver toda
   // la página en Suspense solo por esto (causaba que se cuelgue en local con esta página tan pesada).
@@ -106,6 +107,7 @@ function BandejaInner() {
   useEffect(() => {
     setAiSuggestions(null);
     setAiError('');
+    setSendError('');
   }, [activeId]);
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
@@ -115,6 +117,14 @@ function BandejaInner() {
     if (!activeId) return;
     const opened = CLIENTS.find((c) => c.id === activeId);
     if (opened && opened.unread > 0) updateClient(activeId, { unread: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  // Trae los mensajes reales del backend al abrir un chat (si está conectado).
+  useEffect(() => {
+    if (!activeId) return;
+    const opened = CLIENTS.find((c) => c.id === activeId);
+    if (opened) loadThread(opened);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
@@ -159,7 +169,7 @@ function BandejaInner() {
     setMediaTab('FOTOS');
   };
 
-  const sendText = () => {
+  const sendText = async () => {
     const text = draft.trim();
     if (!text) return;
     if (text.toLowerCase() === '/cerrarventa') {
@@ -167,21 +177,25 @@ function BandejaInner() {
       setDraft('');
       return;
     }
-    appendToClient(active, { content: text });
     setDraft('');
+    setSendError('');
+    const err = await appendToClient(active, { content: text });
+    if (err) setSendError(err);
   };
 
-  const sendPriceList = () => {
+  const sendPriceList = async () => {
     const html = buildPriceListHtml(PRODUCT_ROWS, settings.margenVenta);
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
-    appendToClient(active, { content: 'Lista de precios · MAON.pdf', type: 'DOCUMENTO' });
+    const err = await appendToClient(active, { content: 'Lista de precios · MAON.pdf', type: 'DOCUMENTO' });
+    if (err) setSendError(err);
   };
 
-  const sendMedia = (url: string, type: 'IMAGEN' | 'VIDEO', name: string) => {
+  const sendMedia = async (url: string, type: 'IMAGEN' | 'VIDEO', name: string) => {
     if (!url) return;
-    appendToClient(active, { content: name, type, mediaUrl: url });
     closeMediaPicker();
+    const err = await appendToClient(active, { content: name, type, mediaUrl: url });
+    if (err) setSendError(err);
   };
 
   // Busca por palabras sueltas (cada token debe aparecer en el nombre/marca), así "alfaj triple choc" encuentra "ALFAJOR TRIPLE CHOCOLATE"
@@ -309,6 +323,9 @@ function BandejaInner() {
 
           {/* Composer */}
           <div className="relative border-t border-line/10 bg-surface/30 p-3">
+            {sendError && (
+              <div className="mb-2 rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-[11.5px] text-rose">{sendError}</div>
+            )}
             <div className="mb-2 flex flex-wrap gap-1.5">
               {suggestions.map((s, i) => (
                 <button key={i} onClick={() => setDraft(s)} className="group flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 text-[11px] text-primary transition hover:bg-primary/15">

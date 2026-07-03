@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
+  { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
 ];
 
@@ -47,7 +48,7 @@ export function TopNav() {
           href={item.href}
           onClick={() => setOpen(false)}
           className={cn(
-            'flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2.5 py-2 text-[13px] font-medium transition-colors',
+            'flex items-center gap-1 whitespace-nowrap rounded-[10px] px-1.5 py-2 text-[12.5px] font-medium transition-colors',
             mobile && 'w-full !gap-2 !px-3.5 !text-sm',
             active ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2 hover:text-content',
           )}

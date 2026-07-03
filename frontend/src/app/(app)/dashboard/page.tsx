@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Users, TrendingUp, DollarSign, Target, Receipt, Clock,
   Flame, ArrowUpRight, ChevronRight, Pencil, Sparkles,
@@ -12,10 +12,12 @@ import { ScoreGauge } from '@/components/app/score-gauge';
 import { LeadsAreaChart, ProductBarChart } from '@/components/app/charts';
 import { StatusBadge } from '@/components/app/status-badge';
 import {
-  KPIS, SERIES, PIPELINE, SALES_BY_PRODUCT, CAMPAIGN_CONVERSION, CLIENTS,
+  KPIS, SERIES, PIPELINE, SALES_BY_PRODUCT, CAMPAIGN_CONVERSION,
 } from '@/lib/mock';
+import { useClients } from '@/lib/clients-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
+import { api } from '@/lib/api';
 import { formatARS, formatNumber, initials } from '@/lib/utils';
 
 const PIPE_COLORS: Record<string, string> = {
@@ -23,11 +25,35 @@ const PIPE_COLORS: Record<string, string> = {
   NEGOCIANDO: '#F59E0B', ESPERANDO_RESPUESTA: '#94A3B8',
   VENTA_CERRADA: '#10B981', VENTA_PERDIDA: '#F43F5E',
 };
+const STAGE_LABEL: Record<string, string> = {
+  NUEVO_LEAD: 'Nuevo lead', CONTACTADO: 'Contactado', INTERESADO: 'Interesado',
+  NEGOCIANDO: 'Negociando', ESPERANDO_RESPUESTA: 'Esperando',
+  VENTA_CERRADA: 'Cerrada', VENTA_PERDIDA: 'Perdida',
+};
 
 export default function DashboardPage() {
+  const { clients: CLIENTS } = useClients();
+  const [overview, setOverview] = useState<any | null>(null);
+  useEffect(() => { api.overview().then(setOverview).catch(() => setOverview(null)); }, []);
+
+  const kpis = overview?.kpis ?? KPIS;
+  const pipeline = overview?.pipeline
+    ? overview.pipeline.map((p: any) => ({ ...p, label: STAGE_LABEL[p.stage] ?? p.stage }))
+    : PIPELINE;
+  const series = overview
+    ? (overview.leadsByDay as { date: string; value: number }[]).map((d, i) => ({
+        date: d.date,
+        label: new Date(d.date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+        leads: d.value,
+        sales: overview.salesByDay[i]?.value ?? 0,
+      }))
+    : SERIES;
+  const salesByProduct = overview?.salesByProduct?.length ? overview.salesByProduct : SALES_BY_PRODUCT;
+  const campaignConversion = overview?.conversionByCampaign?.length ? overview.conversionByCampaign : CAMPAIGN_CONVERSION;
+
   const hot = [...CLIENTS].sort((a, b) => b.leadScore - a.leadScore).slice(0, 4);
   const topLead = hot[0];
-  const maxPipe = Math.max(...PIPELINE.map((p) => p.count));
+  const maxPipe = Math.max(...pipeline.map((p: any) => p.count), 1);
 
   // Resumen financiero: real, a partir del libro de comprobantes emitidos. El gasto en
   // publicidad se sigue cargando a mano (no hay integración con Meta Ads todavía).
@@ -55,10 +81,10 @@ export default function DashboardPage() {
       <main className="flex-1 space-y-6 p-5 lg:p-7">
         {/* KPIs */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Leads hoy" value={formatNumber(KPIS.leadsToday)} icon={Users} tone="primary" trend={12} hint={`${KPIS.leadsWeek} esta semana`} />
-          <StatCard label="Ventas hoy" value={formatARS(KPIS.salesToday)} icon={DollarSign} tone="emerald" trend={8} hint={`${KPIS.salesTodayCount} operaciones`} />
-          <StatCard label="Conversión general" value={`${KPIS.conversion}%`} icon={Target} tone="amber" trend={3} hint="leads → ventas" />
-          <StatCard label="Ticket promedio" value={formatARS(KPIS.avgTicket)} icon={Receipt} tone="sky" trend={-2} />
+          <StatCard label="Leads hoy" value={formatNumber(kpis.leadsToday)} icon={Users} tone="primary" trend={12} hint={`${kpis.leadsWeek} esta semana`} />
+          <StatCard label="Ventas hoy" value={formatARS(kpis.salesToday)} icon={DollarSign} tone="emerald" trend={8} hint={`${kpis.salesTodayCount} operaciones`} />
+          <StatCard label="Conversión general" value={`${kpis.conversion}%`} icon={Target} tone="amber" trend={3} hint="leads → ventas" />
+          <StatCard label="Ticket promedio" value={formatARS(kpis.avgTicket)} icon={Receipt} tone="sky" trend={-2} />
         </section>
 
         {/* Resumen financiero */}
@@ -127,7 +153,7 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <LeadsAreaChart data={SERIES} />
+              <LeadsAreaChart data={series} />
             </CardContent>
           </Card>
 
@@ -139,10 +165,10 @@ export default function DashboardPage() {
               <Badge tone="amber" dot>en vivo</Badge>
             </CardHeader>
             <CardContent className="flex flex-col items-center pt-1">
-              <ScoreGauge value={topLead.leadScore} />
+              <ScoreGauge value={topLead?.leadScore ?? 0} />
               <div className="mt-4 text-center">
-                <div className="font-display text-base font-semibold text-content">{topLead.firstName} {topLead.lastName}</div>
-                <div className="text-xs text-muted">{topLead.product}</div>
+                <div className="font-display text-base font-semibold text-content">{topLead ? `${topLead.firstName} ${topLead.lastName}` : 'Sin leads todavía'}</div>
+                <div className="text-xs text-muted">{topLead?.product}</div>
               </div>
               <div className="mt-3 w-full rounded-xl border border-line/10 bg-surface-2/50 p-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-primary">
@@ -162,7 +188,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-              {PIPELINE.map((p) => (
+              {pipeline.map((p: any) => (
                 <div key={p.stage} className="rounded-2xl border border-line/10 bg-surface-2/40 p-3.5 transition hover:border-primary/20">
                   <div className="font-display text-2xl font-bold tnum text-content">{p.count}</div>
                   <div className="mt-0.5 mb-2 truncate text-[11px] text-muted">{p.label}</div>
@@ -179,13 +205,13 @@ export default function DashboardPage() {
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card>
             <CardHeader><CardTitle>Ventas por producto</CardTitle><Badge tone="emerald">este mes</Badge></CardHeader>
-            <CardContent className="pt-2"><ProductBarChart data={SALES_BY_PRODUCT} /></CardContent>
+            <CardContent className="pt-2"><ProductBarChart data={salesByProduct} /></CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Conversión por campaña</CardTitle></CardHeader>
             <CardContent className="space-y-3 pt-1">
-              {CAMPAIGN_CONVERSION.map((c) => (
+              {campaignConversion.map((c: any) => (
                 <div key={c.campaign}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="truncate text-content">{c.campaign}</span>
@@ -203,7 +229,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Clock className="h-4 w-4 text-amber" /> Requieren atención</CardTitle>
-              <Badge tone="rose">{KPIS.withoutFollowUp}</Badge>
+              <Badge tone="rose">{kpis.withoutFollowUp}</Badge>
             </CardHeader>
             <CardContent className="space-y-2.5 pt-1">
               {hot.map((c) => (

@@ -1,15 +1,18 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Send, Users, Eye, MessageCircle, CheckCheck, Megaphone } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CAMPAIGN_ROWS } from '@/lib/mock';
+import { CAMPAIGN_ROWS, type CampaignRow } from '@/lib/mock';
+import { api } from '@/lib/api';
 
 const STATUS_TONE: Record<string, any> = {
   COMPLETADA: 'emerald', ENVIANDO: 'amber', BORRADOR: 'muted', PROGRAMADA: 'sky', CANCELADA: 'rose',
 };
+
+const STAGE_OPTIONS = ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA'];
 
 const BAR_TONE: Record<string, string> = {
   primary: 'bg-primary', sky: 'bg-sky', amber: 'bg-amber', emerald: 'bg-emerald',
@@ -29,9 +32,50 @@ function Funnel({ label, value, total, icon: Icon, tone }: any) {
   );
 }
 
+function fromBackendCampaign(c: any): CampaignRow {
+  return {
+    id: c.id, name: c.name, status: c.status,
+    recipients: c.totalRecipients ?? 0, sent: c.sentCount ?? 0, delivered: c.deliveredCount ?? 0,
+    read: 0, replied: 0, date: c.createdAt ? c.createdAt.slice(0, 10) : '—',
+  };
+}
+
 export default function CampanasPage() {
-  const [segment, setSegment] = useState({ stage: 'INTERESADO', product: 'Fundas iPhone' });
-  const estimated = 142;
+  const [stage, setStage] = useState('INTERESADO');
+  const [message, setMessage] = useState('¡Hola {nombre}! 📱 Esta semana 20% OFF en fundas iPhone. Quedan pocas unidades 🔥 ¿Te reservo una?');
+  const [estimated, setEstimated] = useState(142);
+  const [rows, setRows] = useState<CampaignRow[]>(CAMPAIGN_ROWS);
+  const [source, setSource] = useState<'backend' | 'local'>('local');
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    api.campaigns()
+      .then((res) => { setRows((res.data ?? res).map(fromBackendCampaign)); setSource('backend'); })
+      .catch(() => setSource('local'));
+  }, []);
+
+  useEffect(() => {
+    if (source !== 'backend') return;
+    api.previewSegment({ stage }).then((r) => setEstimated(r.count)).catch(() => {});
+  }, [stage, source]);
+
+  const sendCampaign = async () => {
+    if (source !== 'backend') { setNotice('Conectá el backend para poder enviar campañas reales.'); return; }
+    setSending(true);
+    setNotice('');
+    try {
+      const created = await api.createCampaign({ name: `Campaña ${new Date().toLocaleDateString('es-AR')}`, message, filters: { stage } });
+      await api.sendCampaign(created.id);
+      const res = await api.campaigns();
+      setRows((res.data ?? res).map(fromBackendCampaign));
+      setNotice('Campaña enviada.');
+    } catch (err: any) {
+      setNotice(err.message || 'No se pudo enviar la campaña.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <>
@@ -41,25 +85,31 @@ export default function CampanasPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Megaphone className="h-4 w-4 text-primary" /> Nueva campaña</CardTitle>
-            <Button><Plus className="h-4 w-4" /> Crear desde cero</Button>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="space-y-3 lg:col-span-2">
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted">Mensaje</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted">Mensaje (usá {'{nombre}'} para personalizar)</label>
                   <textarea
                     rows={3}
-                    defaultValue="¡Hola! 📱 Esta semana 20% OFF en fundas iPhone. Quedan pocas unidades 🔥 ¿Te reservo una?"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
                     className="w-full rounded-xl border border-line/15 bg-surface-2/60 p-3 text-sm text-content focus:border-primary/50 focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {['Estado: Interesado', 'Producto: Fundas iPhone', 'Ciudad: todas', 'Sin respuesta: 7 días'].map((f) => (
-                    <Badge key={f} tone="primary">{f}</Badge>
-                  ))}
-                  <button className="rounded-full border border-dashed border-line/20 px-2.5 py-0.5 text-[11px] text-muted hover:text-content">+ filtro</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-muted">Segmento:</span>
+                  <select
+                    value={stage}
+                    onChange={(e) => setStage(e.target.value)}
+                    className="h-7 rounded-lg border border-line/15 bg-surface px-2 text-[11px] font-semibold text-content focus:border-primary/50 focus:outline-none"
+                  >
+                    {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {source === 'local' && <Badge tone="muted">Backend no conectado</Badge>}
                 </div>
+                {notice && <div className="rounded-lg border border-line/10 bg-surface-2/60 px-3 py-2 text-[11.5px] text-muted">{notice}</div>}
               </div>
 
               <div className="flex flex-col justify-between rounded-2xl border border-primary/20 bg-primary/5 p-4">
@@ -70,7 +120,9 @@ export default function CampanasPage() {
                     <span className="mb-1 flex items-center gap-1 text-xs text-muted"><Users className="h-3.5 w-3.5" /> clientes</span>
                   </div>
                 </div>
-                <Button className="mt-4 w-full" size="lg"><Send className="h-4 w-4" /> Enviar campaña</Button>
+                <Button className="mt-4 w-full" size="lg" onClick={sendCampaign} disabled={sending || !message.trim()}>
+                  <Send className="h-4 w-4" /> {sending ? 'Enviando…' : 'Enviar campaña'}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -80,7 +132,7 @@ export default function CampanasPage() {
         <div>
           <h2 className="mb-3 font-display text-sm font-semibold text-content">Historial de campañas</h2>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {CAMPAIGN_ROWS.map((c) => (
+            {rows.map((c) => (
               <Card key={c.id} className="p-5 shadow-card">
                 <div className="flex items-start justify-between">
                   <div>

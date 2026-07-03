@@ -83,8 +83,9 @@ export class ClientsService {
     return client;
   }
 
+  // Cada cliente nace con su conversación de WhatsApp (1:1) para poder recibir mensajes ni bien se crea.
   create(dto: CreateClientDto) {
-    return this.prisma.client.create({ data: dto });
+    return this.prisma.client.create({ data: { ...dto, conversations: { create: {} } } });
   }
 
   async update(id: string, dto: UpdateClientDto) {

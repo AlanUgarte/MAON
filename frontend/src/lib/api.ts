@@ -65,6 +65,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  register: (fullName: string, email: string, password: string, role?: string) =>
+    request<{ accessToken: string; user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ fullName, email, password, role }),
+    }),
   me: () => request<any>('/auth/me'),
 
   // Dashboard
@@ -109,6 +114,14 @@ export const api = {
   campaigns: () => request<any>('/campaigns'),
   previewSegment: (filters: any) =>
     request<any>('/campaigns/preview', { method: 'POST', body: JSON.stringify({ filters }) }),
+  createCampaign: (dto: any) => request<any>('/campaigns', { method: 'POST', body: JSON.stringify(dto) }),
   sendCampaign: (id: string) =>
     request<any>(`/campaigns/${id}/send`, { method: 'POST' }),
+
+  // Automatizaciones
+  automations: () => request<any>('/automations'),
+  createAutomation: (dto: any) => request<any>('/automations', { method: 'POST', body: JSON.stringify(dto) }),
+  updateAutomation: (id: string, dto: any) => request<any>(`/automations/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  toggleAutomation: (id: string) => request<any>(`/automations/${id}/toggle`, { method: 'PATCH' }),
+  deleteAutomation: (id: string) => request<any>(`/automations/${id}`, { method: 'DELETE' }),
 };
