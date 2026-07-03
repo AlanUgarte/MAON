@@ -74,7 +74,7 @@ function getProductMedia(p: ProductRow): { type: 'IMAGEN' | 'VIDEO'; url: string
 
 function BandejaInner() {
   const router = useRouter();
-  const { clients: CLIENTS } = useClients();
+  const { clients: CLIENTS, updateClient } = useClients();
   const { getThread, appendMessage: appendToClient } = useChatThreads();
   const { products: fullCatalog } = useProductCatalog();
   const { settings } = useTiendaSettings();
@@ -109,6 +109,15 @@ function BandejaInner() {
   }, [activeId]);
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
+
+  // Al abrir una conversación puntual (no el fallback por defecto), se marca como leída.
+  useEffect(() => {
+    if (!activeId) return;
+    const opened = CLIENTS.find((c) => c.id === activeId);
+    if (opened && opened.unread > 0) updateClient(activeId, { unread: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
   const thread = active ? getThread(active) : [];
   const pendingOrder = active ? tiendaOrders.find((o) => o.clientId === active.id && !o.invoiced) : undefined;
   const q = search.trim().toLowerCase();

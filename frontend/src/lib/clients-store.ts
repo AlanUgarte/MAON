@@ -95,8 +95,11 @@ export function useClients() {
         // si el POST falla igual lo dejamos ver localmente para no perder la carga
       }
     }
+    // Se parte de load() (lo que hay AHORA en localStorage), no del estado de React —
+    // que puede seguir en el seed de demo si esto se llama antes de que el efecto de
+    // carga real termine, y pisaría datos reales con el catálogo de ejemplo.
     const client: Client = { ...c, id: `c_${Date.now()}` };
-    save([client, ...clients]);
+    save([client, ...load()]);
     return client;
   };
 
@@ -113,14 +116,14 @@ export function useClients() {
         // si falla el PATCH, el cambio queda igual reflejado en la UI (modo degradado)
       }
     }
-    save(clients.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    save(load().map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
   const deleteClient = async (id: string) => {
     if (source === 'backend') {
       try { await api.deleteClient(id); } catch { /* si falla el DELETE, lo sacamos igual de la vista */ }
     }
-    save(clients.filter((c) => c.id !== id));
+    save(load().filter((c) => c.id !== id));
   };
 
   return { clients, addClient, updateClient, deleteClient, source };

@@ -30,9 +30,12 @@ export function useChatThreads() {
   const getThread = (client: Client) => threads[client.id] ?? mockThread(client);
 
   const appendMessage = (client: Client, msg: Partial<ChatMessage> & { content: string }) => {
-    const current = threads[client.id] ?? mockThread(client);
+    // Se parte de load() (localStorage actual), no del estado de React, para no pisar
+    // hilos reales con {} si esto se llama antes de que el efecto de carga termine.
+    const fresh = load();
+    const current = fresh[client.id] ?? mockThread(client);
     save({
-      ...threads,
+      ...fresh,
       [client.id]: [...current, { id: `m${Date.now()}`, direction: 'SALIENTE', author: 'VENDEDOR', at: new Date().toISOString(), type: 'TEXTO', ...msg }],
     });
   };

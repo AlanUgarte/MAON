@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText } from 'lucide-react';
+import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-store';
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
+import { useComprobantesStore } from '@/lib/comprobantes-store';
+import { printComprobante } from '@/lib/print-comprobante';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -28,6 +30,7 @@ export default function TiendaConfigPage() {
   const router = useRouter();
   const { settings, save } = useTiendaSettings();
   const { orders } = useTiendaOrders();
+  const { comprobantes } = useComprobantesStore();
   const { products: PRODUCT_ROWS } = useProductCatalog();
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
@@ -63,6 +66,14 @@ export default function TiendaConfigPage() {
 
   const visibleCount = PRODUCT_ROWS.length - form.hiddenProductIds.length;
 
+  const pendingOrders = useMemo(() => orders.filter((o) => !o.invoiced), [orders]);
+  const invoicedOrders = useMemo(() => orders.filter((o) => o.invoiced), [orders]);
+
+  const downloadInvoice = (o: TiendaOrder) => {
+    const entry = comprobantes.find((c) => c.numero === o.comprobanteNumero);
+    if (entry) printComprobante(entry);
+  };
+
   return (
     <>
       <Topbar title="Tienda online" subtitle="Configurá el banner, el contenido, los productos y revisá los pedidos de la tienda pública" />
@@ -78,8 +89,8 @@ export default function TiendaConfigPage() {
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition ${tab === t.key ? 'bg-primary text-white' : 'text-muted hover:text-content'}`}
                 >
                   <Icon className="h-3.5 w-3.5" /> {t.label}
-                  {t.key === 'pedidos' && orders.length > 0 && (
-                    <span className={`rounded-full px-1.5 text-[10px] font-bold ${tab === t.key ? 'bg-white/25 text-white' : 'bg-amber/20 text-amber'}`}>{orders.length}</span>
+                  {t.key === 'pedidos' && pendingOrders.length > 0 && (
+                    <span className={`rounded-full px-1.5 text-[10px] font-bold ${tab === t.key ? 'bg-white/25 text-white' : 'bg-amber/20 text-amber'}`}>{pendingOrders.length}</span>
                   )}
                 </button>
               );
@@ -219,59 +230,108 @@ export default function TiendaConfigPage() {
         )}
 
         {tab === 'pedidos' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-primary" /> Pedidos recibidos por la tienda</CardTitle>
-              <span className="text-xs text-muted">{orders.length} pedido{orders.length === 1 ? '' : 's'}</span>
-            </CardHeader>
-            <CardContent>
-              {orders.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-line/15 p-8 text-center text-[13px] text-muted">
-                  Todavía no llegó ningún pedido desde la tienda online.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {orders.map((o) => (
-                    <div key={o.id} className="rounded-xl border border-line/10 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <div className="font-semibold text-content">{o.customerName}</div>
-                          <div className="text-[11px] text-muted">{o.customerPhone} · {new Date(o.createdAt).toLocaleString('es-AR')}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {o.seller && <Badge tone="sky">Vendedor: {o.seller}</Badge>}
-                          {o.envioGratis && <Badge tone="emerald">Envío gratis</Badge>}
-                          <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
-                        </div>
-                      </div>
-                      <div className="mt-2.5 space-y-1 border-t border-line/10 pt-2.5 text-[12.5px] text-muted">
-                        {o.items.map((it, i) => (
-                          <div key={i} className="flex justify-between">
-                            <span>{it.qty}x {it.name}</span>
-                            <span className="tnum">{money(it.unitPrice * it.qty)}</span>
+          <div className="space-y-5">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Clock className="h-4 w-4 text-amber" /> Pendientes de facturar</CardTitle>
+                <span className="text-xs text-muted">{pendingOrders.length} pedido{pendingOrders.length === 1 ? '' : 's'}</span>
+              </CardHeader>
+              <CardContent>
+                {pendingOrders.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
+                    No hay pedidos pendientes de facturar.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingOrders.map((o) => (
+                      <div key={o.id} className="rounded-xl border border-line/10 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="font-semibold text-content">{o.customerName}</div>
+                            <div className="text-[11px] text-muted">{o.customerPhone} · {new Date(o.createdAt).toLocaleString('es-AR')}</div>
                           </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        {o.clientId && (
-                          <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">
-                            Ver conversación en Bandeja →
-                          </a>
-                        )}
-                        {o.invoiced ? (
-                          <Badge tone="emerald">Facturado · {o.comprobanteNumero}</Badge>
-                        ) : (
+                          <div className="flex items-center gap-2">
+                            {o.seller && <Badge tone="sky">Vendedor: {o.seller}</Badge>}
+                            {o.envioGratis && <Badge tone="emerald">Envío gratis</Badge>}
+                            <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 space-y-1 border-t border-line/10 pt-2.5 text-[12.5px] text-muted">
+                          {o.items.map((it, i) => (
+                            <div key={i} className="flex justify-between">
+                              <span>{it.qty}x {it.name}</span>
+                              <span className="tnum">{money(it.unitPrice * it.qty)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          {o.clientId && (
+                            <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">
+                              Ver conversación en Bandeja →
+                            </a>
+                          )}
                           <Button size="sm" variant="soft" onClick={() => setInvoicingOrder(o)}>
                             <ReceiptText className="h-3.5 w-3.5" /> Facturar
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-emerald" /> Facturados</CardTitle>
+                <span className="text-xs text-muted">{invoicedOrders.length} pedido{invoicedOrders.length === 1 ? '' : 's'}</span>
+              </CardHeader>
+              <CardContent>
+                {invoicedOrders.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
+                    Todavía no facturaste ningún pedido de la tienda.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {invoicedOrders.map((o) => (
+                      <div key={o.id} className="rounded-xl border border-line/10 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="font-semibold text-content">{o.customerName}</div>
+                            <div className="text-[11px] text-muted">{o.customerPhone} · {new Date(o.createdAt).toLocaleString('es-AR')}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {o.seller && <Badge tone="sky">Vendedor: {o.seller}</Badge>}
+                            {o.envioGratis && <Badge tone="emerald">Envío gratis</Badge>}
+                            <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 space-y-1 border-t border-line/10 pt-2.5 text-[12.5px] text-muted">
+                          {o.items.map((it, i) => (
+                            <div key={i} className="flex justify-between">
+                              <span>{it.qty}x {it.name}</span>
+                              <span className="tnum">{money(it.unitPrice * it.qty)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          {o.clientId && (
+                            <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">
+                              Ver conversación en Bandeja →
+                            </a>
+                          )}
+                          <Badge tone="emerald">Facturado · {o.comprobanteNumero}</Badge>
+                          <Button size="sm" variant="outline" onClick={() => downloadInvoice(o)}>
+                            <Download className="h-3.5 w-3.5" /> Descargar factura
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </main>
 
