@@ -122,9 +122,11 @@ export default function TiendaPage() {
   const qtyInCart = (productId: string) => cart.find((c) => c.productId === productId)?.qty ?? 0;
 
   const buildOrderText = () => {
-    const lines = cartLines.map((l) => `• ${l.qty}x ${l.product.name} — ${money(l.subtotal)}`).join('\n');
-    const envio = envioGratis ? '\nEnvío: GRATIS 🎉' : '';
-    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\nTotal: ${money(subtotal)}${envio}\n\nNombre: ${form.name}\nTeléfono: ${form.phone}`;
+    const lines = cartLines.map((l, i) =>
+      `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} bulto${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
+    ).join('\n\n');
+    const envio = envioGratis ? 'Envío: gratis' : 'Envío: a coordinar';
+    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\n${envio}\n*Total: ${money(subtotal)}*\n\nNombre: ${form.name}\nTeléfono: ${form.phone}`;
   };
 
   const sendOrder = () => {
@@ -480,9 +482,17 @@ export default function TiendaPage() {
                   style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
                 />
               </div>
-              <div className="mt-3 max-h-[160px] overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
-                {cartLines.map((l) => <div key={l.productId} className="flex justify-between py-0.5"><span>{l.qty}x {l.product.name}</span><span className="shrink-0 pl-2">{money(l.subtotal)}</span></div>)}
-                <div className="flex justify-between py-0.5"><span>Envío</span><span className="shrink-0 pl-2 font-semibold" style={{ color: envioGratis ? '#22C55E' : undefined }}>{envioGratis ? 'GRATIS' : 'A coordinar'}</span></div>
+              <div className="mt-3 max-h-[180px] space-y-1.5 overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
+                {cartLines.map((l) => (
+                  <div key={l.productId} className="flex items-start justify-between gap-2 border-b border-black/5 pb-1.5 last:border-0 last:pb-0">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-neutral-800">{l.product.name}</div>
+                      <div className="text-[11px] text-neutral-400">{l.qty} bulto{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
+                    </div>
+                    <span className="shrink-0 font-semibold text-neutral-800">{money(l.subtotal)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-0.5"><span>Envío</span><span className="shrink-0 pl-2 font-semibold" style={{ color: envioGratis ? '#22C55E' : undefined }}>{envioGratis ? 'Gratis' : 'A coordinar'}</span></div>
                 <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
               </div>
               {formError && <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}

@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PRODUCT_ROWS, IVA_CONDITION_LABEL, type Client } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients, fromBackend as fromBackendClient } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
 import { api } from '@/lib/api';
 import { pesosEnLetras } from '@/lib/utils';
 
@@ -84,6 +85,8 @@ function FacturacionInner() {
   const searchParams = useSearchParams();
   const { clients: CLIENTS } = useClients();
   const { appendMessage: sendToChat } = useChatThreads();
+  const { orders: tiendaOrders, markInvoiced } = useTiendaOrders();
+  const autoInvoiceRef = useRef(false);
   const [tab, setTab] = useState<'emitir' | 'libro'>('emitir');
   const [clientId, setClientId] = useState('');
 
@@ -197,6 +200,30 @@ function FacturacionInner() {
     printComprobante(entry);
     return entry;
   };
+
+  // Llegó desde Bandeja con "Confirmar pedido y facturar": genera el remito solo, sin re-tipear los ítems,
+  // lo manda al chat del cliente y vuelve a Bandeja — el vendedor no tiene que tocar nada más.
+  useEffect(() => {
+    const autoOrderId = searchParams.get('autoOrderId');
+    if (!autoOrderId || autoInvoiceRef.current) return;
+    const order = tiendaOrders.find((o) => o.id === autoOrderId);
+    if (!order || order.invoiced || !order.clientId) return;
+    const client = CLIENTS.find((c) => c.id === order.clientId);
+    if (!client) return;
+
+    autoInvoiceRef.current = true;
+    const items: Item[] = order.items.map((it) => ({
+      detalle: it.name, cantidad: it.qty, unitPrice: it.unitPrice, subtotal: it.unitPrice * it.qty, ivaRate: 0,
+    }));
+    commitEntry({
+      tipo: 'REMITO', letra: 'R', clientId: order.clientId,
+      items, subtotal: order.subtotal, ivaGroups: [], ivaImporte: 0,
+    }).then((entry) => {
+      markInvoiced(order.id, entry.numero);
+      sendToChat(client, { content: `${TIPO_LABEL.REMITO} ${entry.letra} · ${entry.numero}.pdf`, type: 'DOCUMENTO' });
+      router.replace(`/bandeja?clientId=${order.clientId}`);
+    });
+  }, [searchParams, tiendaOrders, CLIENTS]);
 
   const emitir = () => {
     setFormError('');

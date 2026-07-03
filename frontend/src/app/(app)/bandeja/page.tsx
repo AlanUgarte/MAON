@@ -15,6 +15,7 @@ import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
 import { api } from '@/lib/api';
 import { cn, initials, timeAgo } from '@/lib/utils';
 
@@ -52,6 +53,7 @@ function BandejaInner() {
   const { clients: CLIENTS } = useClients();
   const { getThread, appendMessage: appendToClient } = useChatThreads();
   const { products: PRODUCT_ROWS } = useProductCatalog();
+  const { orders: tiendaOrders } = useTiendaOrders();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [search, setSearch] = useState('');
@@ -76,6 +78,7 @@ function BandejaInner() {
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
   const thread = active ? getThread(active) : [];
+  const pendingOrder = active ? tiendaOrders.find((o) => o.clientId === active.id && !o.invoiced) : undefined;
   const q = search.trim().toLowerCase();
   const visibleClients = q
     ? CLIENTS.filter((c) => `${c.firstName} ${c.lastName} ${c.phone}`.toLowerCase().includes(q))
@@ -215,6 +218,17 @@ function BandejaInner() {
             <StatusBadge stage={active.stage} />
             <Button variant="outline" size="sm" className="hidden sm:inline-flex"><ChevronDown className="h-4 w-4" /> Estado</Button>
           </div>
+
+          {pendingOrder && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber/20 bg-amber/10 px-3 py-2.5 lg:px-5">
+              <div className="text-[12.5px] text-content">
+                <b>Pedido de la tienda sin facturar</b> · {money(pendingOrder.subtotal)} · {pendingOrder.items.length} producto{pendingOrder.items.length === 1 ? '' : 's'}
+              </div>
+              <Button size="sm" onClick={() => router.push(`/facturacion?clientId=${active.id}&autoOrderId=${pendingOrder.id}`)}>
+                Confirmar pedido y facturar
+              </Button>
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 lg:p-5">
             <div className="mx-auto w-fit rounded-full bg-surface-2/60 px-3 py-1 text-[11px] text-muted">Hoy</div>

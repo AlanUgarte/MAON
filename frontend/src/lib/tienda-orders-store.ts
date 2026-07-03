@@ -16,6 +16,8 @@ export interface TiendaOrder {
   items: TiendaOrderItem[];
   subtotal: number;
   envioGratis: boolean;
+  invoiced?: boolean;
+  comprobanteNumero?: string;
 }
 
 function load(): TiendaOrder[] {
@@ -37,5 +39,11 @@ export function useTiendaOrders() {
     return order;
   };
 
-  return { orders, addOrder };
+  const markInvoiced = (orderId: string, comprobanteNumero: string) => {
+    const next = load().map((o) => (o.id === orderId ? { ...o, invoiced: true, comprobanteNumero } : o));
+    setOrders(next);
+    localStorage.setItem(KEY, JSON.stringify(next));
+  };
+
+  return { orders, addOrder, markInvoiced };
 }
