@@ -2,13 +2,13 @@ import { IVA_CONDITION_LABEL } from './mock';
 import { TIPO_LABEL, type Comprobante } from './comprobantes-store';
 import { pesosEnLetras } from './utils';
 
-// ponytail: datos del emisor a completar con los reales de MAON cuando estén disponibles
+// ponytail: dirección, Ingresos Brutos e inicio de actividades siguen a completar (no confirmados aún)
 export const EMISOR = {
-  nombre: 'MAON - Mayorista Online',
+  nombre: 'UGARTE ALAN ISMAEL (MAON - Mayorista Online)',
   direccion: 'Dirección a completar',
   localidad: 'Rosario',
   provincia: 'Santa Fe',
-  cuit: '00-00000000-0',
+  cuit: '20-43005969-7',
   ivaCondition: 'Responsable Inscripto',
   ingresosBrutos: 'A completar',
   inicioActividades: 'A completar',
