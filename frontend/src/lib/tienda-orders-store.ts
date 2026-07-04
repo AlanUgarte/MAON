@@ -19,6 +19,10 @@ export interface TiendaOrder {
   invoiced?: boolean;
   comprobanteNumero?: string;
   seller?: string;
+  // Datos logísticos elegidos en el checkout de la tienda.
+  wantsShipping: boolean;
+  shippingAddress?: string;
+  availableSchedule?: string;
 }
 
 function load(): TiendaOrder[] {

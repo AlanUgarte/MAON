@@ -264,6 +264,15 @@ export default function TiendaConfigPage() {
                             </div>
                           ))}
                         </div>
+                        {o.wantsShipping !== undefined && (
+                          <div className="mt-2.5 rounded-lg bg-surface-2/50 px-3 py-2 text-[12px] text-content">
+                            {o.wantsShipping ? (
+                              <>📦 Envío a: <b>{o.shippingAddress}</b> · Horario: <b>{o.availableSchedule}</b></>
+                            ) : (
+                              <>🏪 Retira en el local</>
+                            )}
+                          </div>
+                        )}
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           {o.clientId && (
                             <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">
@@ -314,6 +323,15 @@ export default function TiendaConfigPage() {
                             </div>
                           ))}
                         </div>
+                        {o.wantsShipping !== undefined && (
+                          <div className="mt-2.5 rounded-lg bg-surface-2/50 px-3 py-2 text-[12px] text-content">
+                            {o.wantsShipping ? (
+                              <>📦 Envío a: <b>{o.shippingAddress}</b> · Horario: <b>{o.availableSchedule}</b></>
+                            ) : (
+                              <>🏪 Retira en el local</>
+                            )}
+                          </div>
+                        )}
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           {o.clientId && (
                             <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">

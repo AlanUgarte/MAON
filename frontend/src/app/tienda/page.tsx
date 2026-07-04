@@ -70,7 +70,7 @@ function TiendaInner() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '' });
+  const [form, setForm] = useState({ name: '', phone: '', wantsShipping: true, address: '', schedule: '' });
   const [formError, setFormError] = useState('');
   const [sent, setSent] = useState(false);
   const [bump, setBump] = useState(false);
@@ -140,13 +140,18 @@ function TiendaInner() {
     const lines = cartLines.map((l, i) =>
       `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} bulto${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
     ).join('\n\n');
-    const envio = envioGratis ? 'Envío: gratis' : 'Envío: a coordinar';
-    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\n${envio}\n*Total: ${money(subtotal)}*\n\nNombre: ${form.name}\nTeléfono: ${form.phone}`;
+    const envio = form.wantsShipping
+      ? `Envío: ${envioGratis ? 'gratis' : 'a coordinar'}\nDirección: ${form.address}\nHorario disponible: ${form.schedule}`
+      : 'Envío: no quiere, retira en el local';
+    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\n${envio}\n*Total: ${money(subtotal)}*\n\nNombre: ${form.name}\nTeléfono: ${form.phone}\n\nEl pedido se despacha entre 24 y 48 hs.`;
   };
 
   const sendOrder = () => {
     if (!form.name.trim() || !form.phone.trim()) return setFormError('Nombre y teléfono son obligatorios');
     if (subtotal < settings.minCompra) return setFormError(`La compra mínima es ${money(settings.minCompra)}`);
+    if (form.wantsShipping && (!form.address.trim() || !form.schedule.trim())) {
+      return setFormError('Para el envío hace falta la dirección y un horario disponible');
+    }
     setFormError('');
 
     // Si ya es cliente (mismo teléfono), el pedido se suma a su misma conversación
@@ -169,6 +174,9 @@ function TiendaInner() {
         customerName: form.name.trim(), customerPhone: form.phone.trim(), clientId: c.id,
         items: cartLines.map((l) => ({ productId: l.productId, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
         subtotal, envioGratis, seller: vendedor || undefined,
+        wantsShipping: form.wantsShipping,
+        shippingAddress: form.wantsShipping ? form.address.trim() : undefined,
+        availableSchedule: form.wantsShipping ? form.schedule.trim() : undefined,
       });
     });
 
@@ -177,7 +185,7 @@ function TiendaInner() {
     setSent(true);
   };
 
-  const closeCheckout = () => { setShowCheckout(false); if (sent) { setCart([]); setForm({ name: '', phone: '' }); setSent(false); } };
+  const closeCheckout = () => { setShowCheckout(false); if (sent) { setCart([]); setForm({ name: '', phone: '', wantsShipping: true, address: '', schedule: '' }); setSent(false); } };
 
   if (!settings.storeOpen) {
     return (
@@ -516,6 +524,47 @@ function TiendaInner() {
                   className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
                   style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
                 />
+
+                <div className="text-[12.5px] font-semibold text-neutral-700">¿Querés que te enviemos el pedido?</div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, wantsShipping: true }))}
+                    className="h-10 flex-1 rounded-xl border text-sm font-semibold transition"
+                    style={form.wantsShipping ? { background: BRAND, borderColor: BRAND, color: '#fff' } : { borderColor: 'rgba(0,0,0,0.08)', color: '#525252' }}
+                  >
+                    Sí, quiero envío
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, wantsShipping: false }))}
+                    className="h-10 flex-1 rounded-xl border text-sm font-semibold transition"
+                    style={!form.wantsShipping ? { background: BRAND, borderColor: BRAND, color: '#fff' } : { borderColor: 'rgba(0,0,0,0.08)', color: '#525252' }}
+                  >
+                    No, retiro en el local
+                  </button>
+                </div>
+                {form.wantsShipping && (
+                  <>
+                    <input
+                      value={form.address}
+                      onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                      placeholder="Dirección de entrega*"
+                      className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+                      style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                    />
+                    <input
+                      value={form.schedule}
+                      onChange={(e) => setForm((f) => ({ ...f, schedule: e.target.value }))}
+                      placeholder="Horario disponible para recibirlo*"
+                      className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+                      style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
+                    />
+                  </>
+                )}
+                <div className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-3 py-2 text-[11.5px] text-neutral-500">
+                  <Truck className="h-3.5 w-3.5 shrink-0" /> El pedido se despacha entre 24 y 48 hs.
+                </div>
               </div>
               <div className="mt-3 max-h-[180px] space-y-1.5 overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
                 {cartLines.map((l) => (
@@ -527,7 +576,7 @@ function TiendaInner() {
                     <span className="shrink-0 font-semibold text-neutral-800">{money(l.subtotal)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between pt-0.5"><span>Envío</span><span className="shrink-0 pl-2 font-semibold" style={{ color: envioGratis ? '#22C55E' : undefined }}>{envioGratis ? 'Gratis' : 'A coordinar'}</span></div>
+                <div className="flex justify-between pt-0.5"><span>Envío</span><span className="shrink-0 pl-2 font-semibold" style={{ color: form.wantsShipping && envioGratis ? '#22C55E' : undefined }}>{!form.wantsShipping ? 'Retira en el local' : envioGratis ? 'Gratis' : 'A coordinar'}</span></div>
                 <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
               </div>
               {formError && <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
