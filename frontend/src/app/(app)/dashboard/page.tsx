@@ -17,7 +17,7 @@ import {
 import { useClients } from '@/lib/clients-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
-import { api } from '@/lib/api';
+import { api, getUser } from '@/lib/api';
 import { formatARS, formatNumber, initials } from '@/lib/utils';
 
 const PIPE_COLORS: Record<string, string> = {
@@ -32,7 +32,11 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { clients: CLIENTS } = useClients();
+  const user = getUser();
+  const isVendedor = user?.role === 'VENDEDOR';
+  const { clients: allClients } = useClients();
+  // Un vendedor solo ve sus propios leads en "Lead más caliente" / "Requieren atención".
+  const CLIENTS = isVendedor ? allClients.filter((c) => c.seller === user!.fullName) : allClients;
   const [overview, setOverview] = useState<any | null>(null);
   useEffect(() => { api.overview().then(setOverview).catch(() => setOverview(null)); }, []);
   const [insights, setInsights] = useState<any | null>(null);
@@ -50,8 +54,9 @@ export default function DashboardPage() {
         sales: overview.salesByDay[i]?.value ?? 0,
       }))
     : SERIES;
-  const salesByProduct = overview?.salesByProduct?.length ? overview.salesByProduct : SALES_BY_PRODUCT;
-  const campaignConversion = overview?.conversionByCampaign?.length ? overview.conversionByCampaign : CAMPAIGN_CONVERSION;
+  // Para un vendedor, sin datos reales significa "todavía no vendió nada" — no mostrar el mock global.
+  const salesByProduct = overview?.salesByProduct?.length ? overview.salesByProduct : (isVendedor ? [] : SALES_BY_PRODUCT);
+  const campaignConversion = overview?.conversionByCampaign?.length ? overview.conversionByCampaign : (isVendedor ? [] : CAMPAIGN_CONVERSION);
 
   const hot = [...CLIENTS].sort((a, b) => b.leadScore - a.leadScore).slice(0, 4);
   const topLead = hot[0];
@@ -61,7 +66,7 @@ export default function DashboardPage() {
   // publicidad se sigue cargando a mano (no hay integración con Meta Ads todavía).
   const { comprobantes } = useComprobantesStore();
   const { settings } = useTiendaSettings();
-  const [sellerFilter, setSellerFilter] = useState('');
+  const [sellerFilter, setSellerFilter] = useState(isVendedor ? user!.fullName : '');
   const sellers = useMemo(
     () => [...new Set(comprobantes.map((c) => c.seller).filter((s) => s && s !== '-'))].sort(),
     [comprobantes],
@@ -93,14 +98,18 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Resumen financiero · facturación real</CardTitle>
-            <select
-              value={sellerFilter}
-              onChange={(e) => setSellerFilter(e.target.value)}
-              className="h-8 rounded-lg border border-line/15 bg-surface px-2.5 text-[12px] font-semibold text-content focus:border-primary/50 focus:outline-none"
-            >
-              <option value="">Todos los vendedores</option>
-              {sellers.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            {isVendedor ? (
+              <Badge tone="sky">{user!.fullName}</Badge>
+            ) : (
+              <select
+                value={sellerFilter}
+                onChange={(e) => setSellerFilter(e.target.value)}
+                className="h-8 rounded-lg border border-line/15 bg-surface px-2.5 text-[12px] font-semibold text-content focus:border-primary/50 focus:outline-none"
+              >
+                <option value="">Todos los vendedores</option>
+                {sellers.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

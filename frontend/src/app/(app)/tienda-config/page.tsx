@@ -12,6 +12,7 @@ import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-st
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
+import { getUser } from '@/lib/api';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -28,15 +29,20 @@ const RENDER_CAP = 150;
 
 export default function TiendaConfigPage() {
   const router = useRouter();
+  const user = getUser();
+  const isVendedor = user?.role === 'VENDEDOR';
   const { settings, save } = useTiendaSettings();
-  const { orders } = useTiendaOrders();
+  const { orders: allOrders } = useTiendaOrders();
+  // Un vendedor solo ve sus propios pedidos de tienda (a quién le vendió, quién le debe, etc.).
+  const orders = isVendedor ? allOrders.filter((o) => o.seller === user!.fullName) : allOrders;
   const { comprobantes } = useComprobantesStore();
   const { products: PRODUCT_ROWS } = useProductCatalog();
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('general');
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>(isVendedor ? 'pedidos' : 'general');
   const [q, setQ] = useState('');
   const [invoicingOrder, setInvoicingOrder] = useState<TiendaOrder | null>(null);
+  const visibleTabs = isVendedor ? TABS.filter((t) => t.key === 'pedidos') : TABS;
 
   useEffect(() => setForm(settings), [settings]);
 
@@ -76,11 +82,14 @@ export default function TiendaConfigPage() {
 
   return (
     <>
-      <Topbar title="Tienda online" subtitle="Configurá el banner, el contenido, los productos y revisá los pedidos de la tienda pública" />
+      <Topbar
+        title={isVendedor ? 'Mis pedidos' : 'Tienda online'}
+        subtitle={isVendedor ? 'Tus pedidos de la tienda: quién te debe y quién ya facturaste' : 'Configurá el banner, el contenido, los productos y revisá los pedidos de la tienda pública'}
+      />
       <main className="flex-1 space-y-5 p-5 lg:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex rounded-[10px] border border-line/15 bg-surface-2 p-0.5">
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const Icon = t.icon;
               return (
                 <button
@@ -279,9 +288,13 @@ export default function TiendaConfigPage() {
                               Ver conversación en Bandeja →
                             </a>
                           )}
-                          <Button size="sm" variant="soft" onClick={() => setInvoicingOrder(o)}>
-                            <ReceiptText className="h-3.5 w-3.5" /> Facturar
-                          </Button>
+                          {isVendedor ? (
+                            <span className="text-[12px] text-muted">Pendiente de facturar (lo hace un administrador)</span>
+                          ) : (
+                            <Button size="sm" variant="soft" onClick={() => setInvoicingOrder(o)}>
+                              <ReceiptText className="h-3.5 w-3.5" /> Facturar
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}

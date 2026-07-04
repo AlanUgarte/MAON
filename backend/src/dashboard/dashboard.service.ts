@@ -5,12 +5,14 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** KPIs principales + datos para gráficos. */
-  async overview() {
+  /** KPIs principales + datos para gráficos. Si se pasa sellerId, todo queda acotado a ese vendedor. */
+  async overview(sellerId?: string) {
     const now = new Date();
     const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
     const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - 7);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const clientWhere = sellerId ? { assignedSellerId: sellerId } : {};
+    const saleWhere = sellerId ? { sellerId } : {};
 
     const [
       leadsToday, leadsWeek, leadsMonth,
@@ -19,16 +21,16 @@ export class DashboardService {
       pendingLeads, withoutFollowUp,
       ticketAgg,
     ] = await this.prisma.$transaction([
-      this.prisma.client.count({ where: { createdAt: { gte: startOfDay } } }),
-      this.prisma.client.count({ where: { createdAt: { gte: startOfWeek } } }),
-      this.prisma.client.count({ where: { createdAt: { gte: startOfMonth } } }),
-      this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { createdAt: { gte: startOfDay } } }),
-      this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { createdAt: { gte: startOfMonth } } }),
-      this.prisma.client.count(),
-      this.prisma.client.count({ where: { stage: 'VENTA_CERRADA' } }),
-      this.prisma.client.count({ where: { stage: { in: ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA'] } } }),
-      this.prisma.client.count({ where: { followUps: { none: { status: 'PENDIENTE' } }, stage: { notIn: ['VENTA_CERRADA', 'VENTA_PERDIDA'] } } }),
-      this.prisma.sale.aggregate({ _avg: { total: true } }),
+      this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfDay } } }),
+      this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfWeek } } }),
+      this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfMonth } } }),
+      this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { ...saleWhere, createdAt: { gte: startOfDay } } }),
+      this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { ...saleWhere, createdAt: { gte: startOfMonth } } }),
+      this.prisma.client.count({ where: clientWhere }),
+      this.prisma.client.count({ where: { ...clientWhere, stage: 'VENTA_CERRADA' } }),
+      this.prisma.client.count({ where: { ...clientWhere, stage: { in: ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA'] } } }),
+      this.prisma.client.count({ where: { ...clientWhere, followUps: { none: { status: 'PENDIENTE' } }, stage: { notIn: ['VENTA_CERRADA', 'VENTA_PERDIDA'] } } }),
+      this.prisma.sale.aggregate({ _avg: { total: true }, where: saleWhere }),
     ]);
 
     const conversion = totalClients > 0 ? (wonClients / totalClients) * 100 : 0;
@@ -45,17 +47,18 @@ export class DashboardService {
         pendingLeads,
         withoutFollowUp,
       },
-      pipeline: await this.pipelineCounts(),
-      leadsByDay: await this.seriesByDay('client', 14),
-      salesByDay: await this.salesByDay(14),
-      salesByProduct: await this.salesByProduct(),
-      conversionByCampaign: await this.conversionByCampaign(),
+      pipeline: await this.pipelineCounts(clientWhere),
+      leadsByDay: await this.seriesByDay(clientWhere, 14),
+      salesByDay: await this.salesByDay(saleWhere, 14),
+      salesByProduct: await this.salesByProduct(sellerId),
+      conversionByCampaign: sellerId ? [] : await this.conversionByCampaign(),
     };
   }
 
-  private async pipelineCounts() {
+  private async pipelineCounts(clientWhere: Record<string, any>) {
     const grouped = await this.prisma.client.groupBy({
       by: ['stage'],
+      where: clientWhere,
       _count: { _all: true },
     });
     const order = ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA', 'VENTA_CERRADA', 'VENTA_PERDIDA'];
@@ -66,24 +69,24 @@ export class DashboardService {
   }
 
   /** Serie de conteo diario (leads creados). */
-  private async seriesByDay(_entity: 'client', days: number) {
+  private async seriesByDay(clientWhere: Record<string, any>, days: number) {
     const since = new Date();
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
 
     const rows = await this.prisma.client.findMany({
-      where: { createdAt: { gte: since } },
+      where: { ...clientWhere, createdAt: { gte: since } },
       select: { createdAt: true },
     });
     return this.bucketByDay(rows.map((r) => r.createdAt), days);
   }
 
-  private async salesByDay(days: number) {
+  private async salesByDay(saleWhere: Record<string, any>, days: number) {
     const since = new Date();
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
     const rows = await this.prisma.sale.findMany({
-      where: { createdAt: { gte: since } },
+      where: { ...saleWhere, createdAt: { gte: since } },
       select: { createdAt: true, total: true },
     });
     const buckets: Record<string, number> = {};
@@ -111,9 +114,10 @@ export class DashboardService {
     return Object.entries(buckets).map(([date, value]) => ({ date, value }));
   }
 
-  private async salesByProduct() {
+  private async salesByProduct(sellerId?: string) {
     const items = await this.prisma.saleItem.groupBy({
       by: ['productId'],
+      where: sellerId ? { sale: { sellerId } } : undefined,
       _sum: { quantity: true },
     });
     const products = await this.prisma.product.findMany({

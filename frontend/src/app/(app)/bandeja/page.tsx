@@ -18,7 +18,7 @@ import { useChatThreads } from '@/lib/chat-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
-import { api } from '@/lib/api';
+import { api, getUser } from '@/lib/api';
 import { cn, initials, timeAgo } from '@/lib/utils';
 
 const OBJECTION_LABEL: Record<string, string> = {
@@ -74,7 +74,10 @@ function getProductMedia(p: ProductRow): { type: 'IMAGEN' | 'VIDEO'; url: string
 
 function BandejaInner() {
   const router = useRouter();
-  const { clients: CLIENTS, updateClient } = useClients();
+  const { clients: allClients, updateClient } = useClients();
+  const user = getUser();
+  // Un vendedor solo ve las conversaciones de sus propios clientes.
+  const CLIENTS = user?.role === 'VENDEDOR' ? allClients.filter((c) => c.seller === user.fullName) : allClients;
   const { getThread, appendMessage: appendToClient, loadThread } = useChatThreads();
   const { products: fullCatalog } = useProductCatalog();
   const { settings } = useTiendaSettings();

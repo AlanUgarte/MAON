@@ -4,13 +4,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
 import { ThemeToggle } from './theme-toggle';
 
-const NAV = [
+interface NavItem { href: string; label: string; icon: typeof LayoutDashboard; badge?: number }
+
+const FULL_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText, badge: 7 },
@@ -20,6 +22,15 @@ const NAV = [
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
+  { href: '/vendedores', label: 'Equipo', icon: Users },
+];
+
+// Los vendedores solo ven su propio trabajo: sus clientes, su WhatsApp, su dashboard y sus pedidos de tienda.
+const VENDEDOR_NAV: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText },
+  { href: '/tienda-config', label: 'Mis pedidos', icon: ClipboardList },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -32,6 +43,8 @@ export function TopNav() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   useEffect(() => setUser(getUser()), []);
+  const isVendedor = user?.role === 'VENDEDOR';
+  const NAV = isVendedor ? VENDEDOR_NAV : FULL_NAV;
 
   const handleLogout = () => {
     logout();
@@ -79,6 +92,16 @@ export function TopNav() {
         <nav className="mx-auto hidden items-center gap-0.5 xl:flex">{items()}</nav>
 
         <div className="ml-auto flex items-center gap-2 xl:ml-0">
+          {isVendedor && (
+            <a
+              href={`/tienda?vendedor=${encodeURIComponent(user?.fullName || '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white transition hover:bg-primary/90"
+            >
+              <Store className="h-3.5 w-3.5" /> Ir a la tienda <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           <ThemeToggle />
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{initials(user?.fullName || '')}</span>
           <div className="hidden leading-tight 2xl:block">

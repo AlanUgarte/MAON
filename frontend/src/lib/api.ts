@@ -71,6 +71,10 @@ export const api = {
       body: JSON.stringify({ fullName, email, password, role }),
     }),
   me: () => request<any>('/auth/me'),
+  createSeller: (fullName: string, email: string, password: string, role: 'VENDEDOR' | 'SUPERVISOR' = 'VENDEDOR') =>
+    request<any>('/auth/users', { method: 'POST', body: JSON.stringify({ fullName, email, password, role }) }),
+  sellers: () => request<any>('/auth/users'),
+  toggleSeller: (id: string) => request<any>(`/auth/users/${id}/toggle`, { method: 'PATCH' }),
 
   // Dashboard
   overview: () => request<any>('/dashboard/overview'),

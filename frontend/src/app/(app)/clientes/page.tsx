@@ -8,7 +8,7 @@ import { ScoreBar } from '@/components/app/score-gauge';
 import { StatusBadge } from '@/components/app/status-badge';
 import { PIPELINE, STAGE_LABEL, IVA_CONDITION_LABEL, type Stage, type IvaCondition } from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
-import { api } from '@/lib/api';
+import { api, getUser } from '@/lib/api';
 import { cn, initials, timeAgo } from '@/lib/utils';
 
 const STAGES: Stage[] = ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA', 'VENTA_CERRADA', 'VENTA_PERDIDA'];
@@ -20,7 +20,11 @@ const emptyForm = {
 };
 
 export default function ClientesPage() {
-  const { clients: CLIENTS, addClient, updateClient, deleteClient } = useClients();
+  const { clients: allClients, addClient, updateClient, deleteClient } = useClients();
+  const user = getUser();
+  const isVendedor = user?.role === 'VENDEDOR';
+  // Un vendedor solo ve (y factura, según Dashboard) los clientes asignados a él.
+  const CLIENTS = isVendedor ? allClients.filter((c) => c.seller === user!.fullName) : allClients;
   const [view, setView] = useState<'tabla' | 'kanban'>('tabla');
   const [filter, setFilter] = useState<Stage | 'TODOS'>('TODOS');
   const [search, setSearch] = useState('');
@@ -64,7 +68,7 @@ export default function ClientesPage() {
         ...form,
         stage: 'NUEVO_LEAD', product: '', source: 'WHATSAPP', leadScore: 0,
         intent: 'BAJA', sentiment: 'NEUTRO', tags: [], lastInboundAt: new Date().toISOString(),
-        unread: 0, summary: '', objection: 'NINGUNA', seller: '-',
+        unread: 0, summary: '', objection: 'NINGUNA', seller: user?.fullName || '-',
       });
     }
     setForm(emptyForm);
