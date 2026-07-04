@@ -88,9 +88,11 @@ export default function TiendaConfigPage() {
     importText.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
       const [rawName, rawPromo] = line.split('|').map((s) => s.trim());
       if (!rawName || !rawPromo) return;
-      const target = normalize(rawName);
-      const product = PRODUCT_ROWS.find((p) => normalize(p.name) === target)
-        ?? PRODUCT_ROWS.find((p) => normalize(p.name).includes(target) || target.includes(normalize(p.name)));
+      // Si es todo dígitos, se matchea por SKU exacto (más confiable que por nombre).
+      const product = /^\d+$/.test(rawName)
+        ? PRODUCT_ROWS.find((p) => p.sku === rawName)
+        : (PRODUCT_ROWS.find((p) => normalize(p.name) === normalize(rawName))
+          ?? PRODUCT_ROWS.find((p) => normalize(p.name).includes(normalize(rawName)) || normalize(rawName).includes(normalize(p.name))));
       if (!product) { unmatched.push(rawName); return; }
 
       let discountPct: number | undefined;
@@ -446,7 +448,7 @@ export default function TiendaConfigPage() {
           <div className="card w-full max-w-lg space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
             <div className="text-base font-semibold text-content">Importar promos</div>
             <p className="text-[12.5px] text-muted">
-              Una línea por producto: <code>Nombre del producto | 21x20</code> (paga 20, lleva 1 gratis) o <code>Nombre | 15%</code> para descuento directo.
+              Una línea por producto: <code>SKU | 21x20</code>, <code>SKU | 15%</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
             </p>
             <textarea
               rows={10}
