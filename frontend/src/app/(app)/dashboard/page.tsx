@@ -35,6 +35,8 @@ export default function DashboardPage() {
   const { clients: CLIENTS } = useClients();
   const [overview, setOverview] = useState<any | null>(null);
   useEffect(() => { api.overview().then(setOverview).catch(() => setOverview(null)); }, []);
+  const [insights, setInsights] = useState<any | null>(null);
+  useEffect(() => { api.insights().then(setInsights).catch(() => setInsights(null)); }, []);
 
   const kpis = overview?.kpis ?? KPIS;
   const pipeline = overview?.pipeline
@@ -138,6 +140,35 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Insights de IA */}
+        {insights && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Insights de IA</CardTitle>
+              {!insights.usedAI && <Badge tone="muted">heurístico</Badge>}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-[13px] font-medium text-content">{insights.headline}</p>
+              <ul className="list-disc space-y-1 pl-4 text-[12.5px] text-muted">
+                {(insights.findings ?? []).map((f: string, i: number) => <li key={i}>{f}</li>)}
+              </ul>
+              {(insights.recommendations ?? []).length > 0 && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {insights.recommendations.map((r: any, i: number) => (
+                    <div key={i} className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-semibold text-content">{r.title}</span>
+                        <Badge tone={r.impact === 'ALTO' ? 'rose' : r.impact === 'MEDIO' ? 'amber' : 'muted'}>{r.impact}</Badge>
+                      </div>
+                      <p className="mt-1 text-[11.5px] text-muted">{r.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Gráficos + score destacado */}
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">

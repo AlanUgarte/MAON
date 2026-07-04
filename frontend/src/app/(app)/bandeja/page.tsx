@@ -93,6 +93,9 @@ function BandejaInner() {
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [analyzeResult, setAnalyzeResult] = useState<any | null>(null);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState('');
   const [showInvoiceChoice, setShowInvoiceChoice] = useState(false);
   const [sendError, setSendError] = useState('');
 
@@ -108,6 +111,8 @@ function BandejaInner() {
     setAiSuggestions(null);
     setAiError('');
     setSendError('');
+    setAnalyzeResult(null);
+    setAnalyzeError('');
   }, [activeId]);
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
@@ -159,6 +164,21 @@ function BandejaInner() {
       setAiSuggestions(null);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // Reanaliza al cliente con IA (/ai/clients/:id/analyze) y persiste el resultado en el backend.
+  const analyzeClient = async () => {
+    setAnalyzeLoading(true);
+    setAnalyzeError('');
+    try {
+      const res = await api.analyze(active.id);
+      setAnalyzeResult(res);
+    } catch (err: any) {
+      setAnalyzeError(err.message === 'Failed to fetch' ? 'Backend no disponible.' : 'No se pudo analizar con IA.');
+      setAnalyzeResult(null);
+    } finally {
+      setAnalyzeLoading(false);
     }
   };
 
@@ -476,6 +496,18 @@ function BandejaInner() {
             </Button>
             {aiError && <div className="rounded-lg border border-line/10 bg-surface-2/60 px-2.5 py-1.5 text-[11px] text-muted">{aiError}</div>}
             {aiSuggestions && !aiError && <div className="text-[11px] text-emerald">✓ Generadas con IA (Claude)</div>}
+
+            <Button variant="soft" className="w-full" onClick={analyzeClient} disabled={analyzeLoading}>
+              <Sparkles className="h-4 w-4" /> {analyzeLoading ? 'Analizando…' : 'Analizar con IA'}
+            </Button>
+            {analyzeError && <div className="rounded-lg border border-line/10 bg-surface-2/60 px-2.5 py-1.5 text-[11px] text-muted">{analyzeError}</div>}
+            {analyzeResult && !analyzeError && (
+              <div className="space-y-1.5 rounded-xl border border-primary/15 bg-primary/5 p-3">
+                <div className="text-[11px] font-semibold text-primary">Score {analyzeResult.leadScore} · {analyzeResult.sentiment}</div>
+                <p className="text-[12px] text-content">{analyzeResult.summary}</p>
+                <div className="text-[11px] text-muted">Próxima acción: {analyzeResult.nextAction}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

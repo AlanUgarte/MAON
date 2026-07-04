@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X, Pencil, Trash2 } from 'lucide-react';
+import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X, Pencil, Trash2, StickyNote } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { ScoreBar } from '@/components/app/score-gauge';
 import { StatusBadge } from '@/components/app/status-badge';
 import { PIPELINE, STAGE_LABEL, IVA_CONDITION_LABEL, type Stage, type IvaCondition } from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
+import { api } from '@/lib/api';
 import { cn, initials, timeAgo } from '@/lib/utils';
 
 const STAGES: Stage[] = ['NUEVO_LEAD', 'CONTACTADO', 'INTERESADO', 'NEGOCIANDO', 'ESPERANDO_RESPUESTA', 'VENTA_CERRADA', 'VENTA_PERDIDA'];
@@ -27,6 +28,11 @@ export default function ClientesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [notesFor, setNotesFor] = useState<{ id: string; name: string } | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState('');
+  const [noteDraft, setNoteDraft] = useState('');
 
   const q = search.trim().toLowerCase();
   const searched = q
@@ -68,6 +74,34 @@ export default function ClientesPage() {
 
   const removeClient = (id: string) => {
     if (confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) deleteClient(id);
+  };
+
+  const openNotes = async (c: (typeof CLIENTS)[number]) => {
+    setNotesFor({ id: c.id, name: `${c.firstName} ${c.lastName}` });
+    setNotes([]);
+    setNoteDraft('');
+    setNotesError('');
+    setNotesLoading(true);
+    try {
+      const full = await api.client(c.id);
+      setNotes(full.notes ?? []);
+    } catch (err: any) {
+      setNotesError(err.message === 'Failed to fetch' ? 'Backend no disponible: conectá tu cuenta para ver notas reales.' : 'No se pudieron cargar las notas.');
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const addNote = async () => {
+    if (!notesFor || !noteDraft.trim()) return;
+    try {
+      await api.addNote(notesFor.id, noteDraft.trim());
+      setNoteDraft('');
+      const full = await api.client(notesFor.id);
+      setNotes(full.notes ?? []);
+    } catch (err: any) {
+      setNotesError(err.message === 'Failed to fetch' ? 'Backend no disponible.' : 'No se pudo guardar la nota.');
+    }
   };
 
   const inp = 'h-9 w-full rounded-lg border border-line/15 bg-surface-2/60 px-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none';
@@ -125,6 +159,40 @@ export default function ClientesPage() {
           </div>
         )}
 
+        {notesFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setNotesFor(null)}>
+            <div className="card w-full max-w-md space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div className="text-base font-semibold text-content">Notas · {notesFor.name}</div>
+                <button onClick={() => setNotesFor(null)}><X className="h-4 w-4 text-muted" /></button>
+              </div>
+              <div className="max-h-[280px] space-y-2 overflow-y-auto">
+                {notesLoading && <div className="text-center text-[12px] text-muted">Cargando…</div>}
+                {!notesLoading && notes.length === 0 && !notesError && (
+                  <div className="rounded-xl border border-dashed border-line/15 p-4 text-center text-[12px] text-muted">Sin notas todavía.</div>
+                )}
+                {notes.map((n) => (
+                  <div key={n.id} className="rounded-xl border border-line/10 bg-surface-2/40 p-3">
+                    <p className="text-[13px] text-content">{n.content}</p>
+                    <div className="mt-1 text-[11px] text-muted">{n.author?.fullName ?? '—'} · {new Date(n.createdAt).toLocaleString('es-AR')}</div>
+                  </div>
+                ))}
+              </div>
+              {notesError && <div className="rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-xs text-rose">{notesError}</div>}
+              <div className="flex gap-2">
+                <input
+                  className={inp}
+                  placeholder="Agregar una nota…"
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                />
+                <Button onClick={addNote} disabled={!noteDraft.trim()}>Agregar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Chips de etapa */}
         <div className="flex flex-wrap gap-1.5">
           <button onClick={() => setFilter('TODOS')} className={cn('rounded-full px-3 py-1.5 text-xs font-medium transition', filter === 'TODOS' ? 'bg-primary text-white' : 'bg-surface-2/60 text-muted hover:text-content')}>Todos</button>
@@ -169,6 +237,7 @@ export default function ClientesPage() {
                       <td className="px-4 py-3"><span className="text-[12px] text-muted">{timeAgo(c.lastInboundAt)}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openNotes(c)} aria-label="Notas" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><StickyNote className="h-4 w-4" /></button>
                           <button onClick={() => openEdit(c)} aria-label="Editar" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><Pencil className="h-4 w-4" /></button>
                           <button onClick={() => removeClient(c.id)} aria-label="Eliminar" className="rounded-lg p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-4 w-4" /></button>
                         </div>

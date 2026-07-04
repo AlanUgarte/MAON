@@ -84,6 +84,8 @@ export const api = {
   deleteClient: (id: string) => request<any>(`/clients/${id}`, { method: 'DELETE' }),
   updateStage: (id: string, stage: string) =>
     request<any>(`/clients/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
+  addNote: (id: string, content: string) =>
+    request<any>(`/clients/${id}/notes`, { method: 'POST', body: JSON.stringify({ content }) }),
 
   // Conversaciones
   conversations: (params = '') => request<any>(`/conversations${params}`),

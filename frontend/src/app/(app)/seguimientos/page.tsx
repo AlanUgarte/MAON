@@ -1,10 +1,13 @@
 'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle, Clock } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScoreBar } from '@/components/app/score-gauge';
 import { CLIENTS } from '@/lib/mock';
+import { api } from '@/lib/api';
 import { initials } from '@/lib/utils';
 
 const BUCKETS = [
@@ -16,11 +19,37 @@ const BUCKETS = [
 
 const DOT: Record<string, string> = { sky: 'bg-sky', amber: 'bg-amber', rose: 'bg-rose', muted: 'bg-muted' };
 
+interface FollowUpItem {
+  id: string; firstName: string; lastName: string; leadScore: number;
+  product: string; summary: string;
+}
+
+function fromBackend(c: any): FollowUpItem {
+  return {
+    id: c.id, firstName: c.firstName, lastName: c.lastName ?? '',
+    leadScore: c.leadScore ?? 0, product: c.interestedProduct?.name ?? '',
+    summary: `Sin respuesta hace un tiempo · intención ${c.buyingIntent ?? '-'}`,
+  };
+}
+
 export default function SeguimientosPage() {
-  // Distribuye los clientes mock en columnas de forma representativa.
+  const router = useRouter();
+  const [board, setBoard] = useState<Record<string, FollowUpItem[]> | null>(null);
+
+  useEffect(() => {
+    api.followUps()
+      .then((res) => {
+        const mapped: Record<string, FollowUpItem[]> = {};
+        for (const b of BUCKETS) mapped[b.key] = (res[b.key] ?? []).map(fromBackend);
+        setBoard(mapped);
+      })
+      .catch(() => setBoard(null));
+  }, []);
+
+  // Distribuye los clientes mock en columnas de forma representativa (fallback sin backend).
   const cols = BUCKETS.map((b, i) => ({
     ...b,
-    items: CLIENTS.filter((_, idx) => idx % BUCKETS.length === i && CLIENTS[idx].stage !== 'VENTA_CERRADA'),
+    items: board ? board[b.key] : CLIENTS.filter((_, idx) => idx % BUCKETS.length === i && CLIENTS[idx].stage !== 'VENTA_CERRADA').map(fromBackend),
   }));
 
   return (
@@ -54,7 +83,7 @@ export default function SeguimientosPage() {
                     <ScoreBar value={c.leadScore} />
                     <p className="line-clamp-2 text-[12px] text-muted">{c.summary}</p>
                     <div className="flex gap-2">
-                      <Button size="sm" className="flex-1"><MessageCircle className="h-3.5 w-3.5" /> Contactar</Button>
+                      <Button size="sm" className="flex-1" onClick={() => router.push(`/bandeja?clientId=${c.id}`)}><MessageCircle className="h-3.5 w-3.5" /> Contactar</Button>
                       <Button size="sm" variant="outline" aria-label="Llamar"><Phone className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
