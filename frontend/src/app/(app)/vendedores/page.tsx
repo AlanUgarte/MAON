@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, Plus, Power, TrendingUp } from 'lucide-react';
+import { Users, Plus, Power, TrendingUp, Trash2 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,6 +86,16 @@ export default function VendedoresPage() {
     try { await api.toggleSeller(id); load(); } catch { /* backend caído: no se refleja */ }
   };
 
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`¿Borrar a ${name}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.deleteSeller(id);
+      load();
+    } catch (err: any) {
+      alert(err.message || 'No se pudo borrar.');
+    }
+  };
+
   return (
     <>
       <Topbar title="Vendedores" subtitle="Alta de vendedores y su rendimiento" />
@@ -159,6 +169,9 @@ export default function VendedoresPage() {
                       )}
                       <Button variant="outline" size="sm" onClick={() => toggle(s.id)}>
                         <Power className="h-3.5 w-3.5" /> {s.isActive ? 'Dar de baja' : 'Reactivar'}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => remove(s.id, s.fullName)}>
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>

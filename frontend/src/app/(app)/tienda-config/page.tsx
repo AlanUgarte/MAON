@@ -95,6 +95,13 @@ export default function TiendaConfigPage() {
           ?? PRODUCT_ROWS.find((p) => normalize(p.name).includes(normalize(rawName)) || normalize(rawName).includes(normalize(p.name))));
       if (!product) { unmatched.push(rawName); return; }
 
+      // "NUEVO" solo marca el flag de Novedades, sin tocar promo/descuento existente.
+      if (/^nuevo$/i.test(rawPromo)) {
+        nextPromos[product.id] = { ...nextPromos[product.id], isNew: true };
+        matched++;
+        return;
+      }
+
       let discountPct: number | undefined;
       let label = rawPromo;
       const ratio = rawPromo.match(/^(\d+)x(\d+)$/i);
@@ -270,17 +277,30 @@ export default function TiendaConfigPage() {
                     {filteredProducts.map((p) => {
                       const hidden = form.hiddenProductIds.includes(p.id);
                       const promo = form.productPromos[p.id] ?? {};
+                      const venta = Math.round(p.price * (1 + form.margenVenta));
+                      const final = promo.discountPct ? Math.round(venta * (1 - promo.discountPct / 100)) : venta;
                       return (
                         <tr key={p.id} className="border-b border-line/10 last:border-0 hover:bg-surface-2">
                           <td className="p-2.5">
                             <div className="font-semibold text-content">{p.name}</div>
-                            <div className="text-[11px] text-muted">{p.brand} · {money(p.price)}</div>
+                            <div className="text-[11px] text-muted">
+                              {p.brand} · Venta: <b className="text-content">{money(final)}</b>
+                              {!!promo.discountPct && <span className="ml-1 line-through">{money(venta)}</span>}
+                            </div>
                           </td>
                           <td className="p-2.5">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <input
                                 value={promo.label ?? ''}
-                                onChange={(e) => setPromo(p.id, { label: e.target.value || undefined })}
+                                onChange={(e) => {
+                                  const label = e.target.value;
+                                  // Si tipea "2x1" o similar, calcula el % de descuento solo.
+                                  const ratio = label.match(/^(\d+)x(\d+)$/i);
+                                  const discountPct = ratio
+                                    ? Math.round(((Number(ratio[1]) - Number(ratio[2])) / Number(ratio[1])) * 1000) / 10
+                                    : promo.discountPct;
+                                  setPromo(p.id, { label: label || undefined, discountPct });
+                                }}
                                 placeholder="Promo (ej: 2x1)"
                                 className="h-8 w-28 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none"
                               />
@@ -445,29 +465,35 @@ export default function TiendaConfigPage() {
 
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowImport(false)}>
-          <div className="card w-full max-w-lg space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="card flex max-h-[85vh] w-full max-w-lg flex-col p-5" onClick={(e) => e.stopPropagation()}>
             <div className="text-base font-semibold text-content">Importar promos</div>
-            <p className="text-[12.5px] text-muted">
-              Una línea por producto: <code>SKU | 21x20</code>, <code>SKU | 15%</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
+            <p className="mt-1.5 text-[12.5px] text-muted">
+              Una línea por producto: <code>SKU | 21x20</code>, <code>SKU | 15%</code>, <code>SKU | NUEVO</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
             </p>
             <textarea
               rows={10}
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               placeholder={'Trio chocolatina 12*300 gr. | 21x20\nFantoche alf.triple negro 24*85 gr. | 3x2'}
-              className="w-full rounded-xl border border-line/15 bg-surface-2/60 p-3 font-mono text-[12px] text-content focus:border-primary/50 focus:outline-none"
+              className="mt-3 w-full shrink-0 rounded-xl border border-line/15 bg-surface-2/60 p-3 font-mono text-[12px] text-content focus:border-primary/50 focus:outline-none"
             />
             {importResult && (
-              <div className="rounded-lg border border-line/10 bg-surface-2/60 p-2.5 text-[12px]">
-                <div className="text-emerald">{importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.</div>
+              <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-lg border border-line/10 bg-surface-2/60 p-3 text-[12.5px]">
+                <div className="flex items-center gap-1.5 font-semibold text-emerald">
+                  <Check className="h-4 w-4" /> {importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.
+                </div>
                 {importResult.unmatched.length > 0 && (
-                  <div className="mt-1 text-rose">
-                    Sin encontrar ({importResult.unmatched.length}): {importResult.unmatched.join(', ')}
+                  <div className="mt-2 text-rose">
+                    <div className="font-semibold">Sin encontrar ({importResult.unmatched.length}):</div>
+                    <div className="mt-1 text-muted">
+                      {importResult.unmatched.slice(0, 30).join(', ')}
+                      {importResult.unmatched.length > 30 && ` … y ${importResult.unmatched.length - 30} más`}
+                    </div>
                   </div>
                 )}
               </div>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="mt-3 flex shrink-0 justify-end gap-2">
               <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
               <Button onClick={runImport} disabled={!importText.trim()}>Importar</Button>
             </div>

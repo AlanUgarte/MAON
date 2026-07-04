@@ -75,6 +75,7 @@ export const api = {
     request<any>('/auth/users', { method: 'POST', body: JSON.stringify({ fullName, email, password, role }) }),
   sellers: () => request<any>('/auth/users'),
   toggleSeller: (id: string) => request<any>(`/auth/users/${id}/toggle`, { method: 'PATCH' }),
+  deleteSeller: (id: string) => request<any>(`/auth/users/${id}`, { method: 'DELETE' }),
 
   // Dashboard
   overview: () => request<any>('/dashboard/overview'),

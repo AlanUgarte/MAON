@@ -24,19 +24,19 @@
 }
 
 .dark {
-  --ink: 236 238 224;
-  --bg: 21 23 15;           /* #15170F */
-  --surface: 29 32 22;      /* #1D2016 */
-  --surface-2: 35 39 26;    /* #23271A */
-  --line: 236 238 224;
-  --content: 236 238 224;   /* #ECEEE0 */
-  --muted: 154 160 136;     /* #9AA088 */
-  --primary: 74 133 199;    /* azul más claro para contraste en modo oscuro */
-  --primary-soft: 74 133 199;
-  --emerald: 122 170 70;
-  --amber: 224 138 43;
-  --rose: 220 90 70;
-  --sky: 90 150 220;
+  --ink: 226 229 233;
+  --bg: 18 20 24;           /* gris azulado oscuro, no negro puro */
+  --surface: 26 29 34;
+  --surface-2: 34 38 45;
+  --line: 226 229 233;
+  --content: 226 229 233;   /* blanco suave, no puro */
+  --muted: 148 155 166;
+  --primary: 99 152 217;    /* azul más suave, menos "neón" sobre fondo oscuro */
+  --primary-soft: 99 152 217;
+  --emerald: 120 172 108;
+  --amber: 214 155 84;
+  --rose: 216 108 98;
+  --sky: 118 172 224;
   color-scheme: dark;
 }
 

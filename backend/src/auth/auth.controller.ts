@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -53,5 +53,13 @@ export class AuthController {
   @Patch('users/:id/toggle')
   toggleUser(@Param('id') id: string) {
     return this.auth.toggleUserActive(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADOR')
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.auth.deleteUser(id);
   }
 }

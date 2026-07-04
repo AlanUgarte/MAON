@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -65,6 +65,8 @@ function TiendaInner() {
     return Math.round(pct ? base * (1 - pct / 100) : base);
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
+  // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
+  const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 3).map((p) => p.img), [catalog]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -90,22 +92,25 @@ function TiendaInner() {
     return q ? brands.filter((b) => b.toLowerCase().includes(q)) : brands;
   }, [brands, brandQuery]);
 
+  // Busca por palabras sueltas y abreviadas: cada token debe aparecer en el nombre/marca,
+  // así "fan alf" encuentra "FANTOCHE ALF.TRIPLE NEGRO..." sin importar el orden.
+  const searchTokens = useMemo(() => search.trim().toLowerCase().split(/\s+/).filter(Boolean), [search]);
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const min = priceMin ? Number(priceMin) : null;
     const max = priceMax ? Number(priceMax) : null;
     return catalog.filter((p) => {
       const venta = ventaBulto(p);
       const promo = getPromo(p);
+      const haystack = `${p.name} ${p.brand}`.toLowerCase();
       return (!category || p.category === category) &&
         (!brand || p.brand === brand) &&
         (min === null || venta >= min) &&
         (max === null || venta <= max) &&
-        (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) &&
+        searchTokens.every((t) => haystack.includes(t)) &&
         (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
         (view !== 'NOVEDADES' || !!promo?.isNew);
     });
-  }, [catalog, search, category, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
+  }, [catalog, searchTokens, category, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax, view]);
@@ -309,21 +314,42 @@ function TiendaInner() {
       <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}>
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
-        <div className="relative mx-auto max-w-[1600px] animate-fade-up">
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
-            <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
+        <div className="relative mx-auto flex max-w-[1600px] items-center justify-between gap-8">
+          <div className="animate-fade-up">
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
+              <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
+            </div>
+            <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
+              {settings.heroTitle}
+            </h1>
+            <p className="mt-2 max-w-md text-[14px] text-white/80">
+              {settings.heroSubtitle}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-white/85">
+              <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" /> Venta por bulto cerrado</span>
+              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4" /> Envíos a todo el país</span>
+              <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Despacho en 24 a 48 hs</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Pedido confirmado por WhatsApp</span>
+            </div>
           </div>
-          <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
-            {settings.heroTitle}
-          </h1>
-          <p className="mt-2 max-w-md text-[14px] text-white/80">
-            {settings.heroSubtitle}
-          </p>
-          <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-white/85">
-            <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" /> Venta por bulto cerrado</span>
-            <span className="flex items-center gap-1.5"><Truck className="h-4 w-4" /> Envíos a todo el país</span>
-            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Pedido confirmado por WhatsApp</span>
-          </div>
+
+          {/* Fotos de productos reales flotando, estilo vidriera */}
+          {heroImgs.length > 0 && (
+            <div className="relative hidden shrink-0 items-end gap-3 lg:flex">
+              <div className="absolute -right-6 -top-10 flex h-24 w-24 -rotate-6 items-center justify-center rounded-full border border-white/15 bg-white/10 text-center text-[10px] font-bold uppercase leading-tight backdrop-blur-sm">
+                Precios<br />mayoristas
+              </div>
+              {heroImgs.map((src, i) => (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl"
+                  style={{ transform: `rotate(${i % 2 === 0 ? -4 : 5}deg) translateY(${i === 1 ? '-14px' : '0'})`, width: i === 1 ? 128 : 104, height: i === 1 ? 128 : 104 }}
+                >
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

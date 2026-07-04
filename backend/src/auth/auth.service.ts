@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -65,6 +66,16 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
     const updated = await this.prisma.user.update({ where: { id }, data: { isActive: !user.isActive } });
     return this.safeUser(updated);
+  }
+
+  async deleteUser(id: string) {
+    try {
+      await this.prisma.user.delete({ where: { id } });
+      return { ok: true };
+    } catch {
+      // Tiene ventas/clientes/mensajes asociados: no se puede borrar sin perder ese historial.
+      throw new BadRequestException('No se puede borrar: tiene ventas o clientes asociados. Dalo de baja en cambio.');
+    }
   }
 
   private safeUser(user: { id: string; email: string; fullName: string; role: string; isActive: boolean; avatarUrl?: string | null }) {
