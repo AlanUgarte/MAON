@@ -75,6 +75,45 @@ export default function TiendaConfigPage() {
     save(updated);
   };
 
+  // Importación masiva de promos: pegás "Nombre del producto | 21x20" (una por línea) y
+  // matchea por nombre contra el catálogo. "21x20" = pagás 20 y te llevás 1 sin cargo.
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
+  const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  const runImport = () => {
+    const nextPromos = { ...form.productPromos };
+    const unmatched: string[] = [];
+    let matched = 0;
+    importText.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
+      const [rawName, rawPromo] = line.split('|').map((s) => s.trim());
+      if (!rawName || !rawPromo) return;
+      const target = normalize(rawName);
+      const product = PRODUCT_ROWS.find((p) => normalize(p.name) === target)
+        ?? PRODUCT_ROWS.find((p) => normalize(p.name).includes(target) || target.includes(normalize(p.name)));
+      if (!product) { unmatched.push(rawName); return; }
+
+      let discountPct: number | undefined;
+      let label = rawPromo;
+      const ratio = rawPromo.match(/^(\d+)x(\d+)$/i);
+      const pct = rawPromo.match(/^(\d+(?:[.,]\d+)?)\s*%$/);
+      if (ratio) {
+        const buy = Number(ratio[1]), pay = Number(ratio[2]);
+        discountPct = Math.round(((buy - pay) / buy) * 1000) / 10;
+        label = `Promo ${buy}x${pay}`;
+      } else if (pct) {
+        discountPct = Number(pct[1].replace(',', '.'));
+        label = `${discountPct}% OFF`;
+      }
+      nextPromos[product.id] = { ...nextPromos[product.id], label, discountPct };
+      matched++;
+    });
+    const updated = { ...form, productPromos: nextPromos };
+    setForm(updated);
+    save(updated);
+    setImportResult({ matched, unmatched });
+  };
+
   const filteredProducts = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return PRODUCT_ROWS.slice(0, RENDER_CAP);
@@ -208,7 +247,10 @@ export default function TiendaConfigPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Productos en la tienda</CardTitle>
-              <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
+                <Button size="sm" variant="outline" onClick={() => { setShowImport(true); setImportResult(null); }}>Importar promos</Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="relative">
@@ -398,6 +440,38 @@ export default function TiendaConfigPage() {
           </div>
         )}
       </main>
+
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowImport(false)}>
+          <div className="card w-full max-w-lg space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="text-base font-semibold text-content">Importar promos</div>
+            <p className="text-[12.5px] text-muted">
+              Una línea por producto: <code>Nombre del producto | 21x20</code> (paga 20, lleva 1 gratis) o <code>Nombre | 15%</code> para descuento directo.
+            </p>
+            <textarea
+              rows={10}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={'Trio chocolatina 12*300 gr. | 21x20\nFantoche alf.triple negro 24*85 gr. | 3x2'}
+              className="w-full rounded-xl border border-line/15 bg-surface-2/60 p-3 font-mono text-[12px] text-content focus:border-primary/50 focus:outline-none"
+            />
+            {importResult && (
+              <div className="rounded-lg border border-line/10 bg-surface-2/60 p-2.5 text-[12px]">
+                <div className="text-emerald">{importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.</div>
+                {importResult.unmatched.length > 0 && (
+                  <div className="mt-1 text-rose">
+                    Sin encontrar ({importResult.unmatched.length}): {importResult.unmatched.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
+              <Button onClick={runImport} disabled={!importText.trim()}>Importar</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {invoicingOrder && (
         <InvoiceChoiceModal
