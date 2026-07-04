@@ -58,11 +58,17 @@ function TiendaInner() {
   const { settings } = useTiendaSettings();
   const { addOrder } = useTiendaOrders();
   const { products } = useProductCatalog();
-  const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + settings.margenVenta));
+  const getPromo = (p: ProductRow) => settings.productPromos[p.id];
+  const ventaBulto = (p: ProductRow) => {
+    const base = p.price * (1 + settings.margenVenta);
+    const pct = getPromo(p)?.discountPct;
+    return Math.round(pct ? base * (1 - pct / 100) : base);
+  };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [view, setView] = useState<'' | 'OFERTAS' | 'NOVEDADES'>('');
   const [brand, setBrand] = useState('');
   const [brandQuery, setBrandQuery] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -90,16 +96,19 @@ function TiendaInner() {
     const max = priceMax ? Number(priceMax) : null;
     return catalog.filter((p) => {
       const venta = ventaBulto(p);
+      const promo = getPromo(p);
       return (!category || p.category === category) &&
         (!brand || p.brand === brand) &&
         (min === null || venta >= min) &&
         (max === null || venta <= max) &&
-        (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+        (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) &&
+        (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
+        (view !== 'NOVEDADES' || !!promo?.isNew);
     });
-  }, [catalog, search, category, brand, priceMin, priceMax, settings.margenVenta]);
+  }, [catalog, search, category, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.
-  useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax]);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax, view]);
   const visible = filtered.slice(0, visibleCount);
 
   const cartLines = cart.map((c) => {
@@ -131,6 +140,11 @@ function TiendaInner() {
     setCart((prev) => prev
       .map((c) => (c.productId === productId ? { ...c, qty: c.qty + delta } : c))
       .filter((c) => c.qty > 0));
+  };
+  // Permite tipear la cantidad directamente en vez de solo +/-.
+  const setQty = (productId: string, qty: number) => {
+    setCart((prev) => prev
+      .map((c) => (c.productId === productId ? { ...c, qty: Math.max(1, Math.floor(qty) || 1) } : c)));
   };
   const removeLine = (productId: string) => setCart((prev) => prev.filter((c) => c.productId !== productId));
 
@@ -251,8 +265,26 @@ function TiendaInner() {
           </button>
         </div>
 
-        {/* Categorías */}
+        {/* Ofertas / Novedades */}
         <div className="mx-auto mt-3 flex max-w-[1600px] gap-1.5 overflow-x-auto pb-0.5">
+          <button
+            onClick={() => setView(view === 'OFERTAS' ? '' : 'OFERTAS')}
+            className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition"
+            style={view === 'OFERTAS' ? { background: ACCENT, color: '#fff' } : { background: `${ACCENT}18`, color: ACCENT }}
+          >
+            🔥 Ofertas
+          </button>
+          <button
+            onClick={() => setView(view === 'NOVEDADES' ? '' : 'NOVEDADES')}
+            className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition"
+            style={view === 'NOVEDADES' ? { background: BRAND, color: '#fff' } : { background: `${BRAND}12`, color: BRAND }}
+          >
+            ✨ Novedades
+          </button>
+        </div>
+
+        {/* Categorías */}
+        <div className="mx-auto mt-1.5 flex max-w-[1600px] gap-1.5 overflow-x-auto pb-0.5">
           <button
             onClick={() => setCategory('')}
             className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
@@ -366,16 +398,27 @@ function TiendaInner() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visible.map((p) => {
               const inCart = qtyInCart(p.id);
+              const promo = getPromo(p);
+              const original = Math.round(p.price * (1 + settings.margenVenta));
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
                     <span className="absolute left-2 top-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>Bulto cerrado</span>
+                    {promo?.isNew && (
+                      <span className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
+                    )}
+                    {(promo?.label || promo?.discountPct) && (
+                      <span className="absolute bottom-2 left-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: ACCENT }}>
+                        {promo.label || `${promo.discountPct}% OFF`}
+                      </span>
+                    )}
                     <ProdImg src={p.img} size={104} className="transition group-hover:scale-105" />
                   </div>
                   <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400">{p.brand}</div>
                   <div className="line-clamp-3 min-h-[52px] text-[13px] font-medium leading-tight text-neutral-800" title={p.name}>{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1.5">
                     <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p))}</span>
+                    {!!promo?.discountPct && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
                   <div className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</div>
                   <div className="mt-2.5">
@@ -390,7 +433,14 @@ function TiendaInner() {
                     ) : (
                       <div className="flex items-center justify-between rounded-lg border px-1 py-1" style={{ borderColor: `${ACCENT}55`, background: `${ACCENT}12` }}>
                         <button onClick={() => changeQty(p.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Minus className="h-3.5 w-3.5" /></button>
-                        <span className="text-[13px] font-bold text-neutral-800">{inCart}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={inCart}
+                          onChange={(e) => setQty(p.id, Number(e.target.value))}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-10 border-0 bg-transparent text-center text-[13px] font-bold text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
                         <button onClick={() => changeQty(p.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                     )}
@@ -475,7 +525,13 @@ function TiendaInner() {
                 <div className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</div>
                 <div className="mt-1 flex items-center gap-2">
                   <button onClick={() => changeQty(l.productId, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
-                  <span className="w-4 text-center text-[12px] font-bold">{l.qty}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={l.qty}
+                    onChange={(e) => setQty(l.productId, Number(e.target.value))}
+                    className="w-8 border-0 bg-transparent text-center text-[12px] font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                   <button onClick={() => changeQty(l.productId, 1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Plus className="h-3.5 w-3.5" /></button>
                 </div>
               </div>

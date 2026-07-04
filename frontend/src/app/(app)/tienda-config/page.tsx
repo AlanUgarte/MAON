@@ -64,6 +64,17 @@ export default function TiendaConfigPage() {
     save(updated);
   };
 
+  const setPromo = (id: string, patch: Partial<TiendaSettings['productPromos'][string]>) => {
+    const current = form.productPromos[id] ?? {};
+    const merged = { ...current, ...patch };
+    const isEmpty = !merged.label && !merged.discountPct && !merged.isNew;
+    const nextPromos = { ...form.productPromos };
+    if (isEmpty) delete nextPromos[id]; else nextPromos[id] = merged;
+    const updated = { ...form, productPromos: nextPromos };
+    setForm(updated);
+    save(updated);
+  };
+
   const filteredProducts = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return PRODUCT_ROWS.slice(0, RENDER_CAP);
@@ -214,11 +225,33 @@ export default function TiendaConfigPage() {
                   <tbody>
                     {filteredProducts.map((p) => {
                       const hidden = form.hiddenProductIds.includes(p.id);
+                      const promo = form.productPromos[p.id] ?? {};
                       return (
                         <tr key={p.id} className="border-b border-line/10 last:border-0 hover:bg-surface-2">
                           <td className="p-2.5">
                             <div className="font-semibold text-content">{p.name}</div>
                             <div className="text-[11px] text-muted">{p.brand} · {money(p.price)}</div>
+                          </td>
+                          <td className="p-2.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <input
+                                value={promo.label ?? ''}
+                                onChange={(e) => setPromo(p.id, { label: e.target.value || undefined })}
+                                placeholder="Promo (ej: 2x1)"
+                                className="h-8 w-28 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none"
+                              />
+                              <input
+                                type="number" min={0} max={100}
+                                value={promo.discountPct ?? ''}
+                                onChange={(e) => setPromo(p.id, { discountPct: e.target.value ? Number(e.target.value) : undefined })}
+                                placeholder="% off"
+                                className="h-8 w-16 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none"
+                              />
+                              <label className="flex items-center gap-1 text-[11px] text-muted">
+                                <input type="checkbox" checked={!!promo.isNew} onChange={(e) => setPromo(p.id, { isNew: e.target.checked || undefined })} />
+                                Nuevo
+                              </label>
+                            </div>
                           </td>
                           <td className="w-32 p-2.5 text-right">
                             <button

@@ -5,6 +5,12 @@ import { useEffect, useState } from 'react';
 
 const KEY = 'compven_tienda_settings';
 
+export interface ProductPromo {
+  label?: string;       // texto libre para mostrar, ej: "2x1", "10+1 de regalo", "20% OFF"
+  discountPct?: number; // descuento efectivo que se aplica al precio de venta (0-100)
+  isNew?: boolean;      // aparece en "Novedades"
+}
+
 export interface TiendaSettings {
   storeOpen: boolean;
   topBannerText: string;
@@ -16,6 +22,7 @@ export interface TiendaSettings {
   whatsappNumber: string;
   margenVenta: number;
   hiddenProductIds: string[];
+  productPromos: Record<string, ProductPromo>;
 }
 
 export const DEFAULT_TIENDA_SETTINGS: TiendaSettings = {
@@ -29,6 +36,7 @@ export const DEFAULT_TIENDA_SETTINGS: TiendaSettings = {
   whatsappNumber: '5493412708638',
   margenVenta: 0.12,
   hiddenProductIds: [],
+  productPromos: {},
 };
 
 function load(): TiendaSettings {

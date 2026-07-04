@@ -152,7 +152,22 @@ function BandejaInner() {
   ];
   const suggestions = aiSuggestions ?? fallbackSuggestions;
 
-  if (!active) return null;
+  if (!active) {
+    return (
+      <>
+        <Topbar title="Bandeja" subtitle="WhatsApp Business" />
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <MessageSquareWarning className="h-6 w-6" />
+          </div>
+          <div className="font-display text-base font-semibold text-content">Todavía no tenés conversaciones</div>
+          <p className="max-w-[360px] text-[13px] text-muted">
+            Los chats aparecen acá apenas un cliente escribe por WhatsApp o hace un pedido desde la tienda online.
+          </p>
+        </div>
+      </>
+    );
+  }
 
   // Llama de verdad a Claude vía el backend (/ai/clients/:id/suggest). Si el backend
   // todavía no está levantado, avisa y se queda con las sugerencias fijas de siempre.
