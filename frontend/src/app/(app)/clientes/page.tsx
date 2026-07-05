@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Download, LayoutGrid, List, Plus, X, Pencil, Trash2, StickyNote } from 'lucide-react';
+import { Search, Download, LayoutGrid, List, Plus, X, Pencil, Trash2, StickyNote } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -108,6 +108,25 @@ export default function ClientesPage() {
     }
   };
 
+  // Exporta la vista actual (búsqueda + filtro de etapa aplicados) como CSV abrible en Excel:
+  // separador ";" y BOM UTF-8, que es lo que espera el Excel configurado en español.
+  const exportCsv = () => {
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['Nombre', 'Apellido', 'Teléfono', 'Razón social', 'CUIT', 'Cond. IVA', 'Dirección', 'Ciudad', 'Provincia', 'CP', 'Código', 'Cond. venta', 'Etapa', 'Vendedor', 'Score'];
+    const lines = rows.map((c) => [
+      c.firstName, c.lastName, c.phone, c.businessName, c.cuit,
+      IVA_CONDITION_LABEL[c.ivaCondition] ?? c.ivaCondition, c.address, c.city, c.province,
+      c.postalCode, c.clientCode, c.condicionVenta, STAGE_LABEL[c.stage] ?? c.stage, c.seller, c.leadScore,
+    ].map(cell).join(';'));
+    const blob = new Blob(['\ufeff' + [header.map(cell).join(';'), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const inp = 'h-9 w-full rounded-lg border border-line/15 bg-surface-2/60 px-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none';
 
   return (
@@ -125,8 +144,7 @@ export default function ClientesPage() {
               className="h-9 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm text-content placeholder:text-muted/70 focus:border-primary/50 focus:outline-none"
             />
           </div>
-          <Button variant="outline" size="md"><SlidersHorizontal className="h-4 w-4" /> Filtros</Button>
-          <Button variant="outline" size="md"><Download className="h-4 w-4" /> Exportar</Button>
+          <Button variant="outline" size="md" onClick={exportCsv} disabled={rows.length === 0}><Download className="h-4 w-4" /> Exportar</Button>
           <div className="flex items-center rounded-xl border border-line/15 bg-surface-2/40 p-0.5">
             <button onClick={() => setView('tabla')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'tabla' ? 'bg-primary/15 text-primary' : 'text-muted')}><List className="h-4 w-4" /> Tabla</button>
             <button onClick={() => setView('kanban')} className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition', view === 'kanban' ? 'bg-primary/15 text-primary' : 'text-muted')}><LayoutGrid className="h-4 w-4" /> Kanban</button>

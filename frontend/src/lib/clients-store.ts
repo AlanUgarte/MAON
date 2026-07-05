@@ -99,12 +99,22 @@ export function useClients() {
     // que puede seguir en el seed de demo si esto se llama antes de que el efecto de
     // carga real termine, y pisaría datos reales con el catálogo de ejemplo.
     const client: Client = { ...c, id: `c_${Date.now()}` };
-    save([client, ...load()]);
+    if (source === 'backend') {
+      // El POST falló: se guarda local para no perder la carga, pero el estado en memoria
+      // (que tiene los clientes del backend) se extiende en vez de pisarse con load().
+      localStorage.setItem(KEY, JSON.stringify([client, ...load()]));
+      setClients((prev) => [client, ...prev]);
+    } else {
+      save([client, ...load()]);
+    }
     return client;
   };
 
   const updateClient = async (id: string, patch: Partial<Client>) => {
     if (source === 'backend') {
+      // El estado vive en memoria (localStorage no tiene los clientes del backend):
+      // pisarlo con load() haría desaparecer la lista hasta recargar la página.
+      setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       try {
         await api.updateClient(id, {
           firstName: patch.firstName, lastName: patch.lastName, phone: patch.phone,
@@ -115,13 +125,16 @@ export function useClients() {
       } catch {
         // si falla el PATCH, el cambio queda igual reflejado en la UI (modo degradado)
       }
+      return;
     }
     save(load().map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
   const deleteClient = async (id: string) => {
     if (source === 'backend') {
+      setClients((prev) => prev.filter((c) => c.id !== id));
       try { await api.deleteClient(id); } catch { /* si falla el DELETE, lo sacamos igual de la vista */ }
+      return;
     }
     save(load().filter((c) => c.id !== id));
   };

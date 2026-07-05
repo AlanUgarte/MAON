@@ -21,14 +21,27 @@ const DOT: Record<string, string> = { sky: 'bg-sky', amber: 'bg-amber', rose: 'b
 
 interface FollowUpItem {
   id: string; firstName: string; lastName: string; leadScore: number;
-  product: string; summary: string;
+  product: string; summary: string; phone: string;
 }
 
+// "hace 5 h" / "hace 3 días" / "hace 2 meses" desde el último mensaje del cliente.
+function since(iso?: string | null): string {
+  if (!iso) return 'hace un tiempo';
+  const hours = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 3600_000));
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `hace ${days} día${days === 1 ? '' : 's'}`;
+  const months = Math.floor(days / 30);
+  return `hace ${months} mes${months === 1 ? '' : 'es'}`;
+}
+
+// Acepta tanto la forma del backend (interestedProduct, buyingIntent) como la del mock (product, intent).
 function fromBackend(c: any): FollowUpItem {
   return {
     id: c.id, firstName: c.firstName, lastName: c.lastName ?? '',
-    leadScore: c.leadScore ?? 0, product: c.interestedProduct?.name ?? '',
-    summary: `Sin respuesta hace un tiempo · intención ${c.buyingIntent ?? '-'}`,
+    leadScore: c.leadScore ?? 0, product: c.interestedProduct?.name ?? c.product ?? '',
+    phone: c.phone ?? '',
+    summary: `Sin respuesta ${since(c.lastInboundAt)} · intención ${c.buyingIntent ?? c.intent ?? '-'}`,
   };
 }
 
@@ -84,7 +97,11 @@ export default function SeguimientosPage() {
                     <p className="line-clamp-2 text-[12px] text-muted">{c.summary}</p>
                     <div className="flex gap-2">
                       <Button size="sm" className="flex-1" onClick={() => router.push(`/bandeja?clientId=${c.id}`)}><MessageCircle className="h-3.5 w-3.5" /> Contactar</Button>
-                      <Button size="sm" variant="outline" aria-label="Llamar"><Phone className="h-3.5 w-3.5" /></Button>
+                      {c.phone && (
+                        <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} aria-label={`Llamar a ${c.firstName}`}>
+                          <Button size="sm" variant="outline"><Phone className="h-3.5 w-3.5" /></Button>
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}

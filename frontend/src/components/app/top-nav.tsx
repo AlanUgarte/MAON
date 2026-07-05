@@ -8,20 +8,21 @@ import {
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
 import { ThemeToggle } from './theme-toggle';
 
-interface NavItem { href: string; label: string; icon: typeof LayoutDashboard; badge?: number }
+interface NavItem { href: string; label: string; icon: typeof LayoutDashboard }
 
 const FULL_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText, badge: 7 },
+  { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText },
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
-  { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
+  { href: '/seguimientos', label: 'Seguimientos', icon: BellRing },
   { href: '/vendedores', label: 'Equipo', icon: Users },
 ];
 
@@ -45,6 +46,10 @@ export function TopNav() {
   useEffect(() => setUser(getUser()), []);
   const isVendedor = user?.role === 'VENDEDOR';
   const NAV = isVendedor ? VENDEDOR_NAV : FULL_NAV;
+  // Badge real: pedidos de la tienda pendientes de facturar (un vendedor solo cuenta los suyos).
+  const { orders } = useTiendaOrders();
+  const pendingOrdersCount = orders.filter((o) => !o.invoiced && (!isVendedor || o.seller === user?.fullName)).length;
+  const badgeFor = (href: string) => (href === '/tienda-config' && pendingOrdersCount > 0 ? pendingOrdersCount : undefined);
 
   const handleLogout = () => {
     logout();
@@ -55,6 +60,7 @@ export function TopNav() {
     NAV.map((item) => {
       const active = pathname.startsWith(item.href);
       const Icon = item.icon;
+      const badge = badgeFor(item.href);
       return (
         <Link
           key={item.href}
@@ -68,11 +74,11 @@ export function TopNav() {
         >
           <Icon className="h-[16px] w-[16px] shrink-0" />
           {item.label}
-          {item.badge && (
+          {badge && (
             <span className={cn(
               'tnum ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold',
               active ? 'bg-white/25 text-white' : 'bg-amber/20 text-amber',
-            )}>{item.badge}</span>
+            )}>{badge}</span>
           )}
         </Link>
       );
