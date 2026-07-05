@@ -77,16 +77,23 @@ export default function TiendaConfigPage() {
 
   // Importación masiva de promos: pegás "Nombre del producto | 21x20" (una por línea) y
   // matchea por nombre contra el catálogo. "21x20" = pagás 20 y te llevás 1 sin cargo.
+  // También acepta filas pegadas directo desde Excel/SAP (columnas separadas por tab):
+  // toma la primera columna como SKU/nombre y busca la columna que parece promo (NxM o %).
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
   const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
   const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  const looksLikePromo = (s: string) => /^\d+x\d+$/i.test(s) || /^\d+(?:[.,]\d+)?\s*%$/.test(s);
   const runImport = () => {
     const nextPromos = { ...form.productPromos };
     const unmatched: string[] = [];
     let matched = 0;
     importText.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
-      const [rawName, rawPromo] = line.split('|').map((s) => s.trim());
+      const cells = line.split(/\||\t/).map((s) => s.trim()).filter(Boolean);
+      const rawName = cells[0];
+      // Etiqueta libre (ej: "10+1 de regalo") solo en el formato manual de 2 columnas;
+      // en filas con más columnas (Excel/SAP) sin promo reconocible, la línea se saltea.
+      const rawPromo = cells.slice(1).reverse().find(looksLikePromo) ?? (cells.length === 2 ? cells[1] : undefined);
       if (!rawName || !rawPromo) return;
       // Si es todo dígitos, se matchea por SKU exacto (más confiable que por nombre).
       const product = /^\d+$/.test(rawName)
@@ -114,6 +121,25 @@ export default function TiendaConfigPage() {
     setForm(updated);
     save(updated);
     setImportResult({ matched, unmatched });
+  };
+
+  // Cantidad de productos con promo activa (label o descuento; el flag "Nuevo" no cuenta).
+  const promoCount = useMemo(
+    () => Object.values(form.productPromos).filter((p) => p.label || p.discountPct).length,
+    [form.productPromos],
+  );
+
+  // Borra todas las promos de una (fin de la lista de ofertas) pero conserva los flags "Nuevo".
+  const clearPromos = () => {
+    if (!window.confirm(`¿Quitar las promos de los ${promoCount} productos que tienen una?`)) return;
+    const nextPromos: TiendaSettings['productPromos'] = {};
+    Object.entries(form.productPromos).forEach(([id, p]) => {
+      if (p.isNew) nextPromos[id] = { isNew: true };
+    });
+    const updated = { ...form, productPromos: nextPromos };
+    setForm(updated);
+    save(updated);
+    setImportResult(null);
   };
 
   const filteredProducts = useMemo(() => {
@@ -449,6 +475,7 @@ export default function TiendaConfigPage() {
             <div className="text-base font-semibold text-content">Importar promos</div>
             <p className="text-[12.5px] text-muted">
               Una línea por producto: <code>SKU | 21x20</code>, <code>SKU | 15%</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
+              También podés pegar filas directo desde Excel o SAP: se toma la primera columna como SKU/nombre y se detecta sola la columna de la promo (<code>21x20</code> o <code>15%</code>), ignorando precios y demás columnas.
             </p>
             <textarea
               rows={10}
@@ -467,9 +494,16 @@ export default function TiendaConfigPage() {
                 )}
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
-              <Button onClick={runImport} disabled={!importText.trim()}>Importar</Button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {promoCount > 0 ? (
+                <button onClick={clearPromos} className="text-[12px] font-semibold text-rose hover:underline">
+                  Quitar todas las promos ({promoCount})
+                </button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
+                <Button onClick={runImport} disabled={!importText.trim()}>Importar</Button>
+              </div>
             </div>
           </div>
         </div>
