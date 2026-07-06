@@ -62,36 +62,41 @@ export default function EstufaPage() {
 
   return (
     <div className="min-h-screen" style={{ background: CREAM, color: INK }}>
-      {/* Barra superior */}
-      <div className="truncate px-4 py-1.5 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: DARK }}>
-        🔥 Envíos a todo el país · Stock disponible
-      </div>
-
-      {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/[0.06] bg-white/90 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white" style={{ background: GLOW }}>
-            <Flame className="h-4.5 w-4.5" fill="currentColor" />
-          </div>
-          <div className="leading-none">
-            <div className="font-display text-[15px] font-extrabold tracking-tight" style={{ color: INK }}>Estufa Halógena</div>
-            <div className="text-[9px] font-medium uppercase tracking-widest text-neutral-400">Un producto de MAON</div>
-          </div>
+      {/* Barra superior + header agrupados en un mismo sticky: si van sueltos, la barra
+          (no sticky) desaparece apenas se scrollea un poco mientras el header queda pegado
+          arriba, y da la sensación de que el header "salta" o tapa contenido. */}
+      <div className="sticky top-0 z-30">
+        <div className="truncate px-4 py-1.5 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: DARK }}>
+          🔥 Envíos a todo el país · Stock disponible
         </div>
-        <a
-          href={waLink(orderText)}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-bold text-white shadow-sm transition active:scale-95"
-          style={{ background: GLOW }}
-        >
-          <MessageCircle className="h-3.5 w-3.5" /> Comprar ahora
-        </a>
-      </header>
+        <header className="flex items-center justify-between border-b border-black/[0.06] bg-white/90 px-4 py-3 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white" style={{ background: GLOW }}>
+              <Flame className="h-4.5 w-4.5" fill="currentColor" />
+            </div>
+            <div className="leading-none">
+              <div className="font-display text-[15px] font-extrabold tracking-tight" style={{ color: INK }}>Estufa Halógena</div>
+              <div className="text-[9px] font-medium uppercase tracking-widest text-neutral-400">Un producto de MAON</div>
+            </div>
+          </div>
+          <a
+            href={waLink(orderText)}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-bold text-white shadow-sm transition active:scale-95"
+            style={{ background: GLOW }}
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> Comprar ahora
+          </a>
+        </header>
+      </div>
 
       {/* Hero: foto real de ambiente a pantalla completa con degradé + texto encima.
           object-position sesgado hacia arriba: la foto original tiene las caras en el
-          tercio superior, con crop centrado (default) quedaban cortadas. */}
+          tercio superior, con crop centrado (default) quedaban cortadas.
+          El degradé usa un panel oscuro de ancho fijo (no porcentual) para que el texto
+          siga siendo legible aunque la pantalla sea muy ancha — con porcentajes, en
+          monitores grandes el texto quedaba corrido hacia la zona ya clareada. */}
       <section className="relative h-[440px] w-full overflow-hidden sm:h-[520px] lg:h-[600px]">
         <Image
           src="/estufa/hero.png"
@@ -102,7 +107,12 @@ export default function EstufaPage() {
           className="object-cover"
           style={{ objectPosition: '50% 15%' }}
         />
-        <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${DARK}E6 0%, ${DARK}99 35%, ${DARK}22 65%, transparent 100%)` }} />
+        {/* Panel oscuro parejo (no degradé) del mismo ancho que el contenedor del texto
+            (max-w-[1100px] mx-auto): así todo el texto queda con el mismo contraste sin
+            importar cuánto ocupe una línea, y el corte con la foto sin oscurecer queda
+            justo en el borde del contenido — no antes, como pasaba con el degradé por
+            porcentaje de pantalla completa en monitores grandes. */}
+        <div className="absolute inset-0 mx-auto max-w-[1100px]" style={{ background: `${DARK}CC` }} />
         <div className="relative z-10 flex h-full max-w-[1100px] flex-col justify-center gap-4 px-5 mx-auto sm:px-8">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: GLOW }}>
             <Flame className="h-3.5 w-3.5" /> Calor instantáneo para tu casa
