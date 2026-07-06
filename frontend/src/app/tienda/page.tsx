@@ -66,7 +66,7 @@ function TiendaInner() {
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
   // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
-  const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 3).map((p) => p.img), [catalog]);
+  const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 4).map((p) => p.img), [catalog]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -314,7 +314,13 @@ function TiendaInner() {
       <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}>
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
-        <div className="relative mx-auto flex max-w-[1600px] items-center justify-between gap-8">
+
+        {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
+        <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
+          Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
+        </div>
+
+        <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
           <div className="animate-fade-up">
             <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
               <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
@@ -325,29 +331,31 @@ function TiendaInner() {
             <p className="mt-2 max-w-md text-[14px] text-white/80">
               {settings.heroSubtitle}
             </p>
-            <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-white/85">
-              <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" /> Venta por bulto cerrado</span>
-              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4" /> Envíos a todo el país</span>
-              <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Despacho en 24 a 48 hs</span>
-              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Pedido confirmado por WhatsApp</span>
+            <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
+              <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
+              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
+              <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
             </div>
           </div>
 
-          {/* Fotos de productos reales flotando, estilo vidriera */}
+          {/* Fotos de productos reales sobre un pedestal, como vidriera */}
           {heroImgs.length > 0 && (
-            <div className="relative hidden shrink-0 items-end gap-3 lg:flex">
-              <div className="absolute -right-6 -top-10 flex h-24 w-24 -rotate-6 items-center justify-center rounded-full border border-white/15 bg-white/10 text-center text-[10px] font-bold uppercase leading-tight backdrop-blur-sm">
-                Precios<br />mayoristas
-              </div>
-              {heroImgs.map((src, i) => (
-                <div
-                  key={i}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl"
-                  style={{ transform: `rotate(${i % 2 === 0 ? -4 : 5}deg) translateY(${i === 1 ? '-14px' : '0'})`, width: i === 1 ? 128 : 104, height: i === 1 ? 128 : 104 }}
-                >
-                  <img src={src} alt="" className="h-full w-full object-cover" />
-                </div>
-              ))}
+            <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
+              {/* Sombra elíptica compartida, simula el "pedestal" */}
+              <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />
+              {heroImgs.map((src, i) => {
+                const size = 88 + i * 22; // asciende de izquierda a derecha
+                return (
+                  <div
+                    key={i}
+                    className="relative overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
+                    style={{ width: size, height: size }}
+                  >
+                    <img src={src} alt="" className="h-full w-full object-contain p-1.5" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
