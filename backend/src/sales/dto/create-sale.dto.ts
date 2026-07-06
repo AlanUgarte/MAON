@@ -14,3 +14,18 @@ export class CreateSaleDto {
   items: SaleItemDto[];
   @ApiProperty({ required: false }) @IsOptional() @IsString() sellerId?: string;
 }
+
+export class StorefrontSaleItemDto {
+  @ApiProperty() @IsString() sku: string;
+  @ApiProperty() @IsInt() @Min(1) quantity: number;
+}
+
+/** Pedido armado en la tienda pública (sin login): identifica productos por SKU, no por id. */
+export class CreateStorefrontSaleDto {
+  @ApiProperty() @IsString() customerName: string;
+  @ApiProperty() @IsString() customerPhone: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() sellerName?: string;
+  @ApiProperty({ type: [StorefrontSaleItemDto] })
+  @IsArray() @ValidateNested({ each: true }) @Type(() => StorefrontSaleItemDto)
+  items: StorefrontSaleItemDto[];
+}

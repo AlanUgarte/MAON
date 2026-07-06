@@ -191,7 +191,7 @@ function TiendaInner() {
       appendMessage(c, { content: buildOrderText(), direction: 'ENTRANTE' as any, author: 'CLIENTE' as any });
       addOrder({
         customerName: form.name.trim(), customerPhone: form.phone.trim(), clientId: c.id,
-        items: cartLines.map((l) => ({ productId: l.productId, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
+        items: cartLines.map((l) => ({ productId: l.productId, sku: l.product.sku, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
         subtotal, envioGratis, seller: vendedor || undefined,
         wantsShipping: form.wantsShipping,
         shippingAddress: form.wantsShipping ? form.address.trim() : undefined,

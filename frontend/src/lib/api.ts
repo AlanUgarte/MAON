@@ -113,6 +113,10 @@ export const api = {
   updateProduct: (id: string, dto: any) => request<any>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
   deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
 
+  // Ventas (pedido de la tienda pública -> Sale real en el backend, identifica por SKU)
+  salesStorefront: (dto: { customerName: string; customerPhone: string; sellerName?: string; items: { sku: string; quantity: number }[] }) =>
+    request<any>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
+
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
   createComprobante: (dto: any) => request<any>('/comprobantes', { method: 'POST', body: JSON.stringify(dto) }),

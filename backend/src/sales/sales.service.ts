@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateSaleDto } from './dto/create-sale.dto';
+import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
 
 @Injectable()
 export class SalesService {
@@ -68,6 +68,57 @@ export class SalesService {
     });
 
     return sale;
+  }
+
+  /**
+   * Pedido armado en la tienda pública (sin login): identifica productos por SKU
+   * en vez de id, y busca/crea el cliente por teléfono en vez de recibir un clientId
+   * (el caller no tiene sesión ni conoce ids reales del backend).
+   */
+  async createFromStorefront(dto: CreateStorefrontSaleDto) {
+    if (!dto.items?.length) return { ok: false, reason: 'sin ítems' };
+
+    const products = await this.prisma.product.findMany({
+      where: { sku: { in: dto.items.map((i) => i.sku) } },
+    });
+    const bySku = new Map(products.map((p) => [p.sku, p]));
+
+    const items: Prisma.SaleItemCreateManySaleInput[] = [];
+    let total = new Prisma.Decimal(0);
+    let skipped = 0;
+    for (const it of dto.items) {
+      const prod = bySku.get(it.sku);
+      if (!prod) { skipped++; continue; }
+      items.push({ productId: prod.id, quantity: it.quantity, unitPrice: prod.price });
+      total = total.add(prod.price.mul(it.quantity));
+    }
+    if (!items.length) return { ok: false, reason: 'ningún SKU reconocido' };
+
+    const client = (await this.prisma.client.findUnique({ where: { phone: dto.customerPhone } }))
+      ?? (await this.prisma.client.create({
+        data: {
+          firstName: dto.customerName.trim().split(' ')[0] || dto.customerName.trim(),
+          lastName: dto.customerName.trim().split(' ').slice(1).join(' ') || null,
+          phone: dto.customerPhone,
+          source: 'WHATSAPP',
+        },
+      }));
+
+    const seller = dto.sellerName
+      ? await this.prisma.user.findFirst({ where: { fullName: dto.sellerName } })
+      : null;
+
+    const sale = await this.prisma.sale.create({
+      data: {
+        clientId: client.id,
+        sellerId: seller?.id,
+        total,
+        status: 'PENDIENTE',
+        items: { createMany: { data: items } },
+      },
+    });
+
+    return { ok: true, saleId: sale.id, matched: items.length, skipped };
   }
 
   findAll() {

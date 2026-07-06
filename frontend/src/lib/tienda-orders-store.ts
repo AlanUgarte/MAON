@@ -1,11 +1,14 @@
 'use client';
 
-// ponytail: solo localStorage, no hay modelo de backend para pedidos de la tienda todavía.
+// El localStorage sigue siendo la fuente de verdad para el panel de Pedidos
+// (tienda-config), pero además se manda un best-effort al backend real para
+// que quede un registro de Sale/SaleItem en la base (reportes, stock, etc.).
 import { useEffect, useState } from 'react';
+import { api } from './api';
 
 const KEY = 'compven_tienda_orders';
 
-export interface TiendaOrderItem { productId: string; name: string; qty: number; unitPrice: number }
+export interface TiendaOrderItem { productId: string; sku: string; name: string; qty: number; unitPrice: number }
 
 export interface TiendaOrder {
   id: string;
@@ -41,6 +44,15 @@ export function useTiendaOrders() {
     const next = [order, ...load()];
     setOrders(next);
     localStorage.setItem(KEY, JSON.stringify(next));
+
+    // Best-effort: no bloquea ni rompe el pedido local si el backend no está disponible.
+    api.salesStorefront({
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      sellerName: order.seller,
+      items: order.items.map((i) => ({ sku: i.sku, quantity: i.qty })),
+    }).catch(() => {});
+
     return order;
   };
 
