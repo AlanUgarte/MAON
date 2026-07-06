@@ -5,7 +5,7 @@
 // por ahora es una sola tienda para testear demanda, no un sistema genérico de micro-tiendas.
 import Image from 'next/image';
 import {
-  Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap, Star,
+  Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap,
   Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert, Banknote,
 } from 'lucide-react';
 
@@ -45,16 +45,6 @@ const USE_CASES = [
   { icon: Home, title: 'Dormitorio' },
   { icon: Building2, title: 'Oficina' },
   { icon: Warehouse, title: 'Quincho o garage' },
-];
-
-// EJEMPLO — no son reseñas reales. Reemplazar por comentarios verdaderos de clientes
-// antes de mostrar esta sección a público real (una reseña falsa presentada como real
-// puede ser publicidad engañosa).
-const TESTIMONIALS_ARE_PLACEHOLDER = true;
-const EXAMPLE_TESTIMONIALS = [
-  { name: 'Cliente de Rosario', text: 'Así se va a ver una reseña real acá: corta, con estrellas y el nombre del cliente.' },
-  { name: 'Cliente de Santa Fe', text: 'Espacio de muestra — reemplazalo apenas tengas el primer comentario real de un comprador.' },
-  { name: 'Cliente de Funes', text: 'Ejemplo de testimonio. Se saca o se cambia por reseñas verdaderas antes de recibir tráfico real.' },
 ];
 
 export default function EstufaPage() {
@@ -204,29 +194,6 @@ export default function EstufaPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Testimonios (placeholder) */}
-      <section className="mx-auto max-w-[1100px] px-4 py-10">
-        <div className="mb-5 text-center">
-          <h2 className="font-display text-xl font-extrabold" style={{ color: INK }}>Lo que dicen nuestros clientes</h2>
-          {TESTIMONIALS_ARE_PLACEHOLDER && (
-            <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-[10.5px] font-bold uppercase tracking-wide text-amber-700">
-              Ejemplo — reemplazar por reseñas reales
-            </span>
-          )}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {EXAMPLE_TESTIMONIALS.map((t) => (
-            <div key={t.name} className="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm">
-              <div className="mb-2 flex gap-0.5" style={{ color: GLOW_DEEP }}>
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-3.5 w-3.5" fill="currentColor" />)}
-              </div>
-              <p className="text-[13px] italic text-neutral-600">"{t.text}"</p>
-              <div className="mt-3 text-[12px] font-semibold text-neutral-500">{t.name}</div>
-            </div>
-          ))}
         </div>
       </section>
 
