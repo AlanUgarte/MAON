@@ -22,6 +22,8 @@ export interface TiendaSettings {
   heroBadge: string;
   heroTitle: string;
   heroSubtitle: string;
+  /** URL de una imagen ya subida a otro lado (opcional). Si está, reemplaza el fondo generado del banner. */
+  heroImageUrl?: string;
   minCompra: number;
   envioGratisDesde: number;
   whatsappNumber: string;

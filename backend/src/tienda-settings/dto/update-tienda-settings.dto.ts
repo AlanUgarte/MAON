@@ -7,6 +7,7 @@ export class UpdateTiendaSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroBadge?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroTitle?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroSubtitle?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() heroImageUrl?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsInt() minCompra?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsInt() envioGratisDesde?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsString() whatsappNumber?: string;

@@ -311,14 +311,23 @@ function TiendaInner() {
       </header>
 
       {/* Hero */}
-      <div className="relative overflow-hidden px-4 py-10 text-white sm:py-14" style={{ background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}>
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
+      <div
+        className="relative overflow-hidden bg-cover bg-center px-4 py-10 text-white sm:py-14"
+        style={settings.heroImageUrl
+          ? { backgroundImage: `linear-gradient(rgba(14,32,54,.55), rgba(14,32,54,.55)), url(${settings.heroImageUrl})` }
+          : { background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}
+      >
+        {!settings.heroImageUrl && (
+          <>
+            <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+            <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
 
-        {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
-        <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
-          Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
-        </div>
+            {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
+            <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
+              Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
+            </div>
+          </>
+        )}
 
         <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
           <div className="animate-fade-up">
@@ -339,8 +348,8 @@ function TiendaInner() {
             </div>
           </div>
 
-          {/* Fotos de productos reales sobre un pedestal, como vidriera */}
-          {heroImgs.length > 0 && (
+          {/* Fotos de productos reales sobre un pedestal, como vidriera (solo si no hay imagen propia) */}
+          {!settings.heroImageUrl && heroImgs.length > 0 && (
             <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
               {/* Sombra elíptica compartida, simula el "pedestal" */}
               <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />

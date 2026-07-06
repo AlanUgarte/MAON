@@ -587,6 +587,9 @@ model TiendaSettings {
   heroBadge        String   @default("Precios de mayorista, todo el año")
   heroTitle        String   @default("Golosinas, galletitas y alfajores al por mayor")
   heroSubtitle     String   @default("Armá tu pedido acá y confirmalo directo por WhatsApp — sin vueltas, sin registrarte.")
+  /// URL de una imagen ya subida a otro lado (ej. Drive/Imgur con link directo) para
+  /// reemplazar el fondo generado del banner por una imagen propia. Opcional.
+  heroImageUrl     String?
   minCompra        Int      @default(50000)
   envioGratisDesde Int      @default(85000)
   whatsappNumber   String   @default("5493412708638")

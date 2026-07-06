@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
 import { useProductCatalog } from '@/lib/product-catalog-store';
-import { useTiendaSettings, type TiendaSettings } from '@/lib/tienda-settings-store';
+import { useTiendaSettings, type TiendaSettings, type ProductPromo } from '@/lib/tienda-settings-store';
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
@@ -24,6 +24,87 @@ const TABS = [
   { key: 'productos', label: 'Productos', icon: Package },
   { key: 'pedidos', label: 'Pedidos', icon: ClipboardList },
 ] as const;
+
+type PromoKind = 'none' | 'pct' | 'ratio' | 'bonus';
+const inpMini = 'h-8 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none';
+
+/** Adivina el tipo de promo (y sus números) a partir del label guardado, para poder re-editarla. */
+function inferPromo(promo: ProductPromo): { kind: PromoKind; a: string; b: string } {
+  const label = promo.label ?? '';
+  const ratio = label.match(/^Lleva (\d+) paga (\d+)$/i);
+  if (ratio) return { kind: 'ratio', a: ratio[1], b: ratio[2] };
+  const bonus = label.match(/^(\d+)\+(\d+) sin cargo$/i);
+  if (bonus) return { kind: 'bonus', a: bonus[1], b: bonus[2] };
+  if (promo.discountPct) return { kind: 'pct', a: String(promo.discountPct), b: '' };
+  return { kind: 'none', a: '', b: '' };
+}
+
+/** Arma { label, discountPct } a partir del tipo de promo elegido y sus números. */
+function buildPromo(kind: PromoKind, a: string, b: string): { label?: string; discountPct?: number } {
+  const numA = Number(a), numB = Number(b);
+  if (kind === 'none' || !a) return { label: undefined, discountPct: undefined };
+  if (kind === 'pct') {
+    if (!(numA > 0)) return { label: undefined, discountPct: undefined };
+    return { label: `${numA}% OFF`, discountPct: numA };
+  }
+  if (kind === 'ratio') {
+    if (!(numA > 0) || !(numB > 0) || numB >= numA) return { label: undefined, discountPct: undefined };
+    return { label: `Lleva ${numA} paga ${numB}`, discountPct: Math.round(((numA - numB) / numA) * 1000) / 10 };
+  }
+  // bonus: "cada N, M sin cargo" (ej. 10+1)
+  if (!(numA > 0) || !(numB > 0)) return { label: undefined, discountPct: undefined };
+  return { label: `${numA}+${numB} sin cargo`, discountPct: Math.round((numB / (numA + numB)) * 1000) / 10 };
+}
+
+function PromoEditor({ promo, onChange }: { promo: ProductPromo; onChange: (patch: Partial<ProductPromo>) => void }) {
+  const [kind, setKind] = useState<PromoKind>(() => inferPromo(promo).kind);
+  const [a, setA] = useState(() => inferPromo(promo).a);
+  const [b, setB] = useState(() => inferPromo(promo).b);
+
+  // Si la promo cambia desde afuera (ej. importación masiva), resincroniza lo que se ve acá.
+  useEffect(() => {
+    const inferred = inferPromo(promo);
+    setKind(inferred.kind); setA(inferred.a); setB(inferred.b);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promo.label, promo.discountPct]);
+
+  const commit = (nextKind: PromoKind, nextA: string, nextB: string) => onChange(buildPromo(nextKind, nextA, nextB));
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <select
+        value={kind}
+        onChange={(e) => { const k = e.target.value as PromoKind; setKind(k); commit(k, a, b); }}
+        className={inpMini}
+      >
+        <option value="none">Sin promo</option>
+        <option value="pct">% Desc.</option>
+        <option value="ratio">Lleva N paga M</option>
+        <option value="bonus">N + M gratis</option>
+      </select>
+      {kind === 'pct' && (
+        <input type="number" min={0} max={100} value={a} placeholder="%" className={`${inpMini} w-14`}
+          onChange={(e) => { setA(e.target.value); commit('pct', e.target.value, b); }} />
+      )}
+      {kind === 'ratio' && (
+        <>
+          <input type="number" min={1} value={a} placeholder="Lleva" className={`${inpMini} w-16`}
+            onChange={(e) => { setA(e.target.value); commit('ratio', e.target.value, b); }} />
+          <input type="number" min={1} value={b} placeholder="Paga" className={`${inpMini} w-16`}
+            onChange={(e) => { setB(e.target.value); commit('ratio', a, e.target.value); }} />
+        </>
+      )}
+      {kind === 'bonus' && (
+        <>
+          <input type="number" min={1} value={a} placeholder="Cada" className={`${inpMini} w-16`}
+            onChange={(e) => { setA(e.target.value); commit('bonus', e.target.value, b); }} />
+          <input type="number" min={1} value={b} placeholder="Gratis" className={`${inpMini} w-16`}
+            onChange={(e) => { setB(e.target.value); commit('bonus', a, e.target.value); }} />
+        </>
+      )}
+    </div>
+  );
+}
 
 const RENDER_CAP = 150;
 
@@ -75,13 +156,17 @@ export default function TiendaConfigPage() {
     save(updated);
   };
 
-  // Importación masiva de promos: pegás "Nombre del producto | 21x20" (una por línea) y
-  // matchea por nombre contra el catálogo. "21x20" = pagás 20 y te llevás 1 sin cargo.
+  // Importación masiva de promos: pegás "SKU | 21x20" (una por línea) y matchea por
+  // SKU exacto (o nombre aproximado). "21x20" = pagás 20 y te llevás 1 sin cargo.
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
-  const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[]; error?: string } | null>(null);
   const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
   const runImport = () => {
+    if (!importText.trim()) {
+      setImportResult({ matched: 0, unmatched: [], error: 'Pegá al menos una línea con el formato SKU | promoción antes de importar.' });
+      return;
+    }
     const nextPromos = { ...form.productPromos };
     const unmatched: string[] = [];
     let matched = 0;
@@ -102,19 +187,14 @@ export default function TiendaConfigPage() {
         return;
       }
 
-      let discountPct: number | undefined;
-      let label = rawPromo;
       const ratio = rawPromo.match(/^(\d+)x(\d+)$/i);
+      const bonus = rawPromo.match(/^(\d+)\+(\d+)$/);
       const pct = rawPromo.match(/^(\d+(?:[.,]\d+)?)\s*%$/);
-      if (ratio) {
-        const buy = Number(ratio[1]), pay = Number(ratio[2]);
-        discountPct = Math.round(((buy - pay) / buy) * 1000) / 10;
-        label = `Promo ${buy}x${pay}`;
-      } else if (pct) {
-        discountPct = Number(pct[1].replace(',', '.'));
-        label = `${discountPct}% OFF`;
-      }
-      nextPromos[product.id] = { ...nextPromos[product.id], label, discountPct };
+      const patch = ratio ? buildPromo('ratio', ratio[1], ratio[2])
+        : bonus ? buildPromo('bonus', bonus[1], bonus[2])
+        : pct ? buildPromo('pct', pct[1].replace(',', '.'), '')
+        : { label: rawPromo, discountPct: undefined };
+      nextPromos[product.id] = { ...nextPromos[product.id], ...patch };
       matched++;
     });
     const updated = { ...form, productPromos: nextPromos };
@@ -245,6 +325,18 @@ export default function TiendaConfigPage() {
                 <label className={labelClass}>Subtítulo</label>
                 <textarea rows={2} className={`${inputClass} h-auto py-2`} value={form.heroSubtitle} onChange={(e) => set('heroSubtitle', e.target.value)} />
               </div>
+              <div>
+                <label className={labelClass}>Imagen de fondo del banner (opcional)</label>
+                <input
+                  className={inputClass}
+                  value={form.heroImageUrl ?? ''}
+                  onChange={(e) => set('heroImageUrl', e.target.value || undefined)}
+                  placeholder="https://... (link directo a una imagen ya subida, ej. Drive/Imgur)"
+                />
+                <p className="mt-1.5 text-[11.5px] text-muted">
+                  No hay botón para subir un archivo: pegá la URL de una imagen que ya esté online. Si la dejás vacía, el banner usa fotos reales de productos en vez de una imagen fija.
+                </p>
+              </div>
               <Button onClick={handleSave} className="w-full sm:w-auto">
                 {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
               </Button>
@@ -290,27 +382,7 @@ export default function TiendaConfigPage() {
                           </td>
                           <td className="p-2.5">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <input
-                                value={promo.label ?? ''}
-                                onChange={(e) => {
-                                  const label = e.target.value;
-                                  // Si tipea "2x1" o similar, calcula el % de descuento solo.
-                                  const ratio = label.match(/^(\d+)x(\d+)$/i);
-                                  const discountPct = ratio
-                                    ? Math.round(((Number(ratio[1]) - Number(ratio[2])) / Number(ratio[1])) * 1000) / 10
-                                    : promo.discountPct;
-                                  setPromo(p.id, { label: label || undefined, discountPct });
-                                }}
-                                placeholder="Promo (ej: 2x1)"
-                                className="h-8 w-28 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none"
-                              />
-                              <input
-                                type="number" min={0} max={100}
-                                value={promo.discountPct ?? ''}
-                                onChange={(e) => setPromo(p.id, { discountPct: e.target.value ? Number(e.target.value) : undefined })}
-                                placeholder="% off"
-                                className="h-8 w-16 rounded-lg border border-line/15 bg-surface px-2 text-[11.5px] text-content focus:border-primary/50 focus:outline-none"
-                              />
+                              <PromoEditor promo={promo} onChange={(patch) => setPromo(p.id, patch)} />
                               <label className="flex items-center gap-1 text-[11px] text-muted">
                                 <input type="checkbox" checked={!!promo.isNew} onChange={(e) => setPromo(p.id, { isNew: e.target.checked || undefined })} />
                                 Nuevo
@@ -468,34 +540,40 @@ export default function TiendaConfigPage() {
           <div className="card flex max-h-[85vh] w-full max-w-lg flex-col p-5" onClick={(e) => e.stopPropagation()}>
             <div className="text-base font-semibold text-content">Importar promos</div>
             <p className="mt-1.5 text-[12.5px] text-muted">
-              Una línea por producto: <code>SKU | 21x20</code>, <code>SKU | 15%</code>, <code>SKU | NUEVO</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
+              Una línea por producto: <code>SKU | 21x20</code> (2x1, 3x2...), <code>SKU | 10+1</code> (bonificación, cada 10 llevás 1 gratis), <code>SKU | 15%</code>, <code>SKU | NUEVO</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado. El cuadro de abajo está vacío — el texto gris es solo un ejemplo, hay que pegar tu lista real ahí.
             </p>
             <textarea
               rows={10}
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
-              placeholder={'Trio chocolatina 12*300 gr. | 21x20\nFantoche alf.triple negro 24*85 gr. | 3x2'}
+              placeholder={'Ej. (borrá esto y pegá tu lista real):\n1010200380 | 17%\n1090240670 | 21x20'}
               className="mt-3 w-full shrink-0 rounded-xl border border-line/15 bg-surface-2/60 p-3 font-mono text-[12px] text-content focus:border-primary/50 focus:outline-none"
             />
             {importResult && (
               <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-lg border border-line/10 bg-surface-2/60 p-3 text-[12.5px]">
-                <div className="flex items-center gap-1.5 font-semibold text-emerald">
-                  <Check className="h-4 w-4" /> {importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.
-                </div>
-                {importResult.unmatched.length > 0 && (
-                  <div className="mt-2 text-rose">
-                    <div className="font-semibold">Sin encontrar ({importResult.unmatched.length}):</div>
-                    <div className="mt-1 text-muted">
-                      {importResult.unmatched.slice(0, 30).join(', ')}
-                      {importResult.unmatched.length > 30 && ` … y ${importResult.unmatched.length - 30} más`}
+                {importResult.error ? (
+                  <div className="font-semibold text-rose">{importResult.error}</div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5 font-semibold text-emerald">
+                      <Check className="h-4 w-4" /> {importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.
                     </div>
-                  </div>
+                    {importResult.unmatched.length > 0 && (
+                      <div className="mt-2 text-rose">
+                        <div className="font-semibold">Sin encontrar ({importResult.unmatched.length}):</div>
+                        <div className="mt-1 text-muted">
+                          {importResult.unmatched.slice(0, 30).join(', ')}
+                          {importResult.unmatched.length > 30 && ` … y ${importResult.unmatched.length - 30} más`}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
             <div className="mt-3 flex shrink-0 justify-end gap-2">
               <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
-              <Button onClick={runImport} disabled={!importText.trim()}>Importar</Button>
+              <Button onClick={runImport}>Importar</Button>
             </div>
           </div>
         </div>
