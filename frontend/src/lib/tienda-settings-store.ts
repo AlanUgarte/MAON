@@ -62,10 +62,34 @@ export const DEFAULT_TIENDA_SETTINGS: TiendaSettings = {
   productPromos: {},
 };
 
+// El backend devuelve además "id"/"updatedAt" (campos propios de Prisma). Si se dejan pasar
+// tal cual a `settings`, un save() posterior los manda de vuelta en el PATCH — y como el
+// ValidationPipe tiene forbidNonWhitelisted, el backend rechaza TODO el request (400) sin que
+// se note en la UI (el estado local sí se actualiza). Por eso acá se arma un objeto con
+// exactamente los campos que espera el backend, nunca un spread de la respuesta cruda.
+function sanitize(raw: any): TiendaSettings {
+  return {
+    storeOpen: raw?.storeOpen ?? DEFAULT_TIENDA_SETTINGS.storeOpen,
+    topBannerText: raw?.topBannerText ?? DEFAULT_TIENDA_SETTINGS.topBannerText,
+    heroBadge: raw?.heroBadge ?? DEFAULT_TIENDA_SETTINGS.heroBadge,
+    heroTitle: raw?.heroTitle ?? DEFAULT_TIENDA_SETTINGS.heroTitle,
+    heroSubtitle: raw?.heroSubtitle ?? DEFAULT_TIENDA_SETTINGS.heroSubtitle,
+    heroImageUrl: raw?.heroImageUrl ?? undefined,
+    heroCarousel: raw?.heroCarousel ?? [],
+    promoCards: raw?.promoCards ?? [],
+    minCompra: raw?.minCompra ?? DEFAULT_TIENDA_SETTINGS.minCompra,
+    envioGratisDesde: raw?.envioGratisDesde ?? DEFAULT_TIENDA_SETTINGS.envioGratisDesde,
+    whatsappNumber: raw?.whatsappNumber ?? DEFAULT_TIENDA_SETTINGS.whatsappNumber,
+    margenVenta: raw?.margenVenta ?? DEFAULT_TIENDA_SETTINGS.margenVenta,
+    hiddenProductIds: raw?.hiddenProductIds ?? [],
+    productPromos: raw?.productPromos ?? {},
+  };
+}
+
 function load(): TiendaSettings {
   if (typeof window === 'undefined') return DEFAULT_TIENDA_SETTINGS;
   const raw = localStorage.getItem(KEY);
-  if (raw) return { ...DEFAULT_TIENDA_SETTINGS, ...JSON.parse(raw) };
+  if (raw) return sanitize(JSON.parse(raw));
   return DEFAULT_TIENDA_SETTINGS;
 }
 
@@ -85,14 +109,14 @@ export function useTiendaSettings() {
     api.tiendaSettings()
       .then((res) => {
         if (cancelled) return;
-        const fromBackend: TiendaSettings = { ...DEFAULT_TIENDA_SETTINGS, ...res };
+        const fromBackend = sanitize(res);
 
         // Migración única: si esta cuenta configuró la tienda ANTES de que existiera este
         // endpoint, esa config sigue en el localStorage de este navegador. Si la base todavía
         // no tiene nada propio pero acá sí, se sube una sola vez en vez de perderla.
         const localRaw = localStorage.getItem(KEY);
         if (localRaw && !looksCustomized(fromBackend)) {
-          const fromLocal = { ...DEFAULT_TIENDA_SETTINGS, ...JSON.parse(localRaw) };
+          const fromLocal = sanitize(JSON.parse(localRaw));
           if (looksCustomized(fromLocal)) {
             setSettings(fromLocal);
             api.updateTiendaSettings(fromLocal).catch(() => {});
@@ -113,7 +137,9 @@ export function useTiendaSettings() {
     if (!getToken()) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      api.updateTiendaSettings(next).catch(() => {});
+      // sanitize() de nuevo acá: aunque `next` ya debería venir limpio, esto asegura que
+      // jamás se manden campos extra al backend pase lo que pase río arriba.
+      api.updateTiendaSettings(sanitize(next)).catch(() => {});
     }, SAVE_DEBOUNCE_MS);
   };
 
