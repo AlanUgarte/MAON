@@ -14,6 +14,7 @@ import { AutomationsModule } from './automations/automations.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SalesModule } from './sales/sales.module';
 import { ComprobantesModule } from './comprobantes/comprobantes.module';
+import { TiendaSettingsModule } from './tienda-settings/tienda-settings.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ComprobantesModule } from './comprobantes/comprobantes.module';
     DashboardModule,
     SalesModule,
     ComprobantesModule,
+    TiendaSettingsModule,
   ],
 })
 export class AppModule {}

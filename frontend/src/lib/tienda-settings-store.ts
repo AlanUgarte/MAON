@@ -1,9 +1,14 @@
 'use client';
 
-// ponytail: solo localStorage, no hay modelo de backend para config de tienda todavía.
-import { useEffect, useState } from 'react';
+// Intenta el backend real (/tienda-settings) primero, igual que el resto de los stores.
+// Antes esto vivía solo en localStorage: cada navegador/dispositivo tenía su propia config
+// (banner, promos, productos ocultos...) y por eso un cliente real nunca veía lo que el
+// admin configuraba desde su PC. Ahora hay una fila única compartida en la base.
+import { useEffect, useRef, useState } from 'react';
+import { api, getToken } from './api';
 
 const KEY = 'compven_tienda_settings';
+const SAVE_DEBOUNCE_MS = 600;
 
 export interface ProductPromo {
   label?: string;       // texto libre para mostrar, ej: "2x1", "10+1 de regalo", "20% OFF"
@@ -46,14 +51,52 @@ function load(): TiendaSettings {
   return DEFAULT_TIENDA_SETTINGS;
 }
 
+function looksCustomized(s: TiendaSettings): boolean {
+  return !!s.hiddenProductIds.length
+    || !!Object.keys(s.productPromos).length
+    || s.heroTitle !== DEFAULT_TIENDA_SETTINGS.heroTitle
+    || s.heroSubtitle !== DEFAULT_TIENDA_SETTINGS.heroSubtitle;
+}
+
 export function useTiendaSettings() {
   const [settings, setSettings] = useState<TiendaSettings>(DEFAULT_TIENDA_SETTINGS);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { setSettings(load()); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    api.tiendaSettings()
+      .then((res) => {
+        if (cancelled) return;
+        const fromBackend: TiendaSettings = { ...DEFAULT_TIENDA_SETTINGS, ...res };
+
+        // Migración única: si esta cuenta configuró la tienda ANTES de que existiera este
+        // endpoint, esa config sigue en el localStorage de este navegador. Si la base todavía
+        // no tiene nada propio pero acá sí, se sube una sola vez en vez de perderla.
+        const localRaw = localStorage.getItem(KEY);
+        if (localRaw && !looksCustomized(fromBackend)) {
+          const fromLocal = { ...DEFAULT_TIENDA_SETTINGS, ...JSON.parse(localRaw) };
+          if (looksCustomized(fromLocal)) {
+            setSettings(fromLocal);
+            api.updateTiendaSettings(fromLocal).catch(() => {});
+            return;
+          }
+        }
+        setSettings(fromBackend);
+      })
+      .catch(() => { if (!cancelled) setSettings(load()); });
+    return () => { cancelled = true; };
+  }, []);
 
   const save = (next: TiendaSettings) => {
     setSettings(next);
     localStorage.setItem(KEY, JSON.stringify(next));
+    // tienda-config es una pantalla logueada (admin/supervisor/vendedor); la tienda pública
+    // solo lee, nunca llama a save(). Sin token no tiene sentido intentar el PATCH.
+    if (!getToken()) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.updateTiendaSettings(next).catch(() => {});
+    }, SAVE_DEBOUNCE_MS);
   };
 
   return { settings, save };

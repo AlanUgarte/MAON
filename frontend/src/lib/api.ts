@@ -117,6 +117,10 @@ export const api = {
   salesStorefront: (dto: { customerName: string; customerPhone: string; sellerName?: string; items: { sku: string; quantity: number }[] }) =>
     request<any>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
 
+  // Config de la tienda pública (banner, promos, productos ocultos, etc.) — GET es público.
+  tiendaSettings: () => request<any>('/tienda-settings'),
+  updateTiendaSettings: (dto: any) => request<any>('/tienda-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
   createComprobante: (dto: any) => request<any>('/comprobantes', { method: 'POST', body: JSON.stringify(dto) }),

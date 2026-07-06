@@ -574,3 +574,26 @@ model ComprobanteItem {
 
   @@index([comprobanteId])
 }
+
+// --------------------- CONFIG DE LA TIENDA --------------------
+
+/// Fila única (singleton): configuración pública del storefront (banner, promos,
+/// productos ocultos, etc.), antes vivía solo en localStorage del admin y por eso
+/// no se veía igual desde otro dispositivo/navegador.
+model TiendaSettings {
+  id               String   @id @default("singleton")
+  storeOpen        Boolean  @default(true)
+  topBannerText    String   @default("Envíos a todo el país · Atención por WhatsApp")
+  heroBadge        String   @default("Precios de mayorista, todo el año")
+  heroTitle        String   @default("Golosinas, galletitas y alfajores al por mayor")
+  heroSubtitle     String   @default("Armá tu pedido acá y confirmalo directo por WhatsApp — sin vueltas, sin registrarte.")
+  minCompra        Int      @default(50000)
+  envioGratisDesde Int      @default(85000)
+  whatsappNumber   String   @default("5493412708638")
+  margenVenta      Float    @default(0.12)
+  /// Ids de producto (del catálogo estático del front) ocultos en la tienda pública.
+  hiddenProductIds String[] @default([])
+  /// Mapa productId -> { label?, discountPct?, isNew? }
+  productPromos    Json     @default("{}")
+  updatedAt        DateTime @updatedAt
+}
