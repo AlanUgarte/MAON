@@ -6,7 +6,7 @@
 import Image from 'next/image';
 import {
   Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap, Star,
-  Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert,
+  Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert, Banknote,
 } from 'lucide-react';
 
 const WHATSAPP_NUMBER = '5493412708638';
@@ -58,7 +58,7 @@ const EXAMPLE_TESTIMONIALS = [
 ];
 
 export default function EstufaPage() {
-  const orderText = `¡Hola! Quiero comprar la Estufa Halógena de Cuarzo a ${money(PRICE)}.`;
+  const orderText = `¡Hola! Quiero comprar la Estufa Halógena de Cuarzo a ${money(PRICE)}. Pago en efectivo o por transferencia.`;
 
   return (
     <div className="min-h-screen" style={{ background: CREAM, color: INK }}>
@@ -137,6 +137,7 @@ export default function EstufaPage() {
           </a>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px] font-medium text-white/80">
             <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
+            <span className="flex items-center gap-1.5"><Banknote className="h-4 w-4 text-white/60" /> Efectivo o transferencia</span>
             <span className="flex items-center gap-1.5"><RefreshCw className="h-4 w-4 text-white/60" /> Cambios sin cargo</span>
             <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
           </div>
@@ -232,7 +233,7 @@ export default function EstufaPage() {
       {/* CTA final */}
       <section className="px-4 py-14 text-center text-white" style={{ background: `linear-gradient(120deg, ${GLOW}, ${GLOW_DEEP})` }}>
         <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(PRICE)}</h2>
-        <p className="mt-2 text-[13px] text-white/85">Coordinamos el envío y la forma de pago por WhatsApp.</p>
+        <p className="mt-2 text-[13px] text-white/85">Pagás en efectivo o por transferencia. Coordinamos el envío por WhatsApp.</p>
         <a
           href={waLink(orderText)}
           target="_blank"
