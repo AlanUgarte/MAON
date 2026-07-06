@@ -11,9 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { LeadsAreaChart, ProductBarChart } from '@/components/app/charts';
 import { StatusBadge } from '@/components/app/status-badge';
-import {
-  KPIS, SERIES, PIPELINE, SALES_BY_PRODUCT, CAMPAIGN_CONVERSION,
-} from '@/lib/mock';
 import { useClients } from '@/lib/clients-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
@@ -31,6 +28,22 @@ const STAGE_LABEL: Record<string, string> = {
   VENTA_CERRADA: 'Cerrada', VENTA_PERDIDA: 'Perdida',
 };
 
+// Mientras no hay datos reales (cargando o falló la llamada) se muestra todo en cero en
+// vez de números de ejemplo — mostrar "14 leads hoy" de mentira cuando en realidad no se
+// pudo cargar nada sería mentirle al dueño del negocio sobre su propia facturación.
+const EMPTY_KPIS = {
+  leadsToday: 0, leadsWeek: 0, leadsMonth: 0, leadsTrend: null as number | null,
+  salesToday: 0, salesTodayCount: 0, salesTrend: null as number | null,
+  salesMonth: 0, salesMonthCount: 0,
+  conversion: 0, avgTicket: 0, pendingLeads: 0, withoutFollowUp: 0,
+};
+const EMPTY_PIPELINE = Object.entries(STAGE_LABEL).map(([stage, label]) => ({ stage, label, count: 0 }));
+
+function todaySubtitle() {
+  const d = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return `${d.charAt(0).toUpperCase()}${d.slice(1)} · resumen de hoy`;
+}
+
 export default function DashboardPage() {
   const user = getUser();
   const isVendedor = user?.role === 'VENDEDOR';
@@ -38,14 +51,19 @@ export default function DashboardPage() {
   // Un vendedor solo ve sus propios leads en "Lead más caliente" / "Requieren atención".
   const CLIENTS = isVendedor ? allClients.filter((c) => c.seller === user!.fullName) : allClients;
   const [overview, setOverview] = useState<any | null>(null);
-  useEffect(() => { api.overview().then(setOverview).catch(() => setOverview(null)); }, []);
+  const [overviewStatus, setOverviewStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  useEffect(() => {
+    api.overview()
+      .then((res) => { setOverview(res); setOverviewStatus('ready'); })
+      .catch(() => setOverviewStatus('error'));
+  }, []);
   const [insights, setInsights] = useState<any | null>(null);
   useEffect(() => { api.insights().then(setInsights).catch(() => setInsights(null)); }, []);
 
-  const kpis = overview?.kpis ?? KPIS;
+  const kpis = overview?.kpis ?? EMPTY_KPIS;
   const pipeline = overview?.pipeline
     ? overview.pipeline.map((p: any) => ({ ...p, label: STAGE_LABEL[p.stage] ?? p.stage }))
-    : PIPELINE;
+    : EMPTY_PIPELINE;
   const series = overview
     ? (overview.leadsByDay as { date: string; value: number }[]).map((d, i) => ({
         date: d.date,
@@ -53,10 +71,9 @@ export default function DashboardPage() {
         leads: d.value,
         sales: overview.salesByDay[i]?.value ?? 0,
       }))
-    : SERIES;
-  // Para un vendedor, sin datos reales significa "todavía no vendió nada" — no mostrar el mock global.
-  const salesByProduct = overview?.salesByProduct?.length ? overview.salesByProduct : (isVendedor ? [] : SALES_BY_PRODUCT);
-  const campaignConversion = overview?.conversionByCampaign?.length ? overview.conversionByCampaign : (isVendedor ? [] : CAMPAIGN_CONVERSION);
+    : [];
+  const salesByProduct = overview?.salesByProduct ?? [];
+  const campaignConversion = overview?.conversionByCampaign ?? [];
 
   const hot = [...CLIENTS].sort((a, b) => b.leadScore - a.leadScore).slice(0, 4);
   const topLead = hot[0];
@@ -84,14 +101,19 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Topbar title="Dashboard" subtitle="Miércoles 17 de junio · resumen de hoy" />
+      <Topbar title="Dashboard" subtitle={todaySubtitle()} />
       <main className="flex-1 space-y-6 p-5 lg:p-7">
+        {overviewStatus === 'error' && (
+          <div className="rounded-xl border border-rose/30 bg-rose/8 px-4 py-2.5 text-[12.5px] font-medium text-rose">
+            No se pudieron cargar los datos en vivo del Dashboard. Los números de esta pantalla no son reales hasta que se pueda reconectar — probá recargar la página.
+          </div>
+        )}
         {/* KPIs */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Leads hoy" value={formatNumber(kpis.leadsToday)} icon={Users} tone="primary" trend={12} hint={`${kpis.leadsWeek} esta semana`} />
-          <StatCard label="Ventas hoy" value={formatARS(kpis.salesToday)} icon={DollarSign} tone="emerald" trend={8} hint={`${kpis.salesTodayCount} operaciones`} />
-          <StatCard label="Conversión general" value={`${kpis.conversion}%`} icon={Target} tone="amber" trend={3} hint="leads → ventas" />
-          <StatCard label="Ticket promedio" value={formatARS(kpis.avgTicket)} icon={Receipt} tone="sky" trend={-2} />
+          <StatCard label="Leads hoy" value={formatNumber(kpis.leadsToday)} icon={Users} tone="primary" trend={kpis.leadsTrend ?? undefined} hint={`${kpis.leadsWeek} esta semana`} />
+          <StatCard label="Ventas hoy" value={formatARS(kpis.salesToday)} icon={DollarSign} tone="emerald" trend={kpis.salesTrend ?? undefined} hint={`${kpis.salesTodayCount} operaciones`} />
+          <StatCard label="Conversión general" value={`${kpis.conversion}%`} icon={Target} tone="amber" hint="leads → ventas" />
+          <StatCard label="Ticket promedio" value={formatARS(kpis.avgTicket)} icon={Receipt} tone="sky" />
         </section>
 
         {/* Resumen financiero */}

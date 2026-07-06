@@ -9,22 +9,25 @@ export class DashboardService {
   async overview(sellerId?: string) {
     const now = new Date();
     const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfDay); startOfYesterday.setDate(startOfDay.getDate() - 1);
     const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - 7);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const clientWhere = sellerId ? { assignedSellerId: sellerId } : {};
     const saleWhere = sellerId ? { sellerId } : {};
 
     const [
-      leadsToday, leadsWeek, leadsMonth,
-      salesTodayAgg, salesMonthAgg,
+      leadsToday, leadsYesterday, leadsWeek, leadsMonth,
+      salesTodayAgg, salesYesterdayAgg, salesMonthAgg,
       totalClients, wonClients,
       pendingLeads, withoutFollowUp,
       ticketAgg,
     ] = await this.prisma.$transaction([
       this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfDay } } }),
+      this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfYesterday, lt: startOfDay } } }),
       this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfWeek } } }),
       this.prisma.client.count({ where: { ...clientWhere, createdAt: { gte: startOfMonth } } }),
       this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { ...saleWhere, createdAt: { gte: startOfDay } } }),
+      this.prisma.sale.aggregate({ _sum: { total: true }, where: { ...saleWhere, createdAt: { gte: startOfYesterday, lt: startOfDay } } }),
       this.prisma.sale.aggregate({ _sum: { total: true }, _count: true, where: { ...saleWhere, createdAt: { gte: startOfMonth } } }),
       this.prisma.client.count({ where: clientWhere }),
       this.prisma.client.count({ where: { ...clientWhere, stage: 'VENTA_CERRADA' } }),
@@ -34,12 +37,20 @@ export class DashboardService {
     ]);
 
     const conversion = totalClients > 0 ? (wonClients / totalClients) * 100 : 0;
+    const salesToday = Number(salesTodayAgg._sum.total ?? 0);
+    const salesYesterday = Number(salesYesterdayAgg._sum.total ?? 0);
+    // % contra ayer. Si ayer fue 0, no hay una base real para un porcentaje (sería infinito
+    // o inventado) — se devuelve null y el frontend simplemente no muestra la flechita.
+    const pctChange = (todayVal: number, yesterdayVal: number) =>
+      yesterdayVal > 0 ? Number((((todayVal - yesterdayVal) / yesterdayVal) * 100).toFixed(1)) : null;
 
     return {
       kpis: {
         leadsToday, leadsWeek, leadsMonth,
-        salesToday: Number(salesTodayAgg._sum.total ?? 0),
+        leadsTrend: pctChange(leadsToday, leadsYesterday),
+        salesToday,
         salesTodayCount: salesTodayAgg._count,
+        salesTrend: pctChange(salesToday, salesYesterday),
         salesMonth: Number(salesMonthAgg._sum.total ?? 0),
         salesMonthCount: salesMonthAgg._count,
         conversion: Number(conversion.toFixed(1)),
