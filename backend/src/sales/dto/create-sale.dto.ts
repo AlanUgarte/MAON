@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, ValidateNested, IsInt, Min } from 'class-validator';
+import { IsArray, IsOptional, IsString, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SaleItemDto {
@@ -16,16 +16,18 @@ export class CreateSaleDto {
 }
 
 export class StorefrontSaleItemDto {
-  @ApiProperty() @IsString() sku: string;
-  @ApiProperty() @IsInt() @Min(1) quantity: number;
+  @ApiProperty() @IsString() @MaxLength(64) sku: string;
+  // Tope de bultos por línea: es venta mayorista, pero un pedido real de un cliente
+  // no llega ni de cerca a esto — corta abuso (cantidades absurdas) sin frenar a nadie real.
+  @ApiProperty() @IsInt() @Min(1) @Max(500) quantity: number;
 }
 
 /** Pedido armado en la tienda pública (sin login): identifica productos por SKU, no por id. */
 export class CreateStorefrontSaleDto {
-  @ApiProperty() @IsString() customerName: string;
-  @ApiProperty() @IsString() customerPhone: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsString() sellerName?: string;
+  @ApiProperty() @IsString() @MaxLength(120) customerName: string;
+  @ApiProperty() @IsString() @MaxLength(40) customerPhone: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() @MaxLength(120) sellerName?: string;
   @ApiProperty({ type: [StorefrontSaleItemDto] })
-  @IsArray() @ValidateNested({ each: true }) @Type(() => StorefrontSaleItemDto)
+  @IsArray() @ArrayMaxSize(200) @ValidateNested({ each: true }) @Type(() => StorefrontSaleItemDto)
   items: StorefrontSaleItemDto[];
 }

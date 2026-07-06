@@ -6,6 +6,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Railway corre detrás de un proxy: sin esto, el rate-limit por IP vería
+  // siempre la IP del proxy (mismo balde para todos los clientes reales).
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(','),

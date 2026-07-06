@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AIModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
@@ -18,6 +19,10 @@ import { ComprobantesModule } from './comprobantes/comprobantes.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    // Solo se aplica puntualmente en POST /sales/storefront (único endpoint público
+    // de escritura) vía @UseGuards(ThrottlerGuard) — no global, para no afectar el
+    // uso normal del CRM autenticado (varios vendedores pueden compartir una IP de oficina).
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 8 }]),
     PrismaModule,
     AIModule,
     AuthModule,

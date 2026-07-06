@@ -78,19 +78,24 @@ export class SalesService {
   async createFromStorefront(dto: CreateStorefrontSaleDto) {
     if (!dto.items?.length) return { ok: false, reason: 'sin ítems' };
 
+    // Un mismo SKU puede venir repetido en varias líneas (carrito real o abuso):
+    // se suman las cantidades en vez de crear un SaleItem por línea.
+    const qtyBySku = new Map<string, number>();
+    for (const it of dto.items) qtyBySku.set(it.sku, (qtyBySku.get(it.sku) ?? 0) + it.quantity);
+
     const products = await this.prisma.product.findMany({
-      where: { sku: { in: dto.items.map((i) => i.sku) } },
+      where: { sku: { in: [...qtyBySku.keys()] } },
     });
     const bySku = new Map(products.map((p) => [p.sku, p]));
 
     const items: Prisma.SaleItemCreateManySaleInput[] = [];
     let total = new Prisma.Decimal(0);
     let skipped = 0;
-    for (const it of dto.items) {
-      const prod = bySku.get(it.sku);
+    for (const [sku, quantity] of qtyBySku) {
+      const prod = bySku.get(sku);
       if (!prod) { skipped++; continue; }
-      items.push({ productId: prod.id, quantity: it.quantity, unitPrice: prod.price });
-      total = total.add(prod.price.mul(it.quantity));
+      items.push({ productId: prod.id, quantity, unitPrice: prod.price });
+      total = total.add(prod.price.mul(quantity));
     }
     if (!items.length) return { ok: false, reason: 'ningún SKU reconocido' };
 

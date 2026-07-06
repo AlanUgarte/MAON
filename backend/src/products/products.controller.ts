@@ -1,13 +1,18 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
+// Productos trae cost/marginPct (margen real del negocio) — no es para vendedores,
+// que tampoco ven esta pantalla en el frontend (fuera de VENDEDOR_ALLOWED).
 @ApiTags('Productos')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMINISTRADOR', 'SUPERVISOR')
 @Controller('products')
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
