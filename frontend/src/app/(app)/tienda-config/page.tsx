@@ -1,18 +1,21 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock } from 'lucide-react';
+import {
+  Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock,
+  Plus, Trash2, ChevronUp, ChevronDown, Upload, GripVertical,
+} from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
 import { useProductCatalog } from '@/lib/product-catalog-store';
-import { useTiendaSettings, type TiendaSettings, type ProductPromo } from '@/lib/tienda-settings-store';
+import { useTiendaSettings, type TiendaSettings, type ProductPromo, type BannerImage } from '@/lib/tienda-settings-store';
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
-import { getUser } from '@/lib/api';
+import { getUser, uploadImage } from '@/lib/api';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -20,7 +23,7 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
 const TABS = [
   { key: 'general', label: 'General', icon: Store },
-  { key: 'contenido', label: 'Contenido', icon: ImageIcon },
+  { key: 'contenido', label: 'Banners', icon: ImageIcon },
   { key: 'productos', label: 'Productos', icon: Package },
   { key: 'pedidos', label: 'Pedidos', icon: ClipboardList },
 ] as const;
@@ -106,6 +109,87 @@ function PromoEditor({ promo, onChange }: { promo: ProductPromo; onChange: (patc
   );
 }
 
+/** Administra una lista de banners (carrusel principal o tarjetas chicas): agregar, subir
+ * imagen, activar/desactivar, reordenar (con flechas — sin drag&drop para no sumar una
+ * librería nueva solo por eso) y borrar. */
+function BannerManager({ items, onChange, noun }: { items: BannerImage[]; onChange: (next: BannerImage[]) => void; noun: string }) {
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const sorted = [...items].sort((a, b) => a.order - b.order);
+
+  const addItem = () => {
+    onChange([...items, { id: `b_${Date.now()}`, imageUrl: '', title: `${noun} ${items.length + 1}`, link: '', active: true, order: items.length }]);
+  };
+  const update = (id: string, patch: Partial<BannerImage>) => onChange(items.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  const remove = (id: string) => onChange(items.filter((b) => b.id !== id));
+  const move = (id: string, dir: -1 | 1) => {
+    const idx = sorted.findIndex((b) => b.id === id);
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const a = sorted[idx], b2 = sorted[swapIdx];
+    onChange(items.map((x) => (x.id === a.id ? { ...x, order: b2.order } : x.id === b2.id ? { ...x, order: a.order } : x)));
+  };
+  const handleFile = async (id: string, file: File) => {
+    setUploadingId(id);
+    try {
+      const url = await uploadImage(file);
+      update(id, { imageUrl: url });
+    } catch (err: any) {
+      alert(err.message || 'No se pudo subir la imagen');
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between">
+        <div className="text-[12.5px] text-muted">{sorted.length} {noun.toLowerCase()}{sorted.length === 1 ? '' : 's'}</div>
+        <Button size="sm" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Agregar {noun.toLowerCase()}</Button>
+      </div>
+      {sorted.length === 0 && (
+        <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
+          Todavía no armaste ningún {noun.toLowerCase()}.
+        </div>
+      )}
+      {sorted.map((b, i) => (
+        <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line/10 p-3">
+          <div className="flex shrink-0 items-center gap-1 text-muted">
+            <GripVertical className="h-4 w-4 opacity-40" />
+            <div className="flex flex-col">
+              <button disabled={i === 0} onClick={() => move(b.id, -1)} className="disabled:opacity-20"><ChevronUp className="h-3.5 w-3.5" /></button>
+              <button disabled={i === sorted.length - 1} onClick={() => move(b.id, 1)} className="disabled:opacity-20"><ChevronDown className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+          <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line/10 bg-surface-2">
+            {b.imageUrl ? <img src={b.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-muted" />}
+          </div>
+          <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
+            <input value={b.title ?? ''} onChange={(e) => update(b.id, { title: e.target.value })} placeholder="Título (uso interno)" className={inputClass} />
+            <input value={b.link ?? ''} onChange={(e) => update(b.id, { link: e.target.value })} placeholder="Link (opcional, ej: /tienda?marca=...)" className={inputClass} />
+          </div>
+          <div className="flex shrink-0 flex-col items-stretch gap-1.5">
+            <input
+              ref={(el) => { fileInputs.current[b.id] = el; }}
+              type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(b.id, f); e.target.value = ''; }}
+            />
+            <Button size="sm" variant="outline" onClick={() => fileInputs.current[b.id]?.click()} disabled={uploadingId === b.id}>
+              {uploadingId === b.id ? 'Subiendo...' : <><Upload className="h-3.5 w-3.5" /> Reemplazar imagen</>}
+            </Button>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-[11px] text-muted">
+                <input type="checkbox" checked={b.active} onChange={(e) => update(b.id, { active: e.target.checked })} /> Activo
+              </label>
+              <button onClick={() => remove(b.id)} className="text-rose"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const RENDER_CAP = 150;
 
 export default function TiendaConfigPage() {
@@ -121,6 +205,7 @@ export default function TiendaConfigPage() {
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>(isVendedor ? 'pedidos' : 'general');
+  const [bannerSub, setBannerSub] = useState<'carrusel' | 'tarjetas'>('carrusel');
   const [q, setQ] = useState('');
   const [invoicingOrder, setInvoicingOrder] = useState<TiendaOrder | null>(null);
   const visibleTabs = isVendedor ? TABS.filter((t) => t.key === 'pedidos') : TABS;
@@ -308,40 +393,78 @@ export default function TiendaConfigPage() {
         )}
 
         {tab === 'contenido' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-primary" /> Contenido del banner principal</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className={labelClass}>Etiqueta destacada</label>
-                <input className={inputClass} value={form.heroBadge} onChange={(e) => set('heroBadge', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Título principal</label>
-                <input className={inputClass} value={form.heroTitle} onChange={(e) => set('heroTitle', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Subtítulo</label>
-                <textarea rows={2} className={`${inputClass} h-auto py-2`} value={form.heroSubtitle} onChange={(e) => set('heroSubtitle', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Imagen de fondo del banner (opcional)</label>
-                <input
-                  className={inputClass}
-                  value={form.heroImageUrl ?? ''}
-                  onChange={(e) => set('heroImageUrl', e.target.value || undefined)}
-                  placeholder="https://... (link directo a una imagen ya subida, ej. Drive/Imgur)"
-                />
-                <p className="mt-1.5 text-[11.5px] text-muted">
-                  No hay botón para subir un archivo: pegá la URL de una imagen que ya esté online. Si la dejás vacía, el banner usa fotos reales de productos en vez de una imagen fija.
+          <div className="space-y-5">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-primary" /> Banners del home</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-[12.5px] text-muted">
+                  El carrusel principal reemplaza al banner de texto de abajo apenas tenga algún banner activo. Las tarjetas se muestran en una fila chica debajo.
                 </p>
-              </div>
-              <Button onClick={handleSave} className="w-full sm:w-auto">
-                {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
-              </Button>
-            </CardContent>
-          </Card>
+                <div className="flex gap-1.5 border-b border-line/10 pb-3">
+                  {(['carrusel', 'tarjetas'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setBannerSub(s)}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition ${bannerSub === s ? 'bg-primary text-white' : 'text-muted hover:text-content'}`}
+                    >
+                      {s === 'carrusel' ? 'Carrusel' : 'Tarjetas'}
+                      <span className={`rounded-full px-1.5 text-[10px] font-bold ${bannerSub === s ? 'bg-white/25 text-white' : 'bg-surface-2 text-muted'}`}>
+                        {(s === 'carrusel' ? form.heroCarousel : form.promoCards).length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {bannerSub === 'carrusel' ? (
+                  <BannerManager
+                    items={form.heroCarousel}
+                    noun="Banner"
+                    onChange={(next) => { const updated = { ...form, heroCarousel: next }; setForm(updated); save(updated); }}
+                  />
+                ) : (
+                  <BannerManager
+                    items={form.promoCards}
+                    noun="Tarjeta"
+                    onChange={(next) => { const updated = { ...form, promoCards: next }; setForm(updated); save(updated); }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-primary" /> Banner de texto (fallback)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-[12.5px] text-muted">Se usa solo mientras el carrusel de arriba no tenga ningún banner activo.</p>
+                <div>
+                  <label className={labelClass}>Etiqueta destacada</label>
+                  <input className={inputClass} value={form.heroBadge} onChange={(e) => set('heroBadge', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelClass}>Título principal</label>
+                  <input className={inputClass} value={form.heroTitle} onChange={(e) => set('heroTitle', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelClass}>Subtítulo</label>
+                  <textarea rows={2} className={`${inputClass} h-auto py-2`} value={form.heroSubtitle} onChange={(e) => set('heroSubtitle', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelClass}>Imagen de fondo (opcional, URL)</label>
+                  <input
+                    className={inputClass}
+                    value={form.heroImageUrl ?? ''}
+                    onChange={(e) => set('heroImageUrl', e.target.value || undefined)}
+                    placeholder="https://... (link directo a una imagen ya subida, ej. Drive/Imgur)"
+                  />
+                </div>
+                <Button onClick={handleSave} className="w-full sm:w-auto">
+                  {saved ? <><Check className="h-4 w-4" /> Guardado</> : <><Save className="h-4 w-4" /> Guardar cambios</>}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {tab === 'productos' && (

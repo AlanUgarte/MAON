@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -67,6 +67,24 @@ function TiendaInner() {
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
   // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
   const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 4).map((p) => p.img), [catalog]);
+
+  // Carrusel de banners configurado desde tienda-config: si hay alguno activo, reemplaza
+  // por completo al banner de texto+fotos genérico.
+  const activeCarousel = useMemo(
+    () => settings.heroCarousel.filter((b) => b.active && b.imageUrl).sort((a, b) => a.order - b.order),
+    [settings.heroCarousel],
+  );
+  const activeCards = useMemo(
+    () => settings.promoCards.filter((b) => b.active && b.imageUrl).sort((a, b) => a.order - b.order),
+    [settings.promoCards],
+  );
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  useEffect(() => {
+    if (activeCarousel.length < 2) return;
+    const t = setInterval(() => setCarouselIndex((i) => (i + 1) % activeCarousel.length), 5000);
+    return () => clearInterval(t);
+  }, [activeCarousel.length]);
+  useEffect(() => { if (carouselIndex >= activeCarousel.length) setCarouselIndex(0); }, [activeCarousel.length, carouselIndex]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -310,65 +328,117 @@ function TiendaInner() {
         </div>
       </header>
 
-      {/* Hero */}
-      <div
-        className="relative overflow-hidden bg-cover bg-center px-4 py-10 text-white sm:py-14"
-        style={settings.heroImageUrl
-          ? { backgroundImage: `linear-gradient(rgba(14,32,54,.55), rgba(14,32,54,.55)), url(${settings.heroImageUrl})` }
-          : { background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}
-      >
-        {!settings.heroImageUrl && (
-          <>
-            <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
-            <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
-
-            {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
-            <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
-              Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
-            </div>
-          </>
-        )}
-
-        <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
-          <div className="animate-fade-up">
-            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
-              <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
-            </div>
-            <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
-              {settings.heroTitle}
-            </h1>
-            <p className="mt-2 max-w-md text-[14px] text-white/80">
-              {settings.heroSubtitle}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
-              <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
-              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
-              <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
-              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
-            </div>
+      {/* Hero: carrusel configurado desde tienda-config si tiene algo activo, si no el banner de texto+fotos */}
+      {activeCarousel.length > 0 ? (
+        <div className="relative overflow-hidden bg-neutral-900">
+          <div className="relative h-[220px] w-full sm:h-[320px] lg:h-[420px]">
+            {activeCarousel.map((b, i) => (
+              <a
+                key={b.id}
+                href={b.link || undefined}
+                className="absolute inset-0 transition-opacity duration-700"
+                style={{ opacity: i === carouselIndex ? 1 : 0, pointerEvents: i === carouselIndex ? 'auto' : 'none' }}
+              >
+                <img src={b.imageUrl} alt={b.title || ''} className="h-full w-full object-cover" />
+              </a>
+            ))}
+            {activeCarousel.length > 1 && (
+              <>
+                <button
+                  onClick={() => setCarouselIndex((i) => (i - 1 + activeCarousel.length) % activeCarousel.length)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/30 p-2 text-white hover:bg-black/50"
+                ><ChevronLeft className="h-5 w-5" /></button>
+                <button
+                  onClick={() => setCarouselIndex((i) => (i + 1) % activeCarousel.length)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/30 p-2 text-white hover:bg-black/50"
+                ><ChevronRight className="h-5 w-5" /></button>
+                <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                  {activeCarousel.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCarouselIndex(i)}
+                      className="h-1.5 rounded-full transition-all"
+                      style={{ width: i === carouselIndex ? 20 : 6, background: i === carouselIndex ? '#fff' : 'rgba(255,255,255,0.5)' }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-
-          {/* Fotos de productos reales sobre un pedestal, como vidriera (solo si no hay imagen propia) */}
-          {!settings.heroImageUrl && heroImgs.length > 0 && (
-            <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
-              {/* Sombra elíptica compartida, simula el "pedestal" */}
-              <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />
-              {heroImgs.map((src, i) => {
-                const size = 88 + i * 22; // asciende de izquierda a derecha
-                return (
-                  <div
-                    key={i}
-                    className="relative overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
-                    style={{ width: size, height: size }}
-                  >
-                    <img src={src} alt="" className="h-full w-full object-contain p-1.5" />
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
-      </div>
+      ) : (
+        <div
+          className="relative overflow-hidden bg-cover bg-center px-4 py-10 text-white sm:py-14"
+          style={settings.heroImageUrl
+            ? { backgroundImage: `linear-gradient(rgba(14,32,54,.55), rgba(14,32,54,.55)), url(${settings.heroImageUrl})` }
+            : { background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}
+        >
+          {!settings.heroImageUrl && (
+            <>
+              <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+              <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
+
+              {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
+              <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
+                Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
+              </div>
+            </>
+          )}
+
+          <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
+            <div className="animate-fade-up">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
+                <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
+              </div>
+              <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
+                {settings.heroTitle}
+              </h1>
+              <p className="mt-2 max-w-md text-[14px] text-white/80">
+                {settings.heroSubtitle}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
+                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
+                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
+                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
+              </div>
+            </div>
+
+            {/* Fotos de productos reales sobre un pedestal, como vidriera (solo si no hay imagen propia) */}
+            {!settings.heroImageUrl && heroImgs.length > 0 && (
+              <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
+                {/* Sombra elíptica compartida, simula el "pedestal" */}
+                <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />
+                {heroImgs.map((src, i) => {
+                  const size = 88 + i * 22; // asciende de izquierda a derecha
+                  return (
+                    <div
+                      key={i}
+                      className="relative overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
+                      style={{ width: size, height: size }}
+                    >
+                      <img src={src} alt="" className="h-full w-full object-contain p-1.5" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tarjetas promocionales chicas debajo del carrusel/banner */}
+      {activeCards.length > 0 && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-4">
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {activeCards.map((c) => (
+              <a key={c.id} href={c.link || undefined} className="block h-24 w-40 shrink-0 overflow-hidden rounded-xl shadow-sm sm:h-28 sm:w-52">
+                <img src={c.imageUrl} alt={c.title || ''} className="h-full w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <main className="mx-auto flex max-w-[1600px] gap-6 p-4 pt-6">

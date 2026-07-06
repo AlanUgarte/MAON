@@ -28,6 +28,24 @@ export function clearToken() {
   if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Sube una imagen (banners de la tienda) — va a la propia app Next (Vercel Blob), no al backend NestJS. */
+export async function uploadImage(file: File): Promise<string> {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.message || `Error ${res.status}`);
+  }
+  const { url } = await res.json();
+  return url;
+}
+
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);

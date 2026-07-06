@@ -598,5 +598,10 @@ model TiendaSettings {
   hiddenProductIds String[] @default([])
   /// Mapa productId -> { label?, discountPct?, isNew? }
   productPromos    Json     @default("{}")
+  /// Carrusel del banner principal: array de { id, imageUrl, title?, link?, active, order }.
+  /// Reemplaza el banner de texto+fotos generado — si está vacío, la tienda muestra un fallback simple.
+  heroCarousel     Json     @default("[]")
+  /// Tarjetas promocionales chicas debajo del carrusel: misma forma que heroCarousel.
+  promoCards       Json     @default("[]")
   updatedAt        DateTime @updatedAt
 }

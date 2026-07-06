@@ -14,4 +14,6 @@ export class UpdateTiendaSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() margenVenta?: number;
   @ApiProperty({ required: false, type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) hiddenProductIds?: string[];
   @ApiProperty({ required: false }) @IsOptional() @IsObject() productPromos?: Record<string, any>;
+  @ApiProperty({ required: false }) @IsOptional() @IsArray() heroCarousel?: any[];
+  @ApiProperty({ required: false }) @IsOptional() @IsArray() promoCards?: any[];
 }

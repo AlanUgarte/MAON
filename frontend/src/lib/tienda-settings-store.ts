@@ -16,6 +16,16 @@ export interface ProductPromo {
   isNew?: boolean;      // aparece en "Novedades"
 }
 
+/** Un banner del carrusel principal o una tarjeta promocional chica — misma forma para ambos. */
+export interface BannerImage {
+  id: string;
+  imageUrl: string;
+  title?: string;  // uso interno (no se muestra al cliente), para identificarlo en el panel
+  link?: string;   // opcional: a dónde va si lo tocan, ej. "/productos?marca=..."
+  active: boolean;
+  order: number;
+}
+
 export interface TiendaSettings {
   storeOpen: boolean;
   topBannerText: string;
@@ -24,6 +34,10 @@ export interface TiendaSettings {
   heroSubtitle: string;
   /** URL de una imagen ya subida a otro lado (opcional). Si está, reemplaza el fondo generado del banner. */
   heroImageUrl?: string;
+  /** Carrusel de imágenes del banner principal — si tiene algo activo, reemplaza el banner de texto+fotos. */
+  heroCarousel: BannerImage[];
+  /** Tarjetas promocionales chicas debajo del carrusel (ej. "Ofertas de la semana"). */
+  promoCards: BannerImage[];
   minCompra: number;
   envioGratisDesde: number;
   whatsappNumber: string;
@@ -38,6 +52,8 @@ export const DEFAULT_TIENDA_SETTINGS: TiendaSettings = {
   heroBadge: 'Precios de mayorista, todo el año',
   heroTitle: 'Tu mayorista online de confianza',
   heroSubtitle: 'Los mejores productos, al mejor precio. Ventas por bulto cerrado, envíos a todo el país y compra 100% segura.',
+  heroCarousel: [],
+  promoCards: [],
   minCompra: 50000,
   envioGratisDesde: 85000,
   whatsappNumber: '5493412708638',
