@@ -52,9 +52,9 @@ const USE_CASES = [
 // puede ser publicidad engañosa).
 const TESTIMONIALS_ARE_PLACEHOLDER = true;
 const EXAMPLE_TESTIMONIALS = [
-  { name: 'Cliente de Rosario', text: 'Ejemplo de cómo se va a ver una reseña acá.' },
-  { name: 'Cliente de Santa Fe', text: 'Este texto es de muestra, reemplazalo por un comentario real.' },
-  { name: 'Cliente de Funes', text: 'Espacio listo para tu primera reseña real.' },
+  { name: 'Cliente de Rosario', text: 'Así se va a ver una reseña real acá: corta, con estrellas y el nombre del cliente.' },
+  { name: 'Cliente de Santa Fe', text: 'Espacio de muestra — reemplazalo apenas tengas el primer comentario real de un comprador.' },
+  { name: 'Cliente de Funes', text: 'Ejemplo de testimonio. Se saca o se cambia por reseñas verdaderas antes de recibir tráfico real.' },
 ];
 
 export default function EstufaPage() {
