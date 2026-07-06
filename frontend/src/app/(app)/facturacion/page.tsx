@@ -20,6 +20,15 @@ const IVA_RATES = [
   { value: 0, label: 'Exento / no discriminado' },
 ];
 
+// Letra que corresponde según la condición de IVA del cliente (emisor Responsable Inscripto):
+// a otro Responsable Inscripto se factura A, al resto (Monotributo/Consumidor Final/Exento) se factura B.
+const IVA_TO_LETRA: Record<string, 'A' | 'B'> = {
+  RESPONSABLE_INSCRIPTO: 'A',
+  MONOTRIBUTO: 'B',
+  CONSUMIDOR_FINAL: 'B',
+  EXENTO: 'B',
+};
+
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (rate: number) => `${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`;
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -51,6 +60,8 @@ function FacturacionInner() {
   const autoInvoiceRef = useRef(false);
   const [tab, setTab] = useState<'emitir' | 'libro'>('emitir');
   const [clientId, setClientId] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   // ponytail: se lee directo de la URL en vez de useSearchParams() — evita envolver toda
   // la página en Suspense solo por esto (causaba que se cuelgue en local con esta página tan pesada).
   const [urlParams, setUrlParams] = useState<URLSearchParams | null>(null);
@@ -61,6 +72,34 @@ function FacturacionInner() {
     const fromChat = urlParams?.get('clientId');
     if (fromChat) setClientId(fromChat);
   }, [urlParams]);
+
+  const selectedClient = useMemo(() => CLIENTS.find((c) => c.id === clientId), [CLIENTS, clientId]);
+
+  // Si el cliente se precargó por id (desde Bandeja o un pedido auto-facturado), refleja
+  // su nombre en el buscador ni bien se conoce (antes solo mostraba el id, vacío).
+  useEffect(() => {
+    if (clientId && !clientQuery && selectedClient) {
+      setClientQuery(selectedClient.businessName || `${selectedClient.firstName} ${selectedClient.lastName}`.trim());
+    }
+  }, [clientId, clientQuery, selectedClient]);
+
+  const clientMatches = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return CLIENTS.slice(0, 30);
+    return CLIENTS.filter((c) => {
+      const name = `${c.businessName || ''} ${c.firstName} ${c.lastName}`.toLowerCase();
+      return name.includes(q) || (c.cuit || '').toLowerCase().includes(q);
+    }).slice(0, 30);
+  }, [CLIENTS, clientQuery]);
+
+  const selectClient = (c: (typeof CLIENTS)[number]) => {
+    setClientId(c.id);
+    setClientQuery(c.businessName || `${c.firstName} ${c.lastName}`.trim());
+    setClientDropdownOpen(false);
+    // Autocompleta la letra según la condición de IVA del cliente (si el tipo actual la permite).
+    const suggested = IVA_TO_LETRA[c.ivaCondition] ?? 'B';
+    if (LETRAS_POR_TIPO[tipo].includes(suggested)) setLetra(suggested);
+  };
 
   // Intenta traer el libro de comprobantes real del backend; si no responde, sigue con el local persistido
   const { comprobantes: ledger, setComprobantes: setLedger, addComprobante } = useComprobantesStore();
@@ -297,12 +336,35 @@ function FacturacionInner() {
           <div style={card}>
             <div style={{ fontWeight: 700, marginBottom: 12 }}>Nuevo comprobante</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-              <label style={{ flex: 2, minWidth: 160 }}>
+              <label style={{ flex: 2, minWidth: 160, position: 'relative' }}>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Cliente</div>
-                <select style={inp} value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">Elegí un cliente</option>
-                  {CLIENTS.map((c) => <option key={c.id} value={c.id}>{c.businessName || `${c.firstName} ${c.lastName}`} {c.cuit ? `· ${c.cuit}` : ''}</option>)}
-                </select>
+                <input
+                  style={inp}
+                  value={clientQuery}
+                  onChange={(e) => { setClientQuery(e.target.value); setClientDropdownOpen(true); if (clientId) setClientId(''); }}
+                  onFocus={() => setClientDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setClientDropdownOpen(false), 150)}
+                  placeholder="Buscá por nombre, razón social o CUIT..."
+                />
+                {clientDropdownOpen && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, marginTop: 4, maxHeight: 260, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--line2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+                    {clientMatches.length === 0 && (
+                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>Sin resultados.</div>
+                    )}
+                    {clientMatches.map((c) => (
+                      <div
+                        key={c.id}
+                        onMouseDown={() => selectClient(c)}
+                        style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                      >
+                        <div style={{ fontWeight: 600 }}>{c.businessName || `${c.firstName} ${c.lastName}`}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {IVA_CONDITION_LABEL[c.ivaCondition]}{c.cuit ? ` · ${c.cuit}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </label>
               <label style={{ flex: 1, minWidth: 150 }}>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Tipo de comprobante</div>
@@ -317,6 +379,14 @@ function FacturacionInner() {
                 </select>
               </label>
             </div>
+
+            {selectedClient && (
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: -4, marginBottom: 10 }}>
+                Razón social: <b style={{ color: 'var(--text)' }}>{selectedClient.businessName || `${selectedClient.firstName} ${selectedClient.lastName}`}</b>
+                {' · '}IVA: <b style={{ color: 'var(--text)' }}>{IVA_CONDITION_LABEL[selectedClient.ivaCondition]}</b>
+                {' · '}Letra sugerida: <b style={{ color: 'var(--text)' }}>{IVA_TO_LETRA[selectedClient.ivaCondition] ?? 'B'}</b>
+              </div>
+            )}
 
             {requiereCae && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10, background: 'var(--surface2)', padding: 10, borderRadius: 10 }}>

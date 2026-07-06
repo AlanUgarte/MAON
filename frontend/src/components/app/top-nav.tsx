@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -85,8 +85,13 @@ export function TopNav() {
           {open ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
         </button>
         <Link href="/dashboard" className="flex items-center gap-2 pr-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[11px] font-extrabold text-white">CV</span>
-          <span className="font-display text-lg font-extrabold tracking-tight text-primary">COMPVEN</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
+            <Zap className="h-4 w-4" fill="currentColor" />
+          </span>
+          <span className="leading-none">
+            <span className="block font-display text-lg font-extrabold tracking-tight text-primary">MAON</span>
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-muted">Mayorista Online</span>
+          </span>
         </Link>
 
         <nav className="mx-auto hidden items-center gap-0.5 xl:flex">{items()}</nav>
