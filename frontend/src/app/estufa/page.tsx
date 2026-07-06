@@ -6,7 +6,7 @@
 import Image from 'next/image';
 import {
   Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap, Star,
-  Gauge, Feather, Wind, Home, Building2, Sofa, Warehouse, Ruler,
+  Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert,
 } from 'lucide-react';
 
 const WHATSAPP_NUMBER = '5493412708638';
@@ -25,11 +25,19 @@ const WHATSAPP = '#25D366';
 
 const waLink = (text: string) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 
+// Datos reales del producto (modelo Sprint CS-01), no genéricos.
 const FEATURES = [
-  { icon: Zap, title: 'Encendido inmediato', desc: 'Calor al instante, sin esperar.' },
-  { icon: Gauge, title: 'Varios niveles de calor', desc: 'Regulá la intensidad según el ambiente.' },
-  { icon: Feather, title: 'Liviana y portátil', desc: 'Se traslada fácil de una habitación a otra.' },
-  { icon: Wind, title: 'Bajo consumo', desc: 'Pensada para uso diario sin disparar la factura.' },
+  { icon: Zap, title: 'Encendido inmediato', desc: 'Las velas halógenas irradian calor directo sin esperar.' },
+  { icon: Gauge, title: '2 niveles de calor', desc: 'Nivel I: 400 W · Nivel II: 800 W, según lo que necesites.' },
+  { icon: ShieldCheck, title: 'Corte de seguridad', desc: 'Se apaga sola si se cae o se vuelca.' },
+  { icon: Feather, title: 'Liviana y portátil', desc: 'Fácil de ubicar en dormitorios, oficinas o el living.' },
+];
+
+const SPECS = [
+  { icon: PlugZap, label: 'Voltaje', value: '220V' },
+  { icon: Zap, label: 'Potencia máxima', value: '800 W' },
+  { icon: Gauge, label: 'Niveles de calor', value: '2 (400 W / 800 W)' },
+  { icon: TriangleAlert, label: 'Protecciones', value: 'Caída y sobrecalentamiento' },
 ];
 
 const USE_CASES = [
@@ -81,9 +89,19 @@ export default function EstufaPage() {
         </a>
       </header>
 
-      {/* Hero: foto real de ambiente a pantalla completa con degradé + texto encima */}
+      {/* Hero: foto real de ambiente a pantalla completa con degradé + texto encima.
+          object-position sesgado hacia arriba: la foto original tiene las caras en el
+          tercio superior, con crop centrado (default) quedaban cortadas. */}
       <section className="relative h-[440px] w-full overflow-hidden sm:h-[520px] lg:h-[600px]">
-        <Image src="/estufa/hero.png" alt="Estufa Halógena de Cuarzo en un living" fill priority sizes="100vw" className="object-cover" />
+        <Image
+          src="/estufa/hero.png"
+          alt="Estufa Halógena de Cuarzo en un living"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+          style={{ objectPosition: '50% 15%' }}
+        />
         <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${DARK}E6 0%, ${DARK}99 35%, ${DARK}22 65%, transparent 100%)` }} />
         <div className="relative z-10 flex h-full max-w-[1100px] flex-col justify-center gap-4 px-5 mx-auto sm:px-8">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: GLOW }}>
@@ -130,15 +148,30 @@ export default function EstufaPage() {
         </div>
       </section>
 
-      {/* Detalle + medidas */}
+      {/* Detalle del producto */}
       <section className="mx-auto max-w-[1100px] px-4 py-6">
         <div className="overflow-hidden rounded-3xl shadow-sm">
           <div className="relative aspect-[1536/1024] w-full">
-            <Image src="/estufa/detalle.png" alt="Detalle y medidas de la Estufa Halógena de Cuarzo" fill sizes="(min-width: 1100px) 1100px, 100vw" className="object-cover" />
+            <Image src="/estufa/detalle.png" alt="Detalle de la Estufa Halógena de Cuarzo" fill sizes="(min-width: 1100px) 1100px, 100vw" className="object-cover" />
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-center gap-2 text-[13px] font-semibold text-neutral-600">
-          <Ruler className="h-4 w-4" style={{ color: GLOW_DEEP }} /> Compacta: 20 cm de alto × 10 cm de ancho, entra en cualquier rincón.
+      </section>
+
+      {/* Ficha técnica — datos reales del modelo Sprint CS-01 */}
+      <section className="mx-auto max-w-[1100px] px-4 py-6">
+        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4 text-center text-[13px] font-bold uppercase tracking-wide text-neutral-400">Ficha técnica</div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {SPECS.map((s) => (
+              <div key={s.label} className="flex flex-col items-center gap-1.5 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: `${GLOW}1E`, color: GLOW_DEEP }}>
+                  <s.icon className="h-4.5 w-4.5" />
+                </div>
+                <div className="text-[13px] font-extrabold" style={{ color: INK }}>{s.value}</div>
+                <div className="text-[10.5px] text-neutral-400">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
