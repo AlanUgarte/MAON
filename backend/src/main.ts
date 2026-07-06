@@ -6,9 +6,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Railway corre detrás de un proxy: sin esto, el rate-limit por IP vería
-  // siempre la IP del proxy (mismo balde para todos los clientes reales).
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  // Railway mete la request por varios saltos de proxy internos (cantidad no documentada/
+  // estable) antes de llegar acá — con un número fijo de saltos, cada request puede terminar
+  // "confiando" en un hop distinto y el rate-limit por IP nunca ve la misma IP dos veces.
+  // 'true' confía en toda la cadena y toma el primer valor de X-Forwarded-For (el cliente real).
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
 
   app.setGlobalPrefix('api');
   app.enableCors({
