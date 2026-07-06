@@ -4,6 +4,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AutomationsService } from './automations.service';
+import { CreateAutomationDto } from './dto/create-automation.dto';
+import { UpdateAutomationDto } from './dto/update-automation.dto';
 
 @ApiTags('Automatizaciones')
 @ApiBearerAuth()
@@ -16,11 +18,11 @@ export class AutomationsController {
 
   @UseGuards(RolesGuard)
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
-  @Post() create(@Body() body: any) { return this.automations.create(body); }
+  @Post() create(@Body() dto: CreateAutomationDto) { return this.automations.create(dto); }
 
   @UseGuards(RolesGuard)
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
-  @Patch(':id') update(@Param('id') id: string, @Body() body: any) { return this.automations.update(id, body); }
+  @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateAutomationDto) { return this.automations.update(id, dto); }
 
   @Patch(':id/toggle') toggle(@Param('id') id: string) { return this.automations.toggle(id); }
 

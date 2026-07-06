@@ -3,6 +3,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -60,6 +62,8 @@ export class ClientsController {
     return this.clients.setTags(id, tagIds);
   }
 
+  // Borrar un cliente arrastra en cascada sus conversaciones/mensajes/notas — solo admin.
+  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.clients.remove(id);

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateComprobanteDto, ComprobanteTipo, ComprobanteLetra } from './dto/create-comprobante.dto';
 
@@ -88,27 +89,37 @@ export class ComprobantesService {
     ) / 100;
     const total = Math.round((subtotal + iva) * 100) / 100;
     const sign = this.isNotaCredito(dto.tipo) ? -1 : 1;
-    const numero = await this.nextNumero(dto.tipo);
 
-    return this.prisma.comprobante.create({
-      data: {
-        numero,
-        tipo: dto.tipo as any,
-        letra: letra as any,
-        clientId: dto.clientId,
-        sellerId: dto.sellerId,
-        subtotal,
-        iva,
-        total,
-        sign,
-        enBlanco,
-        descripcion: dto.descripcion,
-        cae: dto.cae,
-        caeVto: dto.caeVto ? new Date(dto.caeVto) : undefined,
-        items: { create: itemsData },
-      },
-      include: { items: true, client: true },
-    });
+    // Dos comprobantes del mismo tipo creados casi al mismo tiempo pueden calcular el
+    // mismo "próximo número" (nextNumero lee un count, no hay secuencia atómica). Si eso
+    // pasa, la restricción @unique de numero tira P2002: se reintenta con el número siguiente.
+    for (let attempt = 0; ; attempt++) {
+      const numero = await this.nextNumero(dto.tipo);
+      try {
+        return await this.prisma.comprobante.create({
+          data: {
+            numero,
+            tipo: dto.tipo as any,
+            letra: letra as any,
+            clientId: dto.clientId,
+            sellerId: dto.sellerId,
+            subtotal,
+            iva,
+            total,
+            sign,
+            enBlanco,
+            descripcion: dto.descripcion,
+            cae: dto.cae,
+            caeVto: dto.caeVto ? new Date(dto.caeVto) : undefined,
+            items: { create: itemsData },
+          },
+          include: { items: true, client: true },
+        });
+      } catch (err) {
+        const isDuplicateNumero = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+        if (!isDuplicateNumero || attempt >= 4) throw err;
+      }
+    }
   }
 
   findAll(clientId?: string) {

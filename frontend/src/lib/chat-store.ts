@@ -3,7 +3,7 @@
 // Intenta el backend real (/conversations) primero. Si no responde, sigue con
 // localStorage como hasta ahora — mismo patrón que clients-store.ts.
 import { useEffect, useState } from 'react';
-import { api } from './api';
+import { api, getToken } from './api';
 import { mockThread, type Client, type ChatMessage } from './mock';
 
 const KEY = 'compven_threads';
@@ -39,6 +39,8 @@ export function useChatThreads() {
   const [conversationIds, setConversationIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // Sin token (ej. la tienda pública) el fetch va a 401 sí o sí — se ahorra el viaje de red.
+    if (!getToken()) { setThreadsState(load()); setSource('local'); return; }
     let cancelled = false;
     api.conversations()
       .then((res) => {

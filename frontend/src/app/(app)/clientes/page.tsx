@@ -243,7 +243,10 @@ export default function ClientesPage() {
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => openNotes(c)} aria-label="Notas" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><StickyNote className="h-4 w-4" /></button>
                           <button onClick={() => openEdit(c)} aria-label="Editar" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><Pencil className="h-4 w-4" /></button>
-                          <button onClick={() => removeClient(c.id)} aria-label="Eliminar" className="rounded-lg p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-4 w-4" /></button>
+                          {/* Borrar cliente es admin-only en el backend (arrastra ventas/comprobantes) */}
+                          {!isVendedor && (
+                            <button onClick={() => removeClient(c.id)} aria-label="Eliminar" className="rounded-lg p-1.5 text-muted hover:bg-rose/15 hover:text-rose"><Trash2 className="h-4 w-4" /></button>
+                          )}
                         </div>
                       </td>
                     </tr>

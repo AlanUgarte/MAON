@@ -3,7 +3,7 @@
 // Intenta el backend real (/clients) primero. Si no responde (sin DB/backend levantado
 // todavía), sigue funcionando con la copia en localStorage como hasta ahora — sin romper nada.
 import { useEffect, useState } from 'react';
-import { api } from './api';
+import { api, getToken } from './api';
 import { CLIENTS, type Client } from './mock';
 
 const KEY = 'compven_clients';
@@ -60,6 +60,8 @@ export function useClients() {
   const [source, setSource] = useState<'backend' | 'local'>('local');
 
   useEffect(() => {
+    // Sin token (ej. la tienda pública) el fetch va a 401 sí o sí — se ahorra el viaje de red.
+    if (!getToken()) { setClients(load()); setSource('local'); return; }
     let cancelled = false;
     api.clients()
       .then((res) => {

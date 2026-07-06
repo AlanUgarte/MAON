@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 import { AIService } from '../ai/ai.service';
 import { isFreeWindowOpen } from '../common/free-window';
+import { CreateAutomationDto } from './dto/create-automation.dto';
+import { UpdateAutomationDto } from './dto/update-automation.dto';
 
 /**
  * AutomationsService
@@ -35,13 +37,13 @@ export class AutomationsService {
     return this.prisma.automation.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
-  create(data: any) {
-    return this.prisma.automation.create({ data });
+  create(dto: CreateAutomationDto) {
+    return this.prisma.automation.create({ data: dto });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, dto: UpdateAutomationDto) {
     await this.ensure(id);
-    return this.prisma.automation.update({ where: { id }, data });
+    return this.prisma.automation.update({ where: { id }, data: dto });
   }
 
   async toggle(id: string) {

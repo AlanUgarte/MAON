@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -100,7 +100,12 @@ export class ClientsService {
 
   async remove(id: string) {
     await this.ensureExists(id);
-    return this.prisma.client.delete({ where: { id } });
+    try {
+      return await this.prisma.client.delete({ where: { id } });
+    } catch {
+      // Tiene ventas o comprobantes asociados: no se puede borrar sin perder ese historial.
+      throw new BadRequestException('No se puede borrar: tiene ventas o facturas asociadas.');
+    }
   }
 
   /** Pipeline agrupado por etapa (vista Kanban). */

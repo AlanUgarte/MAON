@@ -7,9 +7,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 
+// Campañas no está en la nav de VENDEDOR (VENDEDOR_NAV) — mismo criterio que Productos:
+// si la pantalla no es para vendedores, la API tampoco.
 @ApiTags('Campañas')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMINISTRADOR', 'SUPERVISOR')
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private readonly campaigns: CampaignsService) {}
@@ -27,8 +30,6 @@ export class CampaignsController {
     return this.campaigns.create(dto, userId);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Post(':id/send')
   send(@Param('id') id: string) {
     return this.campaigns.send(id);
