@@ -15,7 +15,10 @@ export interface EstufaSettings {
   heroBadge: string;
   heroTitle: string;
   heroSubtitle: string;
-  price: number;
+  /** Precio de costo. El de venta sale de aplicarle marginPct (mismo modelo que MAON). */
+  cost: number;
+  /** Fracción, no %: 0.3333 = 33.33% de margen. */
+  marginPct: number;
   whatsappNumber: string;
 }
 
@@ -25,9 +28,13 @@ export const DEFAULT_ESTUFA_SETTINGS: EstufaSettings = {
   heroBadge: 'Calor instantáneo para tu casa',
   heroTitle: 'Estufa Halógena de Cuarzo',
   heroSubtitle: 'Calienta rápido cualquier ambiente chico o mediano, es liviana y se traslada fácil por toda la casa.',
-  price: 20000,
+  cost: 15000,
+  marginPct: 0.3333,
   whatsappNumber: '5493412708638',
 };
+
+/** Precio de venta redondeado, a partir del costo + margen. */
+export const sellPrice = (s: Pick<EstufaSettings, 'cost' | 'marginPct'>) => Math.round(s.cost * (1 + s.marginPct));
 
 // El backend devuelve además "id"/"updatedAt" (campos propios de Prisma). Si se dejan
 // pasar tal cual, un save() posterior los manda de vuelta en el PATCH y el backend
@@ -40,7 +47,8 @@ function sanitize(raw: any): EstufaSettings {
     heroBadge: raw?.heroBadge ?? DEFAULT_ESTUFA_SETTINGS.heroBadge,
     heroTitle: raw?.heroTitle ?? DEFAULT_ESTUFA_SETTINGS.heroTitle,
     heroSubtitle: raw?.heroSubtitle ?? DEFAULT_ESTUFA_SETTINGS.heroSubtitle,
-    price: Number(raw?.price ?? DEFAULT_ESTUFA_SETTINGS.price),
+    cost: Number(raw?.cost ?? DEFAULT_ESTUFA_SETTINGS.cost),
+    marginPct: Number(raw?.marginPct ?? DEFAULT_ESTUFA_SETTINGS.marginPct),
     whatsappNumber: raw?.whatsappNumber ?? DEFAULT_ESTUFA_SETTINGS.whatsappNumber,
   };
 }

@@ -9,7 +9,7 @@ import {
   Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap,
   Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert, Banknote,
 } from 'lucide-react';
-import { useEstufaSettings } from '@/lib/estufa-settings-store';
+import { useEstufaSettings, sellPrice } from '@/lib/estufa-settings-store';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR');
 
@@ -49,7 +49,8 @@ const USE_CASES = [
 
 export default function EstufaPage() {
   const { settings } = useEstufaSettings();
-  const orderText = `¡Hola! Quiero comprar la ${settings.heroTitle} a ${money(settings.price)}. Pago en efectivo o por transferencia.`;
+  const price = sellPrice(settings);
+  const orderText = `¡Hola! Quiero comprar la ${settings.heroTitle} a ${money(price)}. Pago en efectivo o por transferencia.`;
 
   if (!settings.storeOpen) {
     return (
@@ -130,7 +131,7 @@ export default function EstufaPage() {
             {settings.heroSubtitle}
           </p>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-4xl font-extrabold text-white">{money(settings.price)}</span>
+            <span className="font-display text-4xl font-extrabold text-white">{money(price)}</span>
           </div>
           <a
             href={waLink(settings.whatsappNumber, orderText)}
@@ -215,7 +216,7 @@ export default function EstufaPage() {
 
       {/* CTA final */}
       <section className="px-4 py-14 text-center text-white" style={{ background: `linear-gradient(120deg, ${GLOW}, ${GLOW_DEEP})` }}>
-        <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(settings.price)}</h2>
+        <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(price)}</h2>
         <p className="mt-2 text-[13px] text-white/85">Pagás en efectivo o por transferencia. Coordinamos el envío por WhatsApp.</p>
         <a
           href={waLink(settings.whatsappNumber, orderText)}

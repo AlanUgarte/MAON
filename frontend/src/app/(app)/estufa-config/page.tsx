@@ -9,7 +9,9 @@ import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { useEstufaSettings, type EstufaSettings } from '@/lib/estufa-settings-store';
+import { useEstufaSettings, sellPrice, type EstufaSettings } from '@/lib/estufa-settings-store';
+
+const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -70,10 +72,20 @@ export default function EstufaConfigPage() {
               <input className={inputClass} value={form.topBannerText} onChange={(e) => set('topBannerText', e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className={labelClass}>Precio ($)</label>
-                <input type="number" className={inputClass} value={form.price} onChange={(e) => set('price', Number(e.target.value) || 0)} />
+                <label className={labelClass}>Precio de costo ($)</label>
+                <input type="number" className={inputClass} value={form.cost} onChange={(e) => set('cost', Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <label className={labelClass}>Margen de venta (%)</label>
+                <input
+                  type="number"
+                  className={inputClass}
+                  value={Math.round(form.marginPct * 10000) / 100}
+                  onChange={(e) => set('marginPct', Number(e.target.value) / 100)}
+                />
+                <div className="mt-1 text-[11px] text-muted">Precio de venta: <b className="text-content">{money(sellPrice(form))}</b></div>
               </div>
               <div>
                 <label className={labelClass}>WhatsApp del negocio (sin +, ej: 5493411234567)</label>

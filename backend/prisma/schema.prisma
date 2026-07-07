@@ -626,7 +626,11 @@ model EstufaSettings {
   heroBadge      String   @default("Calor instantáneo para tu casa")
   heroTitle      String   @default("Estufa Halógena de Cuarzo")
   heroSubtitle   String   @default("Calienta rápido cualquier ambiente chico o mediano, es liviana y se traslada fácil por toda la casa.")
-  price          Decimal  @db.Decimal(12, 2) @default(20000)
+  /// Precio de costo. El de venta se calcula con marginPct (mismo modelo costo+margen
+  /// que el resto del catálogo mayorista) en vez de cargarse como un número aparte.
+  cost           Decimal  @db.Decimal(12, 2) @default(15000)
+  /// Fracción, no %: 0.3333 = 33.33% (igual convención que TiendaSettings.margenVenta).
+  marginPct      Float    @default(0.3333)
   whatsappNumber String   @default("5493412708638")
   updatedAt      DateTime @updatedAt
 }

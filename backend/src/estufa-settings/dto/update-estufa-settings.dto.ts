@@ -7,6 +7,7 @@ export class UpdateEstufaSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroBadge?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroTitle?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() heroSubtitle?: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsNumber() price?: number;
+  @ApiProperty({ required: false }) @IsOptional() @IsNumber() cost?: number;
+  @ApiProperty({ required: false }) @IsOptional() @IsNumber() marginPct?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsString() whatsappNumber?: string;
 }
