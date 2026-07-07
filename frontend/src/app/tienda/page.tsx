@@ -64,9 +64,16 @@ function TiendaInner() {
   // promo. El número lo sacamos del propio label (ya lo tiene: "Lleva 21 paga 20" / "10+1 sin cargo").
   const promoMinQty = (label?: string): number => {
     if (!label) return 1;
-    const n = label.match(/^Lleva (\d+) paga/i)?.[1] ?? label.match(/^(\d+)\+\d+ sin cargo$/i)?.[1];
-    const parsed = n ? Number(n) : NaN;
-    return parsed > 0 ? parsed : 1;
+    const lleva = label.match(/^Lleva (\d+) paga/i)?.[1];
+    if (lleva) return Number(lleva) > 0 ? Number(lleva) : 1;
+    // "N+M sin cargo" (ej. 20+1): hay que llevar N+M bultos en total para que se
+    // dispare el descuento de M bultos gratis — no alcanza con llevar solo N.
+    const bonus = label.match(/^(\d+)\+(\d+) sin cargo$/i);
+    if (bonus) {
+      const total = Number(bonus[1]) + Number(bonus[2]);
+      return total > 0 ? total : 1;
+    }
+    return 1;
   };
   const ventaBulto = (p: ProductRow, qty: number = 1) => {
     const base = p.price * (1 + settings.margenVenta);
