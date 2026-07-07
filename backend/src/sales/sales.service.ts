@@ -120,6 +120,10 @@ export class SalesService {
         total,
         status: 'PENDIENTE',
         items: { createMany: { data: items } },
+        wantsShipping: dto.wantsShipping ?? false,
+        shippingAddress: dto.wantsShipping ? dto.shippingAddress : undefined,
+        availableSchedule: dto.wantsShipping ? dto.availableSchedule : undefined,
+        envioGratis: dto.envioGratis ?? false,
       },
     });
 
@@ -130,9 +134,18 @@ export class SalesService {
     return this.prisma.sale.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        client: { select: { firstName: true, lastName: true } },
-        items: { include: { product: { select: { name: true } } } },
+        client: { select: { firstName: true, lastName: true, phone: true } },
+        seller: { select: { fullName: true } },
+        items: { include: { product: { select: { name: true, sku: true } } } },
       },
+    });
+  }
+
+  /** Marca un pedido como facturado, asociándolo al comprobante ya emitido en /comprobantes. */
+  async markInvoiced(id: string, comprobanteNumero: string) {
+    return this.prisma.sale.update({
+      where: { id },
+      data: { invoiced: true, comprobanteNumero },
     });
   }
 

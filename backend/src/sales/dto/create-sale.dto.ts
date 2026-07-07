@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsBoolean, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SaleItemDto {
@@ -30,4 +30,14 @@ export class CreateStorefrontSaleDto {
   @ApiProperty({ type: [StorefrontSaleItemDto] })
   @IsArray() @ArrayMaxSize(200) @ValidateNested({ each: true }) @Type(() => StorefrontSaleItemDto)
   items: StorefrontSaleItemDto[];
+  // Datos logísticos elegidos en el checkout — antes solo quedaban en localStorage.
+  @ApiProperty({ required: false }) @IsOptional() @IsBoolean() wantsShipping?: boolean;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() @MaxLength(300) shippingAddress?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() @MaxLength(200) availableSchedule?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsBoolean() envioGratis?: boolean;
+}
+
+/** Marca un pedido como facturado, asociándolo al número de comprobante ya emitido. */
+export class MarkInvoicedDto {
+  @ApiProperty() @IsString() @MaxLength(60) comprobanteNumero: string;
 }

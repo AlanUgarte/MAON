@@ -391,6 +391,16 @@ model Sale {
   // Atribución para reportes por campaña
   metaCampaignId String?
   metaCampaign   MetaCampaign? @relation(fields: [metaCampaignId], references: [id])
+  // Datos logísticos elegidos en el checkout de la tienda pública. Antes solo vivían
+  // en el localStorage del navegador del admin — no había registro real compartido.
+  wantsShipping    Boolean @default(false)
+  shippingAddress  String?
+  availableSchedule String?
+  envioGratis      Boolean @default(false)
+  // Estado de facturación: antes solo se guardaba en localStorage, cada navegador
+  // podía mostrar un pedido como facturado o no de forma distinta al resto.
+  invoiced          Boolean @default(false)
+  comprobanteNumero String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 

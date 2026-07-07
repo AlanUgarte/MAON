@@ -132,8 +132,14 @@ export const api = {
   deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
 
   // Ventas (pedido de la tienda pública -> Sale real en el backend, identifica por SKU)
-  salesStorefront: (dto: { customerName: string; customerPhone: string; sellerName?: string; items: { sku: string; quantity: number }[] }) =>
-    request<any>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
+  sales: () => request<any[]>('/sales'),
+  salesStorefront: (dto: {
+    customerName: string; customerPhone: string; sellerName?: string;
+    items: { sku: string; quantity: number }[];
+    wantsShipping?: boolean; shippingAddress?: string; availableSchedule?: string; envioGratis?: boolean;
+  }) => request<{ ok: boolean; saleId?: string; reason?: string }>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
+  markSaleInvoiced: (id: string, comprobanteNumero: string) =>
+    request<any>(`/sales/${id}/invoice`, { method: 'PATCH', body: JSON.stringify({ comprobanteNumero }) }),
 
   // Config de la tienda pública (banner, promos, productos ocultos, etc.) — GET es público.
   tiendaSettings: () => request<any>('/tienda-settings'),

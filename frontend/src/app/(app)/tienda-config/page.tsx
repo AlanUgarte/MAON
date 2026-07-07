@@ -197,7 +197,7 @@ export default function TiendaConfigPage() {
   const user = getUser();
   const isVendedor = user?.role === 'VENDEDOR';
   const { settings, save } = useTiendaSettings();
-  const { orders: allOrders } = useTiendaOrders();
+  const { orders: allOrders, status: ordersStatus } = useTiendaOrders();
   // Un vendedor solo ve sus propios pedidos de tienda (a quién le vendió, quién le debe, etc.).
   const orders = isVendedor ? allOrders.filter((o) => o.seller === user!.fullName) : allOrders;
   const { comprobantes } = useComprobantesStore();
@@ -532,6 +532,11 @@ export default function TiendaConfigPage() {
 
         {tab === 'pedidos' && (
           <div className="space-y-5">
+            {ordersStatus === 'error' && (
+              <div className="rounded-xl border border-rose/30 bg-rose/8 px-4 py-2.5 text-[12.5px] font-medium text-rose">
+                No se pudieron cargar los pedidos reales del servidor. Esta lista puede estar incompleta — probá recargar la página antes de dar algo por facturado o no.
+              </div>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Clock className="h-4 w-4 text-amber" /> Pendientes de facturar</CardTitle>

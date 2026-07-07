@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SalesService } from './sales.service';
-import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
+import { CreateSaleDto, CreateStorefrontSaleDto, MarkInvoicedDto } from './dto/create-sale.dto';
 
 @ApiTags('Ventas / Pedidos')
 @Controller('sales')
@@ -24,5 +24,11 @@ export class SalesController {
   @UseGuards(ThrottlerGuard) @Throttle({ default: { ttl: 60_000, limit: 8 } })
   @Post('storefront') createStorefront(@Body() dto: CreateStorefrontSaleDto) {
     return this.sales.createFromStorefront(dto);
+  }
+
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
+  @Patch(':id/invoice')
+  markInvoiced(@Param('id') id: string, @Body() dto: MarkInvoicedDto) {
+    return this.sales.markInvoiced(id, dto.comprobanteNumero);
   }
 }

@@ -183,13 +183,33 @@ function TiendaInner() {
     return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\n${envio}\n*Total: ${money(subtotal)}*\n\nNombre: ${form.name}\nTeléfono: ${form.phone}\n\nEl pedido se despacha entre 24 y 48 hs.`;
   };
 
-  const sendOrder = () => {
+  const [sending, setSending] = useState(false);
+
+  const sendOrder = async () => {
     if (!form.name.trim() || !form.phone.trim()) return setFormError('Nombre y teléfono son obligatorios');
     if (subtotal < settings.minCompra) return setFormError(`La compra mínima es ${money(settings.minCompra)}`);
     if (form.wantsShipping && (!form.address.trim() || !form.schedule.trim())) {
       return setFormError('Para el envío hace falta la dirección y un horario disponible');
     }
     setFormError('');
+    setSending(true);
+
+    // Se espera la confirmación real del pedido antes de avisar "listo" — antes esto
+    // se mandaba en segundo plano y si fallaba, el cliente veía "éxito" igual con un
+    // pedido que en realidad no había quedado registrado en ningún lado.
+    try {
+      await addOrder({
+        customerName: form.name.trim(), customerPhone: form.phone.trim(),
+        items: cartLines.map((l) => ({ productId: l.productId, sku: l.product.sku, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
+        subtotal, envioGratis, sellerName: vendedor || undefined,
+        wantsShipping: form.wantsShipping,
+        shippingAddress: form.wantsShipping ? form.address.trim() : undefined,
+        availableSchedule: form.wantsShipping ? form.schedule.trim() : undefined,
+      });
+    } catch {
+      setSending(false);
+      return setFormError('No pudimos registrar el pedido. Probá de nuevo o escribinos directo por WhatsApp.');
+    }
 
     // Si ya es cliente (mismo teléfono), el pedido se suma a su misma conversación
     // en vez de crear un contacto duplicado en Bandeja.
@@ -204,21 +224,13 @@ function TiendaInner() {
       lastInboundAt: new Date().toISOString(), unread: 1, summary: 'Pedido armado desde la tienda online.',
       objection: 'NINGUNA', seller: vendedor || '-', ivaCondition: 'CONSUMIDOR_FINAL',
     });
-
     Promise.resolve(client).then((c) => {
       appendMessage(c, { content: buildOrderText(), direction: 'ENTRANTE' as any, author: 'CLIENTE' as any });
-      addOrder({
-        customerName: form.name.trim(), customerPhone: form.phone.trim(), clientId: c.id,
-        items: cartLines.map((l) => ({ productId: l.productId, sku: l.product.sku, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
-        subtotal, envioGratis, seller: vendedor || undefined,
-        wantsShipping: form.wantsShipping,
-        shippingAddress: form.wantsShipping ? form.address.trim() : undefined,
-        availableSchedule: form.wantsShipping ? form.schedule.trim() : undefined,
-      });
     });
 
     const waLink = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(buildOrderText())}`;
     window.open(waLink, '_blank');
+    setSending(false);
     setSent(true);
   };
 
@@ -749,8 +761,13 @@ function TiendaInner() {
                 <div className="mt-1.5 flex justify-between border-t border-black/10 pt-1.5 font-bold text-black"><span>Total</span><span>{money(subtotal)}</span></div>
               </div>
               {formError && <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
-              <button onClick={sendOrder} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 font-bold text-white shadow-sm transition active:scale-[0.98]" style={{ background: WHATSAPP }}>
-                <MessageCircle className="h-4 w-4" /> Enviar pedido por WhatsApp
+              <button
+                onClick={sendOrder}
+                disabled={sending}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+                style={{ background: WHATSAPP }}
+              >
+                <MessageCircle className="h-4 w-4" /> {sending ? 'Enviando pedido…' : 'Enviar pedido por WhatsApp'}
               </button>
             </>
           ) : (
