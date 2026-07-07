@@ -134,6 +134,13 @@ function TiendaInner() {
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax, view]);
   const visible = filtered.slice(0, visibleCount);
 
+  // Tocar el logo vuelve a como se ve la tienda apenas se entra: sin filtros ni búsqueda.
+  const goHome = () => {
+    setSearch(''); setCategory(''); setView(''); setBrand(''); setBrandQuery('');
+    setPriceMin(''); setPriceMax('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const cartLines = cart.map((c) => {
     const p = catalog.find((x) => x.id === c.productId)!;
     return { ...c, product: p, unitPrice: ventaBulto(p), subtotal: ventaBulto(p) * c.qty };
@@ -266,7 +273,11 @@ function TiendaInner() {
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 px-4 py-3 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 sm:gap-4">
-          <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={goHome}
+            className="flex shrink-0 items-center gap-2 text-left transition active:scale-[0.98]"
+            aria-label="Volver al inicio de la tienda"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${BRAND_LIGHT}, ${BRAND})` }}>
               <Zap className="h-5 w-5" fill="currentColor" />
             </div>
@@ -274,7 +285,7 @@ function TiendaInner() {
               <div className="font-display text-lg font-extrabold tracking-tight" style={{ color: BRAND }}>MAON</div>
               <div className="text-[10px] font-medium uppercase tracking-widest text-neutral-400">Mayorista Online</div>
             </div>
-          </div>
+          </button>
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
