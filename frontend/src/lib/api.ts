@@ -130,6 +130,27 @@ export const api = {
   createProduct: (dto: any) => request<any>('/products', { method: 'POST', body: JSON.stringify(dto) }),
   updateProduct: (id: string, dto: any) => request<any>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
   deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
+  // Actualiza el costo de los artículos existentes desde una lista de precios (Excel del
+  // proveedor). Va directo al backend NestJS (no por /api/upload, que es solo para imágenes).
+  importPrices: async (file: File, dryRun: boolean) => {
+    const token = getToken();
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/products/import-prices?dryRun=${dryRun}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.message || `Error ${res.status}`);
+    }
+    return res.json() as Promise<{
+      dryRun: boolean; updated: number; toUpdateCount: number; requested: number; notFoundCount: number;
+      notFoundSample: { sku: string }[]; sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+      skippedNoSku: number; skippedBadPrice: number;
+    }>;
+  },
 
   // Ventas (pedido de la tienda pública -> Sale real en el backend, identifica por SKU)
   sales: () => request<any[]>('/sales'),
