@@ -1,8 +1,16 @@
 'use client';
 
-// ponytail: catálogo completo (7500+ productos reales de TYNA) se sirve como
-// JSON estático desde /public en vez de bundlearlo en el JS — sin backend/DB
-// todavía, esto evita inflar el bundle de cada página que usa productos.
+// Catálogo completo (10.000+ productos reales del proveedor) se sirve como JSON
+// estático desde /public en vez de bundlearlo en el JS.
+//
+// Antes esto se combinaba con una "semilla" de ~100 productos hardcodeados
+// (mock.ts, con códigos de prueba tipo "TOP1") y esa semilla SIEMPRE ganaba para
+// cualquier producto que coincidiera por nombre+marca. El problema real: esos
+// códigos de prueba no existen en el backend, así que el checkout de la tienda
+// pública fallaba en silencio para esos ~18 productos (varios de los más
+// vendidos) — el pedido nunca quedaba registrado. Ahora el catálogo real
+// reemplaza la semilla por completo apenas carga; la semilla queda solo como
+// lo que se ve un instante mientras se hace el fetch (o si el fetch falla).
 import { useEffect, useState } from 'react';
 import { PRODUCT_ROWS, type ProductRow } from './mock';
 
@@ -16,13 +24,10 @@ export function useProductCatalog() {
       .then((r) => r.json())
       .then((rows: ProductRow[]) => {
         if (cancelled || !rows.length) return;
-        // ponytail: red de seguridad contra duplicados (nombre+marca) si un futuro import se solapa con la semilla.
-        const seedKeys = new Set(PRODUCT_ROWS.map((p) => `${p.name.trim().toUpperCase()}|${p.brand.trim().toUpperCase()}`));
-        const deduped = rows.filter((p) => !seedKeys.has(`${p.name.trim().toUpperCase()}|${p.brand.trim().toUpperCase()}`));
-        setProducts([...PRODUCT_ROWS, ...deduped]);
+        setProducts(rows);
         setSource('full');
       })
-      .catch(() => {}); // sin conexión: se queda con el catálogo semilla de siempre
+      .catch(() => {}); // sin conexión: se queda con el catálogo semilla como último recurso
     return () => { cancelled = true; };
   }, []);
 

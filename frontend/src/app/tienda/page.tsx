@@ -59,10 +59,20 @@ function TiendaInner() {
   const { addOrder } = useTiendaOrders();
   const { products } = useProductCatalog();
   const getPromo = (p: ProductRow) => settings.productPromos[p.id];
-  const ventaBulto = (p: ProductRow) => {
+  // "Lleva N paga M" y "N+M sin cargo" solo valen a partir de N bultos — antes se cobraba
+  // el precio con descuento aunque el carrito tuviera menos cantidad que la que pide la
+  // promo. El número lo sacamos del propio label (ya lo tiene: "Lleva 21 paga 20" / "10+1 sin cargo").
+  const promoMinQty = (label?: string): number => {
+    if (!label) return 1;
+    const n = label.match(/^Lleva (\d+) paga/i)?.[1] ?? label.match(/^(\d+)\+\d+ sin cargo$/i)?.[1];
+    const parsed = n ? Number(n) : NaN;
+    return parsed > 0 ? parsed : 1;
+  };
+  const ventaBulto = (p: ProductRow, qty: number = 1) => {
     const base = p.price * (1 + settings.margenVenta);
-    const pct = getPromo(p)?.discountPct;
-    return Math.round(pct ? base * (1 - pct / 100) : base);
+    const promo = getPromo(p);
+    const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
+    return Math.round(applies ? base * (1 - promo!.discountPct! / 100) : base);
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
   // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
@@ -117,7 +127,7 @@ function TiendaInner() {
     const min = priceMin ? Number(priceMin) : null;
     const max = priceMax ? Number(priceMax) : null;
     return catalog.filter((p) => {
-      const venta = ventaBulto(p);
+      const venta = ventaBulto(p, cart.find((c) => c.productId === p.id)?.qty ?? 0);
       const promo = getPromo(p);
       const haystack = `${p.name} ${p.brand}`.toLowerCase();
       return (!category || p.category === category) &&
@@ -143,7 +153,8 @@ function TiendaInner() {
 
   const cartLines = cart.map((c) => {
     const p = catalog.find((x) => x.id === c.productId)!;
-    return { ...c, product: p, unitPrice: ventaBulto(p), subtotal: ventaBulto(p) * c.qty };
+    const unitPrice = ventaBulto(p, c.qty);
+    return { ...c, product: p, unitPrice, subtotal: unitPrice * c.qty };
   });
   const cartCount = cart.reduce((a, c) => a + c.qty, 0);
   const subtotal = cartLines.reduce((a, l) => a + l.subtotal, 0);
@@ -553,9 +564,14 @@ function TiendaInner() {
                   <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400">{p.brand}</div>
                   <div className="line-clamp-3 min-h-[52px] text-[13px] font-medium leading-tight text-neutral-800" title={p.name}>{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p))}</span>
-                    {!!promo?.discountPct && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
+                    <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p, inCart))}</span>
+                    {!!promo?.discountPct && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
+                  {!!promo?.discountPct && inCart > 0 && inCart < promoMinQty(promo.label) && (
+                    <div className="text-[10px] font-semibold" style={{ color: ACCENT }}>
+                      Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
+                    </div>
+                  )}
                   <div className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</div>
                   <div className="mt-2.5">
                     {inCart === 0 ? (

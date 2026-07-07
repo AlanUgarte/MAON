@@ -260,8 +260,8 @@ export default function TiendaConfigPage() {
   const [pendingPriceFile, setPendingPriceFile] = useState<File | null>(null);
   const [priceImportBusy, setPriceImportBusy] = useState(false);
   const [priceImportResult, setPriceImportResult] = useState<{
-    dryRun: boolean; updated: number; toUpdateCount: number; requested: number; notFoundCount: number;
-    notFoundSample: { sku: string }[]; sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+    dryRun: boolean; created: number; updated: number; requested: number;
+    sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
     error?: string;
   } | null>(null);
   const runPriceImport = async (file: File, dryRun: boolean) => {
@@ -273,7 +273,7 @@ export default function TiendaConfigPage() {
       setPendingPriceFile(dryRun ? file : null);
     } catch (err: any) {
       setPriceImportResult({
-        dryRun, updated: 0, toUpdateCount: 0, requested: 0, notFoundCount: 0, notFoundSample: [], sample: [],
+        dryRun, created: 0, updated: 0, requested: 0, sample: [],
         error: err.message || 'No se pudo procesar el archivo',
       });
       setPendingPriceFile(null);
@@ -533,7 +533,7 @@ export default function TiendaConfigPage() {
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) runPriceImport(f, true); e.target.value = ''; }}
                 />
                 <Button size="sm" variant="outline" disabled={priceImportBusy} onClick={() => priceFileInput.current?.click()}>
-                  <Upload className="h-3.5 w-3.5" /> {priceImportBusy ? 'Actualizando…' : 'Actualizar precios (Excel)'}
+                  <Upload className="h-3.5 w-3.5" /> {priceImportBusy ? 'Sincronizando…' : 'Sincronizar catálogo (Excel)'}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => { setShowImport(true); setImportResult(null); }}>Importar promos</Button>
               </div>
@@ -785,23 +785,23 @@ export default function TiendaConfigPage() {
       {priceImportResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}>
           <div className="card flex max-h-[85vh] w-full max-w-lg flex-col p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="text-base font-semibold text-content">Actualización de precios de costo</div>
+            <div className="text-base font-semibold text-content">Sincronizar catálogo desde Excel</div>
             {priceImportResult.error ? (
               <div className="mt-3 rounded-lg border border-rose/20 bg-rose/8 p-3 text-[13px] font-semibold text-rose">{priceImportResult.error}</div>
             ) : (
               <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto text-[13px]">
                 {priceImportResult.dryRun ? (
                   <div className="flex items-center gap-1.5 font-semibold text-amber">
-                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.toUpdateCount} de {priceImportResult.requested} artículos se van a actualizar. Todavía no se guardó nada.
+                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} (de {priceImportResult.requested} en el archivo). Todavía no se guardó nada.
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 font-semibold text-emerald">
-                    <Check className="h-4 w-4" /> Listo: {priceImportResult.updated} artículos actualizados de verdad.
+                    <Check className="h-4 w-4" /> Listo: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} de verdad.
                   </div>
                 )}
                 {priceImportResult.sample.length > 0 && (
                   <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3">
-                    <div className="mb-1.5 font-semibold text-content">Ejemplos de cambio:</div>
+                    <div className="mb-1.5 font-semibold text-content">Ejemplos de precio (productos que ya existían):</div>
                     <div className="space-y-1">
                       {priceImportResult.sample.slice(0, 10).map((s) => (
                         <div key={s.sku} className="flex items-center justify-between gap-2 text-[12px]">
@@ -812,23 +812,14 @@ export default function TiendaConfigPage() {
                     </div>
                   </div>
                 )}
-                {priceImportResult.notFoundCount > 0 && (
-                  <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3 text-muted">
-                    <div className="font-semibold text-amber">{priceImportResult.notFoundCount} código{priceImportResult.notFoundCount === 1 ? '' : 's'} del archivo no están en tu catálogo (no se toca nada de esos):</div>
-                    <div className="mt-1 font-mono text-[11.5px]">
-                      {priceImportResult.notFoundSample.map((s) => s.sku).join(', ')}
-                      {priceImportResult.notFoundCount > priceImportResult.notFoundSample.length && ` … y ${priceImportResult.notFoundCount - priceImportResult.notFoundSample.length} más`}
-                    </div>
-                  </div>
-                )}
-                {!priceImportResult.dryRun && <p className="text-muted">Recargá la página para ver los precios nuevos en la lista.</p>}
+                {!priceImportResult.dryRun && <p className="text-muted">Recargá la página para ver los productos y precios nuevos en la lista.</p>}
               </div>
             )}
             <div className="mt-4 flex shrink-0 justify-end gap-2">
               <Button variant="outline" onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}>Cerrar</Button>
               {priceImportResult.dryRun && !priceImportResult.error && pendingPriceFile && (
                 <Button disabled={priceImportBusy} onClick={() => runPriceImport(pendingPriceFile, false)}>
-                  {priceImportBusy ? 'Aplicando…' : `Confirmar y actualizar ${priceImportResult.toUpdateCount}`}
+                  {priceImportBusy ? 'Aplicando…' : `Confirmar (${priceImportResult.created + priceImportResult.updated})`}
                 </Button>
               )}
               {!priceImportResult.dryRun && !priceImportResult.error && (

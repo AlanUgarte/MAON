@@ -130,8 +130,9 @@ export const api = {
   createProduct: (dto: any) => request<any>('/products', { method: 'POST', body: JSON.stringify(dto) }),
   updateProduct: (id: string, dto: any) => request<any>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
   deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
-  // Actualiza el costo de los artículos existentes desde una lista de precios (Excel del
-  // proveedor). Va directo al backend NestJS (no por /api/upload, que es solo para imágenes).
+  // Sincroniza el catálogo real (crea productos nuevos, actualiza precio/nombre/categoría
+  // de los que ya existen) desde la lista de precios del proveedor. Va directo al backend
+  // NestJS (no por /api/upload, que es solo para imágenes).
   importPrices: async (file: File, dryRun: boolean) => {
     const token = getToken();
     const form = new FormData();
@@ -146,8 +147,8 @@ export const api = {
       throw new Error(detail.message || `Error ${res.status}`);
     }
     return res.json() as Promise<{
-      dryRun: boolean; updated: number; toUpdateCount: number; requested: number; notFoundCount: number;
-      notFoundSample: { sku: string }[]; sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+      dryRun: boolean; created: number; updated: number; requested: number;
+      sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
       skippedNoSku: number; skippedBadPrice: number;
     }>;
   },

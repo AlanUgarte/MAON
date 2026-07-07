@@ -43,11 +43,14 @@ export class ProductsService {
   }
 
   /**
-   * Actualiza el costo (price) de los artículos existentes a partir de una lista de
-   * precios del proveedor (Excel "SAP Movil"). Formato esperado: hoja con columnas
-   * Categoría, Código, Nombre, Marca, Línea, ..., BRUTO BULTO, BRUTO UNIDAD, ...
-   * Solo actualiza `price` de productos que ya existen (matcheados por sku/Código);
-   * no crea productos nuevos ni toca nombre/stock/categoría.
+   * Sincroniza el catálogo real desde la lista de precios del proveedor (Excel "SAP
+   * Movil"). Formato esperado: hoja con columnas Categoría, Código, Nombre, Marca,
+   * Línea, ..., BRUTO BULTO, BRUTO UNIDAD, ...
+   * Matchea por sku/Código: si el producto ya existe, actualiza precio/nombre/categoría/
+   * marca/unidades por bulto; si no existe, lo crea. La base solo tenía ~100 productos de
+   * prueba (sku "TOP1".."TOP100") — sin esto, el catálogo real (10.000+ artículos que ve
+   * el cliente en /tienda) nunca tuvo su fila real acá, y el checkout fallaba siempre
+   * ("ningún SKU reconocido") para cualquier producto fuera de esos 100 de prueba.
    */
   async importPricesFromExcel(buffer: Buffer, dryRun: boolean) {
     const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -62,29 +65,39 @@ export class ProductsService {
     const headerIdx = rows.findIndex((r) => r.some((c) => String(c).trim() === 'Código'));
     if (headerIdx === -1) throw new BadRequestException('No se encontró la fila de encabezado (columna "Código")');
     const header = rows[headerIdx].map((c) => String(c).trim());
-    const skuCol = header.indexOf('Código');
-    const priceCol = header.indexOf('BRUTO BULTO');
+    const col = (name: string) => header.indexOf(name);
+    const skuCol = col('Código'), nameCol = col('Nombre del Artículo'), catCol = col('Categoría'),
+      brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), priceCol = col('BRUTO BULTO');
     if (skuCol === -1 || priceCol === -1) {
       throw new BadRequestException('Faltan las columnas "Código" y/o "BRUTO BULTO" en el archivo');
     }
 
-    const items: { sku: string; price: number }[] = [];
+    const items: { sku: string; name: string; category: string; brand: string; units: number; price: number }[] = [];
     let skippedNoSku = 0, skippedBadPrice = 0;
+    const seenSku = new Set<string>();
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       const sku = String(row[skuCol] ?? '').trim();
-      if (!sku) { skippedNoSku++; continue; } // filas de encabezado de rubro, sin código
+      if (!sku || seenSku.has(sku)) { skippedNoSku++; continue; } // filas de encabezado de rubro, sin código (o duplicado)
       const raw = row[priceCol];
       const price = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(',', '.'));
       if (!isFinite(price) || price <= 0) { skippedBadPrice++; continue; }
-      items.push({ sku, price: Math.round(price * 100) / 100 });
+      seenSku.add(sku);
+      items.push({
+        sku,
+        name: String(row[nameCol] ?? '').trim(),
+        category: String(row[catCol] ?? '').trim(),
+        brand: String(row[brandCol] ?? '').trim(),
+        units: Number(row[unitsCol]) || 1,
+        price: Math.round(price * 100) / 100,
+      });
     }
     if (!items.length) throw new BadRequestException('No se encontró ningún artículo con código y precio válidos');
 
     const skus = items.map((i) => i.sku);
     const existing = await this.prisma.product.findMany({ where: { sku: { in: skus } }, select: { sku: true, name: true, price: true } });
     const existingBySku = new Map(existing.map((p) => [p.sku, p]));
-    const notFound = items.filter((i) => !existingBySku.has(i.sku));
+    const toCreate = items.filter((i) => !existingBySku.has(i.sku));
     const toUpdate = items.filter((i) => existingBySku.has(i.sku));
 
     // Muestra de cambios (antes/después) para poder revisar antes de confirmar — sobre
@@ -94,26 +107,36 @@ export class ProductsService {
       return { sku: it.sku, name: current.name, oldPrice: Number(current.price), newPrice: it.price };
     });
 
-    let updated = 0;
-    if (!dryRun && toUpdate.length) {
-      const values = Prisma.join(
-        toUpdate.map((it) => Prisma.sql`(${it.sku}, ${it.price}::numeric)`),
-        ',',
-      );
-      updated = await this.prisma.$executeRaw`
-        UPDATE "Product" AS p SET price = v.price, "updatedAt" = now()
-        FROM (VALUES ${values}) AS v(sku, price)
-        WHERE p.sku = v.sku
-      `;
+    if (!dryRun && items.length) {
+      // En chunks: una sola sentencia con las 10.000+ filas se pasa del límite de
+      // parámetros de Postgres (65535).
+      const CHUNK = 1000;
+      for (let i = 0; i < items.length; i += CHUNK) {
+        const chunk = items.slice(i, i + CHUNK);
+        const values = Prisma.join(
+          chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}, ${it.sku}, ${it.category}, ${it.brand}, ${it.units}, ${it.price}::numeric)`),
+          ',',
+        );
+        await this.prisma.$executeRaw`
+          INSERT INTO "Product" (id, name, sku, category, brand, "unitsPerBulk", price, stock, "isActive", "createdAt", "updatedAt")
+          SELECT id, name, sku, category, brand, "unitsPerBulk", price, 0, true, now(), now()
+          FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price)
+          ON CONFLICT (sku) DO UPDATE SET
+            price = EXCLUDED.price,
+            name = EXCLUDED.name,
+            category = EXCLUDED.category,
+            brand = EXCLUDED.brand,
+            "unitsPerBulk" = EXCLUDED."unitsPerBulk",
+            "updatedAt" = now()
+        `;
+      }
     }
 
     return {
       dryRun,
-      updated,
-      toUpdateCount: toUpdate.length,
+      created: toCreate.length,
+      updated: toUpdate.length,
       requested: items.length,
-      notFoundCount: notFound.length,
-      notFoundSample: notFound.slice(0, 30).map((i) => ({ sku: i.sku })),
       sample,
       skippedNoSku,
       skippedBadPrice,
