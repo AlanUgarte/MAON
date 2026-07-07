@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock,
-  Plus, Trash2, ChevronUp, ChevronDown, Upload, GripVertical,
+  Plus, Trash2, ChevronUp, ChevronDown, Upload, GripVertical, Tag,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -207,6 +207,7 @@ export default function TiendaConfigPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>(isVendedor ? 'pedidos' : 'general');
   const [bannerSub, setBannerSub] = useState<'carrusel' | 'tarjetas'>('carrusel');
   const [q, setQ] = useState('');
+  const [onlyWithPromo, setOnlyWithPromo] = useState(false);
   const [invoicingOrder, setInvoicingOrder] = useState<TiendaOrder | null>(null);
   const visibleTabs = isVendedor ? TABS.filter((t) => t.key === 'pedidos') : TABS;
 
@@ -298,11 +299,21 @@ export default function TiendaConfigPage() {
     setImportResult({ matched, unmatched });
   };
 
+  // Promo "activa" = tiene label, % de descuento o el flag de Novedades — no alcanza con
+  // que exista la entrada en productPromos, porque setPromo la borra sola cuando queda vacía.
+  const hasActivePromo = (id: string) => {
+    const p = form.productPromos[id];
+    return !!p && (!!p.label || !!p.discountPct || !!p.isNew);
+  };
+
   const filteredProducts = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return PRODUCT_ROWS.slice(0, RENDER_CAP);
-    return PRODUCT_ROWS.filter((p) => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query));
-  }, [q, PRODUCT_ROWS]);
+    const base = query
+      ? PRODUCT_ROWS.filter((p) => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query))
+      : PRODUCT_ROWS;
+    if (onlyWithPromo) return base.filter((p) => hasActivePromo(p.id));
+    return query ? base : base.slice(0, RENDER_CAP);
+  }, [q, PRODUCT_ROWS, onlyWithPromo, form.productPromos]);
 
   const visibleCount = PRODUCT_ROWS.length - form.hiddenProductIds.length;
 
@@ -488,11 +499,24 @@ export default function TiendaConfigPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto o marca..." className="h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm focus:border-primary/50 focus:outline-none" />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto o marca..." className="h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 pl-9 pr-3 text-sm focus:border-primary/50 focus:outline-none" />
+                </div>
+                <button
+                  onClick={() => setOnlyWithPromo((v) => !v)}
+                  className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-[13px] font-semibold transition ${onlyWithPromo ? 'border-primary bg-primary text-white' : 'border-line/15 bg-surface-2/60 text-content hover:bg-surface-2'}`}
+                >
+                  <Tag className="h-3.5 w-3.5" /> Solo con promoción activa
+                </button>
               </div>
-              {!q && PRODUCT_ROWS.length > RENDER_CAP && (
+              {onlyWithPromo && (
+                <div className="rounded-lg border border-dashed border-line/15 p-2.5 text-center text-[12px] text-muted">
+                  {filteredProducts.length} producto{filteredProducts.length === 1 ? '' : 's'} con promoción activa.
+                </div>
+              )}
+              {!onlyWithPromo && !q && PRODUCT_ROWS.length > RENDER_CAP && (
                 <div className="rounded-lg border border-dashed border-line/15 p-2.5 text-center text-[12px] text-muted">
                   Mostrando {RENDER_CAP} de {PRODUCT_ROWS.length} — usá el buscador para encontrar otros.
                 </div>
