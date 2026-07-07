@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink, Download, Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Plus, Upload, Sparkles, LayoutGrid, List, X, Copy, ExternalLink, Download, Pencil, Trash2, FileSpreadsheet, Check, Package } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { PRODUCT_ROWS } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
@@ -55,6 +55,35 @@ export default function ProductosPage() {
   useEffect(() => setGPct(Math.round(settings.margenVenta * 100)), [settings.margenVenta]);
   const [showImport, setShowImport] = useState(false);
   const [showGpt, setShowGpt] = useState(false);
+
+  // Sincronizar catálogo real desde la lista de precios del proveedor (Excel) — distinto
+  // del "Importar" de arriba (que solo pega texto suelto y no toca la base real). Primero
+  // hace un dry-run (no guarda nada) para poder revisar antes de confirmar.
+  const priceFileInput = useRef<HTMLInputElement | null>(null);
+  const [pendingPriceFile, setPendingPriceFile] = useState<File | null>(null);
+  const [priceImportBusy, setPriceImportBusy] = useState(false);
+  const [priceImportResult, setPriceImportResult] = useState<{
+    dryRun: boolean; created: number; updated: number; requested: number;
+    sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+    error?: string;
+  } | null>(null);
+  const runPriceImport = async (file: File, dryRun: boolean) => {
+    setPriceImportBusy(true);
+    if (dryRun) setPriceImportResult(null);
+    try {
+      const res = await api.importPrices(file, dryRun);
+      setPriceImportResult(res);
+      setPendingPriceFile(dryRun ? file : null);
+    } catch (err: any) {
+      setPriceImportResult({
+        dryRun, created: 0, updated: 0, requested: 0, sample: [],
+        error: err.message || 'No se pudo procesar el archivo',
+      });
+      setPendingPriceFile(null);
+    } finally {
+      setPriceImportBusy(false);
+    }
+  };
   const [showNew, setShowNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importText, setImportText] = useState('');
@@ -265,6 +294,20 @@ export default function ProductosPage() {
             <button onClick={() => setView('list')} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold ${view === 'list' ? 'bg-primary text-white' : 'text-muted'}`}><List className="h-4 w-4" /> Lista</button>
           </div>
           <button onClick={() => setShowImport(true)} className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line/15 bg-surface px-4 text-[13px] font-semibold text-content hover:bg-surface-2"><Upload className="h-4 w-4" /> Importar</button>
+          <input
+            ref={priceFileInput}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) runPriceImport(f, true); e.target.value = ''; }}
+          />
+          <button
+            onClick={() => priceFileInput.current?.click()}
+            disabled={priceImportBusy}
+            className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line/15 bg-surface px-4 text-[13px] font-semibold text-content hover:bg-surface-2"
+          >
+            <FileSpreadsheet className="h-4 w-4" /> {priceImportBusy ? 'Sincronizando…' : 'Sincronizar catálogo (Excel)'}
+          </button>
           <button onClick={() => setShowGpt(true)} className="flex h-[38px] items-center gap-2 rounded-[10px] border px-4 text-[13px] font-semibold" style={{ borderColor: '#4285F4', color: '#4285F4' }}><Sparkles className="h-4 w-4" /> Catálogo con Gemini</button>
           <button onClick={downloadCatalog} className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line/15 bg-surface px-4 text-[13px] font-semibold text-content hover:bg-surface-2"><Download className="h-4 w-4" /> Descargar catálogo</button>
           <button onClick={openNew} className="flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white"><Plus className="h-4 w-4" /> Nuevo</button>
@@ -434,6 +477,61 @@ export default function ProductosPage() {
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => navigator.clipboard?.writeText(buildPrompt())} className="flex h-9 items-center gap-1.5 rounded-[10px] border border-line/15 px-4 text-[13px] font-semibold"><Copy className="h-4 w-4" /> Copiar</button>
               <button onClick={() => { navigator.clipboard?.writeText(buildPrompt()); window.open('https://gemini.google.com/app', '_blank'); }} className="flex h-9 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-semibold text-white" style={{ background: '#4285F4' }}><ExternalLink className="h-4 w-4" /> Abrir Gemini</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {priceImportResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}>
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-line/10 bg-surface p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-center justify-between">
+              <div className="font-bold">Sincronizar catálogo desde Excel</div>
+              <button onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}><X className="h-5 w-5" /></button>
+            </div>
+            {priceImportResult.error ? (
+              <div className="mt-3 rounded-lg border border-rose/30 bg-rose/10 p-3 text-[13px] font-semibold text-rose">{priceImportResult.error}</div>
+            ) : (
+              <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto text-[13px]">
+                {priceImportResult.dryRun ? (
+                  <div className="flex items-center gap-1.5 font-semibold text-amber">
+                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} (de {priceImportResult.requested} en el archivo). Todavía no se guardó nada.
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 font-semibold text-emerald">
+                    <Check className="h-4 w-4" /> Listo: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} de verdad.
+                  </div>
+                )}
+                {priceImportResult.sample.length > 0 && (
+                  <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3">
+                    <div className="mb-1.5 font-semibold">Ejemplos de precio (productos que ya existían):</div>
+                    <div className="space-y-1">
+                      {priceImportResult.sample.slice(0, 10).map((s) => (
+                        <div key={s.sku} className="flex items-center justify-between gap-2 text-[12px]">
+                          <span className="truncate text-muted">{s.name}</span>
+                          <span className="tnum shrink-0">{money(s.oldPrice)} → <b className={s.newPrice > s.oldPrice ? 'text-rose' : 'text-emerald'}>{money(s.newPrice)}</b></span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!priceImportResult.dryRun && <p className="text-muted">Recargá la página para ver los productos y precios nuevos en la lista.</p>}
+              </div>
+            )}
+            <div className="mt-4 flex shrink-0 justify-end gap-2">
+              <button onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }} className="h-9 rounded-[10px] border border-line/15 px-4 text-[13px] font-semibold">Cerrar</button>
+              {priceImportResult.dryRun && !priceImportResult.error && pendingPriceFile && (
+                <button
+                  disabled={priceImportBusy}
+                  onClick={() => runPriceImport(pendingPriceFile, false)}
+                  className="h-9 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                >
+                  {priceImportBusy ? 'Aplicando…' : `Confirmar (${priceImportResult.created + priceImportResult.updated})`}
+                </button>
+              )}
+              {!priceImportResult.dryRun && !priceImportResult.error && (
+                <button onClick={() => window.location.reload()} className="h-9 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white">Recargar página</button>
+              )}
             </div>
           </div>
         </div>

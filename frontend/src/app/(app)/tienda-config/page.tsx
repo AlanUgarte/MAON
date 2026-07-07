@@ -252,36 +252,6 @@ export default function TiendaConfigPage() {
     flashSaved();
   };
 
-  // Actualización masiva de precios de costo desde la lista de precios del proveedor
-  // (Excel). Matchea por Código (sku), solo actualiza el precio de artículos que ya existen.
-  // Primero se hace un dry-run (no toca la base) para poder revisar antes de confirmar —
-  // es una escritura masiva sobre precios reales, sin deshacer.
-  const priceFileInput = useRef<HTMLInputElement | null>(null);
-  const [pendingPriceFile, setPendingPriceFile] = useState<File | null>(null);
-  const [priceImportBusy, setPriceImportBusy] = useState(false);
-  const [priceImportResult, setPriceImportResult] = useState<{
-    dryRun: boolean; created: number; updated: number; requested: number;
-    sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
-    error?: string;
-  } | null>(null);
-  const runPriceImport = async (file: File, dryRun: boolean) => {
-    setPriceImportBusy(true);
-    if (dryRun) setPriceImportResult(null);
-    try {
-      const res = await api.importPrices(file, dryRun);
-      setPriceImportResult(res);
-      setPendingPriceFile(dryRun ? file : null);
-    } catch (err: any) {
-      setPriceImportResult({
-        dryRun, created: 0, updated: 0, requested: 0, sample: [],
-        error: err.message || 'No se pudo procesar el archivo',
-      });
-      setPendingPriceFile(null);
-    } finally {
-      setPriceImportBusy(false);
-    }
-  };
-
   // Importación masiva de promos: pegás "SKU | 21x20" (una por línea) y matchea por
   // SKU exacto (o nombre aproximado). "21x20" = pagás 20 y te llevás 1 sin cargo.
   const [showImport, setShowImport] = useState(false);
@@ -525,16 +495,6 @@ export default function TiendaConfigPage() {
               <div className="flex items-center gap-2">
                 {saved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald"><Check className="h-3.5 w-3.5" /> Guardado</span>}
                 <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
-                <input
-                  ref={priceFileInput}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) runPriceImport(f, true); e.target.value = ''; }}
-                />
-                <Button size="sm" variant="outline" disabled={priceImportBusy} onClick={() => priceFileInput.current?.click()}>
-                  <Upload className="h-3.5 w-3.5" /> {priceImportBusy ? 'Sincronizando…' : 'Sincronizar catálogo (Excel)'}
-                </Button>
                 <Button size="sm" variant="outline" onClick={() => { setShowImport(true); setImportResult(null); }}>Importar promos</Button>
               </div>
             </CardHeader>
@@ -777,54 +737,6 @@ export default function TiendaConfigPage() {
             <div className="mt-3 flex shrink-0 justify-end gap-2">
               <Button variant="outline" onClick={() => setShowImport(false)}>Cerrar</Button>
               <Button onClick={runImport}>Importar</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {priceImportResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}>
-          <div className="card flex max-h-[85vh] w-full max-w-lg flex-col p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="text-base font-semibold text-content">Sincronizar catálogo desde Excel</div>
-            {priceImportResult.error ? (
-              <div className="mt-3 rounded-lg border border-rose/20 bg-rose/8 p-3 text-[13px] font-semibold text-rose">{priceImportResult.error}</div>
-            ) : (
-              <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto text-[13px]">
-                {priceImportResult.dryRun ? (
-                  <div className="flex items-center gap-1.5 font-semibold text-amber">
-                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} (de {priceImportResult.requested} en el archivo). Todavía no se guardó nada.
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 font-semibold text-emerald">
-                    <Check className="h-4 w-4" /> Listo: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} de verdad.
-                  </div>
-                )}
-                {priceImportResult.sample.length > 0 && (
-                  <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3">
-                    <div className="mb-1.5 font-semibold text-content">Ejemplos de precio (productos que ya existían):</div>
-                    <div className="space-y-1">
-                      {priceImportResult.sample.slice(0, 10).map((s) => (
-                        <div key={s.sku} className="flex items-center justify-between gap-2 text-[12px]">
-                          <span className="truncate text-muted">{s.name}</span>
-                          <span className="tnum shrink-0">{money(s.oldPrice)} → <b className={s.newPrice > s.oldPrice ? 'text-rose' : 'text-emerald'}>{money(s.newPrice)}</b></span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {!priceImportResult.dryRun && <p className="text-muted">Recargá la página para ver los productos y precios nuevos en la lista.</p>}
-              </div>
-            )}
-            <div className="mt-4 flex shrink-0 justify-end gap-2">
-              <Button variant="outline" onClick={() => { setPriceImportResult(null); setPendingPriceFile(null); }}>Cerrar</Button>
-              {priceImportResult.dryRun && !priceImportResult.error && pendingPriceFile && (
-                <Button disabled={priceImportBusy} onClick={() => runPriceImport(pendingPriceFile, false)}>
-                  {priceImportBusy ? 'Aplicando…' : `Confirmar (${priceImportResult.created + priceImportResult.updated})`}
-                </Button>
-              )}
-              {!priceImportResult.dryRun && !priceImportResult.error && (
-                <Button onClick={() => window.location.reload()}>Recargar página</Button>
-              )}
             </div>
           </div>
         </div>
