@@ -19,7 +19,7 @@ const FULL_NAV: NavItem[] = [
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
-  { href: '/estufa', label: 'Estufa (test)', icon: Flame },
+  { href: '/estufa-config', label: 'Estufa (test)', icon: Flame },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },

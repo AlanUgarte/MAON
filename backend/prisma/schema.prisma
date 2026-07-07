@@ -615,3 +615,18 @@ model TiendaSettings {
   promoCards       Json     @default("[]")
   updatedAt        DateTime @updatedAt
 }
+
+/// Fila única (singleton): configuración de la landing de la estufa (/estufa), la
+/// segunda tienda de prueba. Mismo patrón que TiendaSettings pero mucho más chica —
+/// es un solo producto, no un catálogo.
+model EstufaSettings {
+  id             String   @id @default("singleton")
+  storeOpen      Boolean  @default(true)
+  topBannerText  String   @default("Envíos a todo el país · Stock disponible")
+  heroBadge      String   @default("Calor instantáneo para tu casa")
+  heroTitle      String   @default("Estufa Halógena de Cuarzo")
+  heroSubtitle   String   @default("Calienta rápido cualquier ambiente chico o mediano, es liviana y se traslada fácil por toda la casa.")
+  price          Decimal  @db.Decimal(12, 2) @default(20000)
+  whatsappNumber String   @default("5493412708638")
+  updatedAt      DateTime @updatedAt
+}

@@ -1,16 +1,16 @@
 'use client';
 
 // Landing page de un solo producto (estufa halógena), separada del catálogo mayorista de /tienda.
-// Página de prueba: sin admin config ni backend propio, todo hardcodeado a propósito porque
-// por ahora es una sola tienda para testear demanda, no un sistema genérico de micro-tiendas.
+// El precio, banner y WhatsApp se editan desde /estufa-config (EstufaSettings) — el resto
+// (fotos, specs, testimonios) sigue hardcodeado a propósito, sigue siendo una sola tienda de
+// prueba, no un sistema genérico de micro-tiendas.
 import Image from 'next/image';
 import {
   Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap,
   Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert, Banknote,
 } from 'lucide-react';
+import { useEstufaSettings } from '@/lib/estufa-settings-store';
 
-const WHATSAPP_NUMBER = '5493412708638';
-const PRICE = 20000;
 const money = (n: number) => '$' + n.toLocaleString('es-AR');
 
 // Paleta tomada del propio producto: el negro del cuerpo, el brasero anaranjado encendido
@@ -23,7 +23,7 @@ const CREAM = '#FBF3EA';
 const INK = '#2C221D';
 const WHATSAPP = '#25D366';
 
-const waLink = (text: string) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+const waLink = (number: string, text: string) => `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
 
 // Datos reales del producto (modelo Sprint CS-01), no genéricos.
 const FEATURES = [
@@ -48,7 +48,23 @@ const USE_CASES = [
 ];
 
 export default function EstufaPage() {
-  const orderText = `¡Hola! Quiero comprar la Estufa Halógena de Cuarzo a ${money(PRICE)}. Pago en efectivo o por transferencia.`;
+  const { settings } = useEstufaSettings();
+  const orderText = `¡Hola! Quiero comprar la ${settings.heroTitle} a ${money(settings.price)}. Pago en efectivo o por transferencia.`;
+
+  if (!settings.storeOpen) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center" style={{ background: CREAM }}>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-white" style={{ background: GLOW }}>
+          <Flame className="h-7 w-7" fill="currentColor" />
+        </div>
+        <h1 className="font-display text-xl font-extrabold" style={{ color: INK }}>{settings.heroTitle}</h1>
+        <p className="max-w-xs text-sm text-neutral-500">Por ahora no estamos tomando pedidos. Escribinos por WhatsApp y te avisamos apenas esté disponible.</p>
+        <a href={waLink(settings.whatsappNumber, orderText)} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white" style={{ background: WHATSAPP }}>
+          <MessageCircle className="h-4 w-4" /> Escribir por WhatsApp
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: CREAM, color: INK }}>
@@ -57,7 +73,7 @@ export default function EstufaPage() {
           arriba, y da la sensación de que el header "salta" o tapa contenido. */}
       <div className="sticky top-0 z-30">
         <div className="truncate px-4 py-1.5 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: DARK }}>
-          🔥 Envíos a todo el país · Stock disponible
+          🔥 {settings.topBannerText}
         </div>
         <header className="flex items-center justify-between border-b border-black/[0.06] bg-white/90 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
@@ -70,7 +86,7 @@ export default function EstufaPage() {
             </div>
           </div>
           <a
-            href={waLink(orderText)}
+            href={waLink(settings.whatsappNumber, orderText)}
             target="_blank"
             rel="noreferrer"
             className="flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-bold text-white shadow-sm transition active:scale-95"
@@ -105,19 +121,19 @@ export default function EstufaPage() {
         <div className="absolute inset-0 mx-auto max-w-[1100px]" style={{ background: `${DARK}CC` }} />
         <div className="relative z-10 flex h-full max-w-[1100px] flex-col justify-center gap-4 px-5 mx-auto sm:px-8">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: GLOW }}>
-            <Flame className="h-3.5 w-3.5" /> Calor instantáneo para tu casa
+            <Flame className="h-3.5 w-3.5" /> {settings.heroBadge}
           </div>
           <h1 className="max-w-md font-display text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
-            Estufa Halógena de Cuarzo
+            {settings.heroTitle}
           </h1>
           <p className="max-w-sm text-[14.5px] text-white/85">
-            Calienta rápido cualquier ambiente chico o mediano, es liviana y se traslada fácil por toda la casa.
+            {settings.heroSubtitle}
           </p>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-4xl font-extrabold text-white">{money(PRICE)}</span>
+            <span className="font-display text-4xl font-extrabold text-white">{money(settings.price)}</span>
           </div>
           <a
-            href={waLink(orderText)}
+            href={waLink(settings.whatsappNumber, orderText)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex w-fit items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-bold text-white shadow-xl transition active:scale-[0.98]"
@@ -199,10 +215,10 @@ export default function EstufaPage() {
 
       {/* CTA final */}
       <section className="px-4 py-14 text-center text-white" style={{ background: `linear-gradient(120deg, ${GLOW}, ${GLOW_DEEP})` }}>
-        <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(PRICE)}</h2>
+        <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(settings.price)}</h2>
         <p className="mt-2 text-[13px] text-white/85">Pagás en efectivo o por transferencia. Coordinamos el envío por WhatsApp.</p>
         <a
-          href={waLink(orderText)}
+          href={waLink(settings.whatsappNumber, orderText)}
           target="_blank"
           rel="noreferrer"
           className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold shadow-lg transition active:scale-[0.98]"
@@ -219,7 +235,7 @@ export default function EstufaPage() {
 
       {/* WhatsApp flotante */}
       <a
-        href={waLink(orderText)}
+        href={waLink(settings.whatsappNumber, orderText)}
         target="_blank"
         rel="noreferrer"
         aria-label="Comprar por WhatsApp"

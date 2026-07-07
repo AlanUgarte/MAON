@@ -167,6 +167,10 @@ export const api = {
   tiendaSettings: () => request<any>('/tienda-settings'),
   updateTiendaSettings: (dto: any) => request<any>('/tienda-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
 
+  // Config de la landing de la estufa (segunda tienda de prueba) — GET es público.
+  estufaSettings: () => request<any>('/estufa-settings'),
+  updateEstufaSettings: (dto: any) => request<any>('/estufa-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
   createComprobante: (dto: any) => request<any>('/comprobantes', { method: 'POST', body: JSON.stringify(dto) }),
