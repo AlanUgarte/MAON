@@ -221,6 +221,14 @@ export default function TiendaConfigPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  // Flash de "Guardado" reutilizado en cada edición — antes solo se veía al tocar
+  // "Guardar cambios" de la pestaña General, así que cambiar una promo acá no daba
+  // ninguna confirmación visual de que había quedado guardada de verdad.
+  const flashSaved = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   const toggleProduct = (id: string) => {
     const next = form.hiddenProductIds.includes(id)
       ? form.hiddenProductIds.filter((x) => x !== id)
@@ -228,6 +236,7 @@ export default function TiendaConfigPage() {
     const updated = { ...form, hiddenProductIds: next };
     setForm(updated);
     save(updated);
+    flashSaved();
   };
 
   const setPromo = (id: string, patch: Partial<TiendaSettings['productPromos'][string]>) => {
@@ -239,6 +248,7 @@ export default function TiendaConfigPage() {
     const updated = { ...form, productPromos: nextPromos };
     setForm(updated);
     save(updated);
+    flashSaved();
   };
 
   // Importación masiva de promos: pegás "SKU | 21x20" (una por línea) y matchea por
@@ -472,6 +482,7 @@ export default function TiendaConfigPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Productos en la tienda</CardTitle>
               <div className="flex items-center gap-2">
+                {saved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald"><Check className="h-3.5 w-3.5" /> Guardado</span>}
                 <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
                 <Button size="sm" variant="outline" onClick={() => { setShowImport(true); setImportResult(null); }}>Importar promos</Button>
               </div>
