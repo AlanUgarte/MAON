@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateEstufaSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsBoolean() storeOpen?: boolean;
@@ -10,4 +10,5 @@ export class UpdateEstufaSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() cost?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() marginPct?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsString() whatsappNumber?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsArray() heroCarousel?: any[];
 }

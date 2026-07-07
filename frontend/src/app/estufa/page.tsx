@@ -5,11 +5,19 @@
 // (fotos, specs, testimonios) sigue hardcodeado a propósito, sigue siendo una sola tienda de
 // prueba, no un sistema genérico de micro-tiendas.
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import {
-  Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap,
+  Flame, MessageCircle, Truck, ShieldCheck, RefreshCw, Zap, X,
   Gauge, Feather, Home, Building2, Sofa, Warehouse, PlugZap, TriangleAlert, Banknote,
 } from 'lucide-react';
 import { useEstufaSettings, sellPrice } from '@/lib/estufa-settings-store';
+import { useTiendaOrders } from '@/lib/tienda-orders-store';
+import { useClients } from '@/lib/clients-store';
+import { useChatThreads } from '@/lib/chat-store';
+
+// Mismo sku fijo que usa el backend (EstufaSettingsService) para el único producto de
+// esta landing — así el pedido queda como una Sale real, no solo un link de WhatsApp.
+const ESTUFA_SKU = 'ESTUFA-CS01';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR');
 
@@ -52,6 +60,68 @@ export default function EstufaPage() {
   const price = sellPrice(settings);
   const orderText = `¡Hola! Quiero comprar la ${settings.heroTitle} a ${money(price)}. Pago en efectivo o por transferencia.`;
 
+  const { addOrder } = useTiendaOrders();
+  const { addClient, clients: CLIENTS } = useClients();
+  const { appendMessage } = useChatThreads();
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [form, setForm] = useState({ name: '', phone: '' });
+  const [formError, setFormError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const activeCarousel = settings.heroCarousel.filter((b) => b.active && b.imageUrl).sort((a, b) => a.order - b.order);
+  useEffect(() => {
+    if (activeCarousel.length < 2) return;
+    const t = setInterval(() => setCarouselIndex((i) => (i + 1) % activeCarousel.length), 5000);
+    return () => clearInterval(t);
+  }, [activeCarousel.length]);
+
+  const buildOrderText = () => `¡Hola! Quiero comprar la ${settings.heroTitle} a ${money(price)}. Pago en efectivo o por transferencia.\n\nNombre: ${form.name.trim()}\nTeléfono: ${form.phone.trim()}`;
+
+  const sendOrder = async () => {
+    if (!form.name.trim() || !form.phone.trim()) return setFormError('Nombre y teléfono son obligatorios');
+    setFormError('');
+    setSending(true);
+    try {
+      await addOrder({
+        customerName: form.name.trim(),
+        customerPhone: form.phone.trim(),
+        items: [{ productId: ESTUFA_SKU, sku: ESTUFA_SKU, name: settings.heroTitle, qty: 1, unitPrice: price }],
+        subtotal: price,
+        envioGratis: false,
+        wantsShipping: false,
+      });
+    } catch {
+      setSending(false);
+      return setFormError('No pudimos registrar el pedido. Probá de nuevo o escribinos directo por WhatsApp.');
+    }
+
+    // Igual que en /tienda: si ya es cliente (mismo teléfono) el pedido se suma a su
+    // misma conversación en vez de crear un contacto duplicado en Bandeja.
+    const normPhone = (p: string) => p.replace(/\D/g, '');
+    const existing = CLIENTS.find((c) => normPhone(c.phone) === normPhone(form.phone.trim()));
+    const [firstName, ...rest] = form.name.trim().split(' ');
+    const client = existing ?? addClient({
+      firstName, lastName: rest.join(' '), phone: form.phone.trim(),
+      city: '', province: '', stage: 'NUEVO_LEAD', product: settings.heroTitle,
+      source: 'WHATSAPP', leadScore: 40, intent: 'ALTA', sentiment: 'NEUTRO', tags: [],
+      lastInboundAt: new Date().toISOString(), unread: 1, summary: 'Pedido de la estufa armado desde la landing.',
+      objection: 'NINGUNA', seller: '-', ivaCondition: 'CONSUMIDOR_FINAL',
+    });
+    Promise.resolve(client).then((c) => {
+      appendMessage(c, { content: buildOrderText(), direction: 'ENTRANTE' as any, author: 'CLIENTE' as any });
+    });
+
+    window.open(waLink(settings.whatsappNumber, buildOrderText()), '_blank');
+    setSending(false);
+    setSent(true);
+  };
+
+  const closeCheckout = () => {
+    setShowCheckout(false);
+    if (sent) { setForm({ name: '', phone: '' }); setSent(false); }
+  };
+
   if (!settings.storeOpen) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center" style={{ background: CREAM }}>
@@ -86,34 +156,41 @@ export default function EstufaPage() {
               <div className="text-[9px] font-medium uppercase tracking-widest text-neutral-400">Un producto de MAON</div>
             </div>
           </div>
-          <a
-            href={waLink(settings.whatsappNumber, orderText)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => setShowCheckout(true)}
             className="flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-bold text-white shadow-sm transition active:scale-95"
             style={{ background: GLOW }}
           >
             <MessageCircle className="h-3.5 w-3.5" /> Comprar ahora
-          </a>
+          </button>
         </header>
       </div>
 
-      {/* Hero: foto real de ambiente a pantalla completa con degradé + texto encima.
+      {/* Hero: carrusel configurado desde estufa-config si tiene algo activo, si no la
+          foto fija de ambiente a pantalla completa con degradé + texto encima.
           object-position sesgado hacia arriba: la foto original tiene las caras en el
           tercio superior, con crop centrado (default) quedaban cortadas.
           El degradé usa un panel oscuro de ancho fijo (no porcentual) para que el texto
           siga siendo legible aunque la pantalla sea muy ancha — con porcentajes, en
           monitores grandes el texto quedaba corrido hacia la zona ya clareada. */}
       <section className="relative h-[440px] w-full overflow-hidden sm:h-[520px] lg:h-[600px]">
-        <Image
-          src="/estufa/hero.png"
-          alt="Estufa Halógena de Cuarzo en un living"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-          style={{ objectPosition: '50% 15%' }}
-        />
+        {activeCarousel.length > 0 ? (
+          <img
+            src={activeCarousel[carouselIndex % activeCarousel.length].imageUrl}
+            alt={activeCarousel[carouselIndex % activeCarousel.length].title || ''}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <Image
+            src="/estufa/hero.png"
+            alt="Estufa Halógena de Cuarzo en un living"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            style={{ objectPosition: '50% 15%' }}
+          />
+        )}
         {/* Panel oscuro parejo (no degradé) del mismo ancho que el contenedor del texto
             (max-w-[1100px] mx-auto): así todo el texto queda con el mismo contraste sin
             importar cuánto ocupe una línea, y el corte con la foto sin oscurecer queda
@@ -133,15 +210,13 @@ export default function EstufaPage() {
           <div className="flex items-baseline gap-2">
             <span className="font-display text-4xl font-extrabold text-white">{money(price)}</span>
           </div>
-          <a
-            href={waLink(settings.whatsappNumber, orderText)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => setShowCheckout(true)}
             className="inline-flex w-fit items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-bold text-white shadow-xl transition active:scale-[0.98]"
             style={{ background: WHATSAPP }}
           >
             <MessageCircle className="h-5 w-5" /> Comprar por WhatsApp
-          </a>
+          </button>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px] font-medium text-white/80">
             <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
             <span className="flex items-center gap-1.5"><Banknote className="h-4 w-4 text-white/60" /> Efectivo o transferencia</span>
@@ -218,15 +293,13 @@ export default function EstufaPage() {
       <section className="px-4 py-14 text-center text-white" style={{ background: `linear-gradient(120deg, ${GLOW}, ${GLOW_DEEP})` }}>
         <h2 className="font-display text-2xl font-extrabold">Llevá la tuya por {money(price)}</h2>
         <p className="mt-2 text-[13px] text-white/85">Pagás en efectivo o por transferencia. Coordinamos el envío por WhatsApp.</p>
-        <a
-          href={waLink(settings.whatsappNumber, orderText)}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          onClick={() => setShowCheckout(true)}
           className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold shadow-lg transition active:scale-[0.98]"
           style={{ color: GLOW_DEEP }}
         >
           <MessageCircle className="h-5 w-5" /> Comprar por WhatsApp
-        </a>
+        </button>
       </section>
 
       {/* Footer */}
@@ -235,16 +308,71 @@ export default function EstufaPage() {
       </footer>
 
       {/* WhatsApp flotante */}
-      <a
-        href={waLink(settings.whatsappNumber, orderText)}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        onClick={() => setShowCheckout(true)}
         aria-label="Comprar por WhatsApp"
         className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl transition hover:scale-105"
         style={{ background: WHATSAPP }}
       >
         <MessageCircle className="h-6 w-6" fill="currentColor" />
-      </a>
+      </button>
+
+      {/* Checkout: pide nombre y teléfono para dejar un pedido real (no solo un link de
+          WhatsApp) — así aparece en la pestaña Pedidos de estufa-config y en Bandeja,
+          igual que un pedido de /tienda. */}
+      {showCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeCheckout}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-display text-base font-extrabold" style={{ color: INK }}>
+                {sent ? '¡Pedido enviado!' : 'Tus datos para el pedido'}
+              </h3>
+              <button onClick={closeCheckout} aria-label="Cerrar"><X className="h-5 w-5 text-neutral-400" /></button>
+            </div>
+            {sent ? (
+              <div className="space-y-3 text-center">
+                <p className="text-[13px] text-neutral-600">
+                  Te abrimos WhatsApp para confirmar el pedido de la {settings.heroTitle} a {money(price)}. Si no se abrió solo, escribinos directo.
+                </p>
+                <a
+                  href={waLink(settings.whatsappNumber, buildOrderText())}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white"
+                  style={{ background: WHATSAPP }}
+                >
+                  <MessageCircle className="h-4 w-4" /> Abrir WhatsApp
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[12.5px] text-neutral-500">{settings.heroTitle} — {money(price)}. Pagás en efectivo o por transferencia, coordinamos por WhatsApp.</p>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Nombre y apellido"
+                  className="h-11 w-full rounded-xl border border-black/10 px-3.5 text-sm outline-none focus:border-black/25"
+                />
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="Teléfono (con código de área)"
+                  className="h-11 w-full rounded-xl border border-black/10 px-3.5 text-sm outline-none focus:border-black/25"
+                />
+                {formError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{formError}</div>}
+                <button
+                  onClick={sendOrder}
+                  disabled={sending}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  style={{ background: WHATSAPP }}
+                >
+                  <MessageCircle className="h-4 w-4" /> {sending ? 'Enviando pedido…' : 'Confirmar por WhatsApp'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

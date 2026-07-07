@@ -5,9 +5,12 @@
 // igual desde cualquier navegador), local solo como fallback si falla la carga.
 import { useEffect, useRef, useState } from 'react';
 import { api, getToken } from './api';
+import type { BannerImage } from './tienda-settings-store';
 
 const KEY = 'compven_estufa_settings';
 const SAVE_DEBOUNCE_MS = 600;
+
+export type { BannerImage };
 
 export interface EstufaSettings {
   storeOpen: boolean;
@@ -20,6 +23,8 @@ export interface EstufaSettings {
   /** Fracción, no %: 0.3333 = 33.33% de margen. */
   marginPct: number;
   whatsappNumber: string;
+  /** Si tiene algo activo, reemplaza la foto fija del hero — misma forma que TiendaSettings. */
+  heroCarousel: BannerImage[];
 }
 
 export const DEFAULT_ESTUFA_SETTINGS: EstufaSettings = {
@@ -31,6 +36,7 @@ export const DEFAULT_ESTUFA_SETTINGS: EstufaSettings = {
   cost: 15000,
   marginPct: 0.3333,
   whatsappNumber: '5493412708638',
+  heroCarousel: [],
 };
 
 /** Precio de venta redondeado, a partir del costo + margen. */
@@ -50,6 +56,7 @@ function sanitize(raw: any): EstufaSettings {
     cost: Number(raw?.cost ?? DEFAULT_ESTUFA_SETTINGS.cost),
     marginPct: Number(raw?.marginPct ?? DEFAULT_ESTUFA_SETTINGS.marginPct),
     whatsappNumber: raw?.whatsappNumber ?? DEFAULT_ESTUFA_SETTINGS.whatsappNumber,
+    heroCarousel: raw?.heroCarousel ?? [],
   };
 }
 

@@ -632,5 +632,8 @@ model EstufaSettings {
   /// Fracción, no %: 0.3333 = 33.33% (igual convención que TiendaSettings.margenVenta).
   marginPct      Float    @default(0.3333)
   whatsappNumber String   @default("5493412708638")
+  /// Carrusel de imágenes del hero — misma forma que TiendaSettings.heroCarousel. Si tiene
+  /// algo activo, reemplaza la foto fija de /estufa/hero.png.
+  heroCarousel   Json     @default("[]")
   updatedAt      DateTime @updatedAt
 }
