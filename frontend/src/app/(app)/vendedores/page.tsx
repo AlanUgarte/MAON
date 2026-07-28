@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, Plus, Power, TrendingUp, Trash2 } from 'lucide-react';
+import { Users, Plus, Power, TrendingUp, Trash2, KeyRound } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,6 +86,18 @@ export default function VendedoresPage() {
     try { await api.toggleSeller(id); load(); } catch { /* backend caído: no se refleja */ }
   };
 
+  const resetPassword = async (id: string, name: string) => {
+    const password = prompt(`Nueva contraseña para ${name} (mín. 6 caracteres):`);
+    if (!password) return;
+    if (password.length < 6) return alert('Mínimo 6 caracteres.');
+    try {
+      await api.resetSellerPassword(id, password);
+      alert('Contraseña actualizada.');
+    } catch (err: any) {
+      alert(err.message || 'No se pudo cambiar la contraseña.');
+    }
+  };
+
   const remove = async (id: string, name: string) => {
     if (!confirm(`¿Borrar a ${name}? Esta acción no se puede deshacer.`)) return;
     try {
@@ -169,6 +181,9 @@ export default function VendedoresPage() {
                       )}
                       <Button variant="outline" size="sm" onClick={() => toggle(s.id)}>
                         <Power className="h-3.5 w-3.5" /> {s.isActive ? 'Dar de baja' : 'Reactivar'}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => resetPassword(s.id, s.fullName)}>
+                        <KeyRound className="h-3.5 w-3.5" /> Contraseña
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => remove(s.id, s.fullName)}>
                         <Trash2 className="h-3.5 w-3.5" />

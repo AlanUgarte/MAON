@@ -78,6 +78,15 @@ export class AuthService {
     return this.safeUser(updated);
   }
 
+  // El admin logueado escribe la contraseña nueva en el panel de Equipo — nunca pasa por
+  // el agente, mismo circuito que crear un vendedor (createUser) más arriba.
+  async resetPassword(id: string, newPassword: string) {
+    await this.prisma.user.findUniqueOrThrow({ where: { id } });
+    const password = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({ where: { id }, data: { password } });
+    return { ok: true };
+  }
+
   async deleteUser(id: string) {
     try {
       await this.prisma.user.delete({ where: { id } });

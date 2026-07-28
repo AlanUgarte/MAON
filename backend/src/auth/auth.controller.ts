@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -59,6 +60,15 @@ export class AuthController {
   @Patch('users/:id/toggle')
   toggleUser(@Param('id') id: string) {
     return this.auth.toggleUserActive(id);
+  }
+
+  // La contraseña nueva la escribe el admin logueado en el panel — no la maneja el agente.
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADOR')
+  @Patch('users/:id/password')
+  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(id, dto.password);
   }
 
   @ApiBearerAuth()

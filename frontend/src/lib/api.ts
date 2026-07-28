@@ -99,6 +99,8 @@ export const api = {
   sellers: () => request<any>('/auth/users'),
   toggleSeller: (id: string) => request<any>(`/auth/users/${id}/toggle`, { method: 'PATCH' }),
   deleteSeller: (id: string) => request<any>(`/auth/users/${id}`, { method: 'DELETE' }),
+  resetSellerPassword: (id: string, password: string) =>
+    request<any>(`/auth/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }),
 
   // Dashboard
   overview: () => request<any>('/dashboard/overview'),
