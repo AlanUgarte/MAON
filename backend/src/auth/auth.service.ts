@@ -14,7 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 
 // Dueño del negocio: entrar con esta cuenta de Google siempre da (o restaura) permisos
 // de ADMINISTRADOR, sin importar cómo haya quedado el usuario en la base.
-const OWNER_EMAIL = 'ugartemultiproductos@gmail.com';
+const OWNER_EMAIL = 'ugartealan776@gmail.com';
 
 @Injectable()
 export class AuthService {
