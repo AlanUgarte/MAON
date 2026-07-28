@@ -22,8 +22,8 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@crm.com');
-  const [password, setPassword] = useState('admin1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -164,10 +164,6 @@ export default function LoginPage() {
             <GoogleIcon /> Continuar con Google
           </button>
         )}
-
-        <div className="mt-6 rounded-xl border border-line/10 bg-surface-2/40 p-3 text-center text-xs text-muted">
-          <span className="font-medium text-content">Demo:</span> admin@crm.com · admin1234
-        </div>
       </div>
     </div>
   );
