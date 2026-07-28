@@ -7,6 +7,42 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 3000
+    },
+    {
+      "name": "alancurso-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "C:/Users/Tyna/Desktop/proye/alancurso/backend"],
+      "port": 4000
+    },
+    {
+      "name": "mercado-afiliados",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "C:/Users/Tyna/Desktop/proye2/mercado-afiliados", "--", "-p", "3005"],
+      "port": 3005
+    },
+    {
+      "name": "alancurso-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "C:/Users/Tyna/Desktop/proye/alancurso/frontend"],
+      "port": 3000
+    },
+    {
+      "name": "fastcombos",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8090", "--directory", "C:/Users/Tyna/Desktop/proye/fastcombos"],
+      "port": 8090
+    },
+    {
+      "name": "quant-trading-dashboard",
+      "runtimeExecutable": "C:/Users/Tyna/Desktop/proye/quant-trading/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "quant_trading.api.main:app", "--host", "127.0.0.1", "--port", "8010"],
+      "port": 8010
+    },
+    {
+      "name": "ventra-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "C:/Users/Tyna/Desktop/proye/ventra-arg/apps/web", "--", "-p", "3010"],
+      "port": 3010
     }
   ]
 }
