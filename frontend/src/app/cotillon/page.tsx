@@ -187,7 +187,7 @@ function CotillonInner() {
 
   const buildOrderText = () => {
     const lines = cartLines.map((l, i) =>
-      `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} bulto${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
+      `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} unidad${l.qty === 1 ? '' : 'es'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
     ).join('\n\n');
     const envio = form.wantsShipping
       ? `Envío: ${envioGratis ? 'gratis' : 'a coordinar'}\nDirección: ${form.address}\nHorario disponible: ${form.schedule}`
@@ -413,7 +413,7 @@ function CotillonInner() {
                 {settings.heroSubtitle}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
-                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
+                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por unidad</span>
                 <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
                 <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
                 <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
@@ -528,7 +528,7 @@ function CotillonInner() {
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
-                    <span className="absolute left-2 top-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>Bulto cerrado</span>
+                    <span className="absolute left-2 top-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>Por unidad</span>
                     {promo?.isNew && (
                       <span className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
                     )}
@@ -550,7 +550,7 @@ function CotillonInner() {
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>
                   )}
-                  <div className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</div>
+                  {p.units > 1 && <div className="text-[10.5px] text-neutral-400">Trae {p.units} u.</div>}
                   <div className="mt-2.5">
                     {inCart === 0 ? (
                       <button
@@ -603,7 +603,7 @@ function CotillonInner() {
           <div className="flex items-center gap-2 font-display text-base font-extrabold" style={{ color: BRAND }}>
             <PartyPopper className="h-4 w-4" /> FastCotillón
           </div>
-          <p>Cotillón para tu fiesta · Globos, decoración, disfraces y accesorios por bulto.</p>
+          <p>Cotillón para tu fiesta · Globos, decoración, disfraces y accesorios por unidad.</p>
           <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1.5 font-semibold" style={{ color: WHATSAPP }}>
             <MessageCircle className="h-4 w-4" /> Consultanos por WhatsApp
           </a>
@@ -753,7 +753,7 @@ function CotillonInner() {
                   <div key={l.productId} className="flex items-start justify-between gap-2 border-b border-black/5 pb-1.5 last:border-0 last:pb-0">
                     <div className="min-w-0">
                       <div className="truncate font-medium text-neutral-800">{l.product.name}</div>
-                      <div className="text-[11px] text-neutral-400">{l.qty} bulto{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
+                      <div className="text-[11px] text-neutral-400">{l.qty} unidad{l.qty === 1 ? '' : 'es'} × {money(l.unitPrice)}</div>
                     </div>
                     <span className="shrink-0 font-semibold text-neutral-800">{money(l.subtotal)}</span>
                   </div>
