@@ -6,12 +6,22 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
+// Dueño del negocio: entrar con esta cuenta de Google siempre da (o restaura) permisos
+// de ADMINISTRADOR, sin importar cómo haya quedado el usuario en la base.
+const OWNER_EMAIL = 'ugartemultiproductos@gmail.com';
+
 @Injectable()
 export class AuthService {
+  private readonly googleClient = process.env.GOOGLE_CLIENT_ID
+    ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+    : null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -80,6 +90,47 @@ export class AuthService {
 
   private safeUser(user: { id: string; email: string; fullName: string; role: string; isActive: boolean; avatarUrl?: string | null }) {
     return { id: user.id, email: user.email, fullName: user.fullName, role: user.role, isActive: user.isActive, avatarUrl: user.avatarUrl ?? null };
+  }
+
+  // Login con Google Identity Services: verifica el idToken contra GOOGLE_CLIENT_ID,
+  // y crea el usuario si es la primera vez que entra. OWNER_EMAIL siempre queda (o
+  // vuelve a quedar) ADMINISTRADOR y activo, sin importar el estado previo en la base.
+  async loginWithGoogle(idToken: string) {
+    if (!this.googleClient) {
+      throw new BadRequestException('Login con Google no está configurado (falta GOOGLE_CLIENT_ID)');
+    }
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload?.email || !payload.email_verified) {
+      throw new UnauthorizedException('No se pudo verificar el email de Google');
+    }
+    const email = payload.email;
+    const isOwner = email === OWNER_EMAIL;
+
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Password inutilizable: nadie la conoce ni la puede usar, esta cuenta solo entra por Google.
+      const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          fullName: payload.name ?? email,
+          password: randomPassword,
+          avatarUrl: payload.picture ?? null,
+          role: isOwner ? 'ADMINISTRADOR' : 'VENDEDOR',
+        },
+      });
+    } else if (isOwner && (user.role !== 'ADMINISTRADOR' || !user.isActive)) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: 'ADMINISTRADOR', isActive: true },
+      });
+    }
+    if (!user.isActive) throw new UnauthorizedException('Usuario inactivo');
+    return this.sign(user);
   }
 
   async login(dto: LoginDto) {

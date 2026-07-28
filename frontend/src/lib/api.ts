@@ -83,6 +83,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  loginWithGoogle: (idToken: string) =>
+    request<{ accessToken: string; user: any }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    }),
   register: (fullName: string, email: string, password: string, role?: string) =>
     request<{ accessToken: string; user: any }>('/auth/register', {
       method: 'POST',

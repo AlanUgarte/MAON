@@ -1,10 +1,13 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Script from 'next/script';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api, setToken, setUser } from '@/lib/api';
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 function GoogleIcon() {
   return (
@@ -25,6 +28,37 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const googleBtnRef = useRef<HTMLDivElement | null>(null);
+
+  async function onGoogleCredential(idToken: string) {
+    setLoading(true);
+    setError('');
+    try {
+      const { accessToken, user } = await api.loginWithGoogle(idToken);
+      setToken(accessToken);
+      setUser(user);
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'No se pudo iniciar sesión con Google');
+      setLoading(false);
+    }
+  }
+
+  // Google Identity Services solo se puede inicializar una vez el script <script> cargó
+  // (ver <Script onLoad> más abajo) y necesita un client ID real (NEXT_PUBLIC_GOOGLE_CLIENT_ID).
+  function initGoogleButton() {
+    const w = window as any;
+    if (!GOOGLE_CLIENT_ID || !w.google || !googleBtnRef.current) return;
+    w.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: (res: { credential: string }) => onGoogleCredential(res.credential),
+    });
+    w.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline', size: 'large', width: 360, text: 'continue_with',
+    });
+  }
+
+  useEffect(() => { initGoogleButton(); }, []);
 
   async function submit() {
     setLoading(true);
@@ -116,13 +150,20 @@ export default function LoginPage() {
           <div className="h-px flex-1 bg-line/10" />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setNotice('El inicio de sesión con Google todavía no está disponible.')}
-          className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-line/15 text-sm font-medium text-content transition hover:bg-surface-2"
-        >
-          <GoogleIcon /> Continuar con Google
-        </button>
+        {GOOGLE_CLIENT_ID ? (
+          <>
+            <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={initGoogleButton} />
+            <div ref={googleBtnRef} className="flex justify-center" />
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNotice('El inicio de sesión con Google todavía no está disponible.')}
+            className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-line/15 text-sm font-medium text-content transition hover:bg-surface-2"
+          >
+            <GoogleIcon /> Continuar con Google
+          </button>
+        )}
 
         <div className="mt-6 rounded-xl border border-line/10 bg-surface-2/40 p-3 text-center text-xs text-muted">
           <span className="font-medium text-content">Demo:</span> admin@crm.com · admin1234
