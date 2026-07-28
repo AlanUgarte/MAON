@@ -109,7 +109,6 @@ export class ProductsService {
     const toCreate = items.filter((i) => !existingBySku.has(i.sku) && i.name);
     const toUpdate = items.filter((i) => existingBySku.has(i.sku));
     const skippedUnknownSku = items.filter((i) => !existingBySku.has(i.sku) && !i.name).length;
-    const upsertItems = [...toCreate, ...toUpdate];
 
     // Muestra de cambios (antes/después) para poder revisar antes de confirmar — sobre
     // todo útil en dryRun, donde todavía no se tocó nada en la base.
@@ -118,12 +117,13 @@ export class ProductsService {
       return { sku: it.sku, name: current.name, oldPrice: Number(current.price), newPrice: it.price };
     });
 
-    if (!dryRun && upsertItems.length) {
+    if (!dryRun) {
       // En chunks: una sola sentencia con las 10.000+ filas se pasa del límite de
       // parámetros de Postgres (65535).
       const CHUNK = 1000;
-      for (let i = 0; i < upsertItems.length; i += CHUNK) {
-        const chunk = upsertItems.slice(i, i + CHUNK);
+      // toCreate siempre trae name (filtrado más arriba) — INSERT normal, sin conflicto posible.
+      for (let i = 0; i < toCreate.length; i += CHUNK) {
+        const chunk = toCreate.slice(i, i + CHUNK);
         const values = Prisma.join(
           chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric)`),
           ',',
@@ -132,13 +132,28 @@ export class ProductsService {
           INSERT INTO "Product" (id, name, sku, category, brand, "unitsPerBulk", price, stock, "isActive", "createdAt", "updatedAt")
           SELECT id, name, sku, category, brand, "unitsPerBulk", price, 0, true, now(), now()
           FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price)
-          ON CONFLICT (sku) DO UPDATE SET
-            price = EXCLUDED.price,
-            name = COALESCE(EXCLUDED.name, "Product".name),
-            category = COALESCE(EXCLUDED.category, "Product".category),
-            brand = COALESCE(EXCLUDED.brand, "Product".brand),
-            "unitsPerBulk" = COALESCE(EXCLUDED."unitsPerBulk", "Product"."unitsPerBulk"),
+        `;
+      }
+      // toUpdate puede traer name/category/brand/units en null (archivo sin esas
+      // columnas) — un UPDATE plano no valida NOT NULL sobre columnas que no toca,
+      // a diferencia de INSERT ... ON CONFLICT DO UPDATE (que sí evalúa NOT NULL
+      // sobre la fila del INSERT aunque termine resolviéndose por el conflicto).
+      for (let i = 0; i < toUpdate.length; i += CHUNK) {
+        const chunk = toUpdate.slice(i, i + CHUNK);
+        const values = Prisma.join(
+          chunk.map((it) => Prisma.sql`(${it.sku}, ${it.name}::text, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric)`),
+          ',',
+        );
+        await this.prisma.$executeRaw`
+          UPDATE "Product" AS p SET
+            price = v.price,
+            name = COALESCE(v.name, p.name),
+            category = COALESCE(v.category, p.category),
+            brand = COALESCE(v.brand, p.brand),
+            "unitsPerBulk" = COALESCE(v.units, p."unitsPerBulk"),
             "updatedAt" = now()
+          FROM (VALUES ${values}) AS v(sku, name, category, brand, units, price)
+          WHERE p.sku = v.sku
         `;
       }
     }
