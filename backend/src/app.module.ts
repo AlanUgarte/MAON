@@ -16,6 +16,7 @@ import { SalesModule } from './sales/sales.module';
 import { ComprobantesModule } from './comprobantes/comprobantes.module';
 import { TiendaSettingsModule } from './tienda-settings/tienda-settings.module';
 import { EstufaSettingsModule } from './estufa-settings/estufa-settings.module';
+import { CotillonSettingsModule } from './cotillon-settings/cotillon-settings.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { EstufaSettingsModule } from './estufa-settings/estufa-settings.module';
     ComprobantesModule,
     TiendaSettingsModule,
     EstufaSettingsModule,
+    CotillonSettingsModule,
   ],
 })
 export class AppModule {}

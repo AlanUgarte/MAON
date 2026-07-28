@@ -180,6 +180,10 @@ export const api = {
   estufaSettings: () => request<any>('/estufa-settings'),
   updateEstufaSettings: (dto: any) => request<any>('/estufa-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
 
+  // Config de /cotillon (FastCotillón, ex FastCombos, unificada acá) — GET es público.
+  cotillonSettings: () => request<any>('/cotillon-settings'),
+  updateCotillonSettings: (dto: any) => request<any>('/cotillon-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
   createComprobante: (dto: any) => request<any>('/comprobantes', { method: 'POST', body: JSON.stringify(dto) }),

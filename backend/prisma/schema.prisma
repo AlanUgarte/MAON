@@ -637,3 +637,26 @@ model EstufaSettings {
   heroCarousel   Json     @default("[]")
   updatedAt      DateTime @updatedAt
 }
+
+/// Fila única (singleton): configuración de /cotillon, la tercera tienda — catálogo real
+/// (categoría "Cotillon" del catálogo mayorista, ~1300 artículos), no un producto único.
+/// Mismo patrón que TiendaSettings porque es lo mismo que Tienda pero para otra línea
+/// de productos y otra marca (FastCotillón, ex FastCombos, unificada acá).
+model CotillonSettings {
+  id               String   @id @default("singleton")
+  storeOpen        Boolean  @default(true)
+  topBannerText    String   @default("Cotillón para tu fiesta · Envíos a todo el país")
+  heroBadge        String   @default("Cotillón para tu fiesta")
+  heroTitle        String   @default("Todo el cotillón para tu evento")
+  heroSubtitle     String   @default("Globos, decoración, disfraces y accesorios al por mayor. Armá tu pedido y confirmalo por WhatsApp.")
+  heroImageUrl     String?
+  minCompra        Int      @default(30000)
+  envioGratisDesde Int      @default(60000)
+  whatsappNumber   String   @default("5493412708638")
+  margenVenta      Float    @default(0.3)
+  hiddenProductIds String[] @default([])
+  productPromos    Json     @default("{}")
+  heroCarousel     Json     @default("[]")
+  promoCards       Json     @default("[]")
+  updatedAt        DateTime @updatedAt
+}
