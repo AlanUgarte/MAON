@@ -7,6 +7,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { BulkMarginDto } from './dto/bulk-margin.dto';
 
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024; // 10MB, cómodo para una lista de precios completa
 
@@ -25,6 +26,12 @@ export class ProductsController {
   @Post() create(@Body() dto: CreateProductDto) { return this.products.create(dto); }
   @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateProductDto) { return this.products.update(id, dto); }
   @Delete(':id') remove(@Param('id') id: string) { return this.products.remove(id); }
+
+  // Margen masivo (botones "Aplicar a todos / marca / categoría" en Productos).
+  @Patch('margin/bulk')
+  bulkMargin(@Body() dto: BulkMarginDto) {
+    return this.products.bulkSetMargin(dto.marginPct, dto.brand, dto.category);
+  }
 
   // Actualiza el costo de los artículos existentes desde la lista de precios del
   // proveedor (Excel). Solo ADMINISTRADOR/SUPERVISOR (mismo Roles que el resto de este

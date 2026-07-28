@@ -42,6 +42,16 @@ export class ProductsService {
     return this.prisma.product.delete({ where: { id } });
   }
 
+  // Margen masivo: a todos, o filtrado por marca/categoría (mismo alcance que los
+  // botones "Aplicar a todos / A la marca filtrada / A la categoría filtrada" de Productos).
+  async bulkSetMargin(marginPct: number, brand?: string, category?: string) {
+    const where: Prisma.ProductWhereInput = {};
+    if (brand) where.brand = brand;
+    if (category) where.category = category;
+    const res = await this.prisma.product.updateMany({ where, data: { marginPct } });
+    return { updated: res.count };
+  }
+
   /**
    * Sincroniza el catálogo real desde la lista de precios del proveedor (Excel "SAP
    * Movil"). Formato esperado: hoja con columnas Código, BRUTO BULTO, BRUTO UNIDAD

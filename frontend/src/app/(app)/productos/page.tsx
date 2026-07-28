@@ -135,15 +135,25 @@ export default function ProductosPage() {
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, margin: v === '' ? null : Math.max(0, parseFloat(v) || 0) } : p)));
   const setPrice = (id: string, v: string) =>
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, price: Math.max(0, parseFloat(v) || 0) } : p)));
-  const applyMargin = (scope: 'all' | 'brand' | 'cat') =>
+  // El input solo cambia el estado local en cada tecla; recién en onBlur se guarda de
+  // verdad, para no mandar un PATCH por cada tecla que se tipea.
+  const persistProduct = (id: string, patch: Record<string, any>) => {
+    if (productSource !== 'backend' || id.startsWith('new') || id.startsWith('imp')) return;
+    api.updateProduct(id, patch).catch(() => {});
+  };
+  const applyMargin = (scope: 'all' | 'brand' | 'cat') => {
+    if ((scope === 'brand' && !brand) || (scope === 'cat' && !cat)) return;
     setItems((arr) =>
       arr.map((p) => {
         if (scope === 'all') return { ...p, margin: gPct };
-        if (scope === 'brand' && brand && p.brand === brand) return { ...p, margin: gPct };
-        if (scope === 'cat' && cat && p.category === cat) return { ...p, margin: gPct };
+        if (scope === 'brand' && p.brand === brand) return { ...p, margin: gPct };
+        if (scope === 'cat' && p.category === cat) return { ...p, margin: gPct };
         return p;
       }),
     );
+    if (productSource !== 'backend') return;
+    api.bulkMargin(gPct, scope === 'brand' ? brand : undefined, scope === 'cat' ? cat : undefined).catch(() => {});
+  };
 
   const doImport = () => {
     const rows = importText.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -411,9 +421,9 @@ export default function ProductosPage() {
                     <td className="p-3 text-muted">{p.brand}</td>
                     <td className="p-3"><span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{p.category}</span></td>
                     <td className="p-3">x {p.units || '-'}</td>
-                    <td className="p-3"><input type="number" value={p.price} onChange={(e) => setPrice(p.id, e.target.value)} className="h-[30px] w-[92px] rounded-lg border border-line/15 bg-surface px-2 text-right font-bold" /></td>
+                    <td className="p-3"><input type="number" value={p.price} onChange={(e) => setPrice(p.id, e.target.value)} onBlur={() => persistProduct(p.id, { price: p.price })} className="h-[30px] w-[92px] rounded-lg border border-line/15 bg-surface px-2 text-right font-bold" /></td>
                     <td className="p-3 text-muted">{p.units ? moneyD(Math.round(punit(p))) : '-'}</td>
-                    <td className="p-3"><input type="number" value={p.margin ?? ''} placeholder={String(gPct)} onChange={(e) => setMargin(p.id, e.target.value)} className="h-[30px] w-[62px] rounded-lg border border-line/15 bg-surface px-2 text-center font-bold" /></td>
+                    <td className="p-3"><input type="number" value={p.margin ?? ''} placeholder={String(gPct)} onChange={(e) => setMargin(p.id, e.target.value)} onBlur={() => persistProduct(p.id, { marginPct: p.margin })} className="h-[30px] w-[62px] rounded-lg border border-line/15 bg-surface px-2 text-center font-bold" /></td>
                     <td className="p-3 font-bold text-emerald">{money(ventaB(p))}</td>
                     <td className="p-3 text-emerald">{p.units ? money(ventaU(p)) : '-'}</td>
                     <td className="p-3">

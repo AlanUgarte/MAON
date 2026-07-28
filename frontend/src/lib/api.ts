@@ -135,6 +135,8 @@ export const api = {
   createProduct: (dto: any) => request<any>('/products', { method: 'POST', body: JSON.stringify(dto) }),
   updateProduct: (id: string, dto: any) => request<any>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
   deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
+  bulkMargin: (marginPct: number, brand?: string, category?: string) =>
+    request<{ updated: number }>('/products/margin/bulk', { method: 'PATCH', body: JSON.stringify({ marginPct, brand, category }) }),
   // Sincroniza el catálogo real (crea productos nuevos, actualiza precio/nombre/categoría
   // de los que ya existen) desde la lista de precios del proveedor. Va directo al backend
   // NestJS (no por /api/upload, que es solo para imágenes).
