@@ -44,13 +44,17 @@ export class ProductsService {
 
   /**
    * Sincroniza el catálogo real desde la lista de precios del proveedor (Excel "SAP
-   * Movil"). Formato esperado: hoja con columnas Categoría, Código, Nombre, Marca,
-   * Línea, ..., BRUTO BULTO, BRUTO UNIDAD, ...
-   * Matchea por sku/Código: si el producto ya existe, actualiza precio/nombre/categoría/
-   * marca/unidades por bulto; si no existe, lo crea. La base solo tenía ~100 productos de
-   * prueba (sku "TOP1".."TOP100") — sin esto, el catálogo real (10.000+ artículos que ve
-   * el cliente en /tienda) nunca tuvo su fila real acá, y el checkout fallaba siempre
-   * ("ningún SKU reconocido") para cualquier producto fuera de esos 100 de prueba.
+   * Movil"). Formato esperado: hoja con columnas Código, BRUTO BULTO, BRUTO UNIDAD
+   * (y opcionalmente Categoría, Nombre del Artículo, Marca, Cant. Bulto si el archivo
+   * las trae). Precio = BRUTO BULTO; si falta, cae a BRUTO UNIDAD.
+   * Matchea por sku/Código: si el producto ya existe, actualiza precio siempre, y
+   * nombre/categoría/marca/unidades por bulto solo si el archivo trae ese dato (si no,
+   * se preserva lo que ya había — este archivo no trae esas columnas). Si no existe y el
+   * archivo no trae nombre, no se puede crear (falta un dato obligatorio), se cuenta
+   * aparte. La base solo tenía ~100 productos de prueba (sku "TOP1".."TOP100") — sin
+   * esto, el catálogo real (10.000+ artículos que ve el cliente en /tienda) nunca tuvo su
+   * fila real acá, y el checkout fallaba siempre ("ningún SKU reconocido") para cualquier
+   * producto fuera de esos 100 de prueba.
    */
   async importPricesFromExcel(buffer: Buffer, dryRun: boolean) {
     const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -59,36 +63,41 @@ export class ProductsService {
     if (!sheet) throw new BadRequestException('El archivo no tiene hojas para leer');
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-    // Fila de encabezado: "Categoría","Código","Nombre del Artículo",...,"BRUTO BULTO",...
-    // Se busca por nombre en vez de asumir siempre la misma posición, por si el proveedor
-    // reordena columnas en una lista futura.
+    // Fila de encabezado: se busca por nombre en vez de asumir siempre la misma posición,
+    // por si el proveedor reordena o saca columnas en una lista futura.
     const headerIdx = rows.findIndex((r) => r.some((c) => String(c).trim() === 'Código'));
     if (headerIdx === -1) throw new BadRequestException('No se encontró la fila de encabezado (columna "Código")');
     const header = rows[headerIdx].map((c) => String(c).trim());
     const col = (name: string) => header.indexOf(name);
     const skuCol = col('Código'), nameCol = col('Nombre del Artículo'), catCol = col('Categoría'),
-      brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), priceCol = col('BRUTO BULTO');
-    if (skuCol === -1 || priceCol === -1) {
-      throw new BadRequestException('Faltan las columnas "Código" y/o "BRUTO BULTO" en el archivo');
+      brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), bultoCol = col('BRUTO BULTO'), unidadCol = col('BRUTO UNIDAD');
+    if (skuCol === -1 || (bultoCol === -1 && unidadCol === -1)) {
+      throw new BadRequestException('Faltan las columnas "Código" y/o "BRUTO BULTO"/"BRUTO UNIDAD" en el archivo');
     }
 
-    const items: { sku: string; name: string; category: string; brand: string; units: number; price: number }[] = [];
+    const parseNum = (v: any): number | null => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+      return isFinite(n) && n > 0 ? n : null;
+    };
+
+    const items: { sku: string; name: string | null; category: string | null; brand: string | null; units: number | null; price: number }[] = [];
     let skippedNoSku = 0, skippedBadPrice = 0;
     const seenSku = new Set<string>();
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       const sku = String(row[skuCol] ?? '').trim();
       if (!sku || seenSku.has(sku)) { skippedNoSku++; continue; } // filas de encabezado de rubro, sin código (o duplicado)
-      const raw = row[priceCol];
-      const price = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(',', '.'));
-      if (!isFinite(price) || price <= 0) { skippedBadPrice++; continue; }
+      const bulto = bultoCol !== -1 ? parseNum(row[bultoCol]) : null;
+      const unidad = unidadCol !== -1 ? parseNum(row[unidadCol]) : null;
+      const price = bulto ?? unidad;
+      if (price === null) { skippedBadPrice++; continue; }
       seenSku.add(sku);
       items.push({
         sku,
-        name: String(row[nameCol] ?? '').trim(),
-        category: String(row[catCol] ?? '').trim(),
-        brand: String(row[brandCol] ?? '').trim(),
-        units: Number(row[unitsCol]) || 1,
+        name: nameCol !== -1 ? (String(row[nameCol] ?? '').trim() || null) : null,
+        category: catCol !== -1 ? (String(row[catCol] ?? '').trim() || null) : null,
+        brand: brandCol !== -1 ? (String(row[brandCol] ?? '').trim() || null) : null,
+        units: unitsCol !== -1 ? (Number(row[unitsCol]) || null) : null,
         price: Math.round(price * 100) / 100,
       });
     }
@@ -97,8 +106,10 @@ export class ProductsService {
     const skus = items.map((i) => i.sku);
     const existing = await this.prisma.product.findMany({ where: { sku: { in: skus } }, select: { sku: true, name: true, price: true } });
     const existingBySku = new Map(existing.map((p) => [p.sku, p]));
-    const toCreate = items.filter((i) => !existingBySku.has(i.sku));
+    const toCreate = items.filter((i) => !existingBySku.has(i.sku) && i.name);
     const toUpdate = items.filter((i) => existingBySku.has(i.sku));
+    const skippedUnknownSku = items.filter((i) => !existingBySku.has(i.sku) && !i.name).length;
+    const upsertItems = [...toCreate, ...toUpdate];
 
     // Muestra de cambios (antes/después) para poder revisar antes de confirmar — sobre
     // todo útil en dryRun, donde todavía no se tocó nada en la base.
@@ -107,14 +118,14 @@ export class ProductsService {
       return { sku: it.sku, name: current.name, oldPrice: Number(current.price), newPrice: it.price };
     });
 
-    if (!dryRun && items.length) {
+    if (!dryRun && upsertItems.length) {
       // En chunks: una sola sentencia con las 10.000+ filas se pasa del límite de
       // parámetros de Postgres (65535).
       const CHUNK = 1000;
-      for (let i = 0; i < items.length; i += CHUNK) {
-        const chunk = items.slice(i, i + CHUNK);
+      for (let i = 0; i < upsertItems.length; i += CHUNK) {
+        const chunk = upsertItems.slice(i, i + CHUNK);
         const values = Prisma.join(
-          chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}, ${it.sku}, ${it.category}, ${it.brand}, ${it.units}, ${it.price}::numeric)`),
+          chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric)`),
           ',',
         );
         await this.prisma.$executeRaw`
@@ -123,10 +134,10 @@ export class ProductsService {
           FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price)
           ON CONFLICT (sku) DO UPDATE SET
             price = EXCLUDED.price,
-            name = EXCLUDED.name,
-            category = EXCLUDED.category,
-            brand = EXCLUDED.brand,
-            "unitsPerBulk" = EXCLUDED."unitsPerBulk",
+            name = COALESCE(EXCLUDED.name, "Product".name),
+            category = COALESCE(EXCLUDED.category, "Product".category),
+            brand = COALESCE(EXCLUDED.brand, "Product".brand),
+            "unitsPerBulk" = COALESCE(EXCLUDED."unitsPerBulk", "Product"."unitsPerBulk"),
             "updatedAt" = now()
         `;
       }
@@ -140,6 +151,7 @@ export class ProductsService {
       sample,
       skippedNoSku,
       skippedBadPrice,
+      skippedUnknownSku,
     };
   }
 }
