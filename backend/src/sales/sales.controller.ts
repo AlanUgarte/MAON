@@ -31,4 +31,11 @@ export class SalesController {
   markInvoiced(@Param('id') id: string, @Body() dto: MarkInvoicedDto) {
     return this.sales.markInvoiced(id, dto.comprobanteNumero);
   }
+
+  // El vendedor confirma a mano que la transferencia llegó a la cuenta real.
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
+  @Patch(':id/payment/confirm')
+  confirmPayment(@Param('id') id: string) {
+    return this.sales.confirmPayment(id);
+  }
 }

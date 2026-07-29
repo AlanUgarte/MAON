@@ -22,6 +22,10 @@ export interface CartView {
   wantsShipping: boolean | null;
   shippingAddress: string | null;
   items: CartItemView[];
+  sale?: {
+    id: string;
+    payment?: { status: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'RECHAZADO' | 'CANCELADO' | 'REEMBOLSADO' } | null;
+  } | null;
 }
 
 export function useConversationControl(conversationId: string | null) {
@@ -50,6 +54,12 @@ export function useConversationControl(conversationId: string | null) {
     try { await action(conversationId); await refresh(); } finally { setBusy(false); }
   };
 
+  const confirmPayment = async () => {
+    if (!cart?.sale) return;
+    setBusy(true);
+    try { await api.confirmPayment(cart.sale.id); await refresh(); } finally { setBusy(false); }
+  };
+
   return {
     aiMode,
     cart,
@@ -58,6 +68,7 @@ export function useConversationControl(conversationId: string | null) {
     returnToAI: () => run(api.returnToAI),
     pauseAI: () => run(api.pauseAI),
     confirmCart: () => run(api.confirmCart),
+    confirmPayment,
     refresh,
   };
 }

@@ -149,6 +149,18 @@ export class SalesService {
     });
   }
 
+  /**
+   * Confirma a mano que la transferencia llegó — no hay integración bancaria real,
+   * así que esto lo hace un vendedor/admin después de chequear la cuenta de verdad.
+   * Nunca se confirma solo porque el cliente diga que pagó o mande un comprobante.
+   */
+  async confirmPayment(saleId: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { saleId } });
+    if (!payment) throw new BadRequestException('Este pedido no tiene un pago asociado');
+    await this.prisma.payment.update({ where: { saleId }, data: { status: 'APROBADO' } });
+    return this.prisma.sale.update({ where: { id: saleId }, data: { status: 'PAGADA' } });
+  }
+
   /** Unidades vendidas por artículo (lo que ve el dashboard). */
   async unitsByProduct() {
     const grouped = await this.prisma.saleItem.groupBy({

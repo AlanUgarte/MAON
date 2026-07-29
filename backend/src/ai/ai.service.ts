@@ -380,6 +380,8 @@ export class AIService {
           return await this.carts.removeItem(conversationId, String(input.productId));
         case 'set_shipping':
           return await this.carts.setShipping(conversationId, !!input.wantsShipping, input.address ? String(input.address) : undefined);
+        case 'confirm_order':
+          return await this.carts.confirm(conversationId);
         case 'request_human':
           return { ok: true };
         default:

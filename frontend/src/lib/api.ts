@@ -131,6 +131,7 @@ export const api = {
   // MAON AI Sales · carrito de la conversación
   getCart: (conversationId: string) => request<any>(`/conversations/${conversationId}/cart`),
   confirmCart: (conversationId: string) => request<any>(`/conversations/${conversationId}/cart/confirm`, { method: 'POST' }),
+  confirmPayment: (saleId: string) => request<any>(`/sales/${saleId}/payment/confirm`, { method: 'PATCH' }),
 
   // IA
   suggest: (clientId: string) =>

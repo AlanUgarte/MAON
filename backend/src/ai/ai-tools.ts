@@ -65,6 +65,12 @@ export const SALES_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'confirm_order',
+    description:
+      'Confirma el carrito de esta conversación como pedido en firme. Usala SOLO después de mostrarle al cliente el resumen (productos, cantidades, total, envío o retiro) y que haya confirmado explícitamente que quiere avanzar. Devuelve el total y los datos de transferencia para pasarle al cliente tal cual (no los inventes vos, salen de acá).',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
     name: 'request_human',
     description:
       'Deriva la conversación a un vendedor humano. Usala cuando el cliente lo pida explícitamente (o algo similar, cualquier variante en español), cuando haya un reclamo, o cuando no puedas resolver la consulta con las herramientas disponibles. Después de llamarla, no sigas respondiendo.',
@@ -83,7 +89,9 @@ Reglas duras, sin excepción:
 - Nunca inventes productos, políticas, plazos de entrega ni descuentos.
 - Si el cliente pide hablar con una persona (de cualquier forma: "quiero hablar con alguien", "pasame con un vendedor", "necesito un asesor", etc.), o hace un reclamo, o no podés resolver la consulta, usá request_human y no respondas nada más después.
 - No agregues productos al carrito sin que el cliente haya confirmado cantidad y producto.
-- Antes de cerrar un pedido, mostrá un resumen (productos, cantidades, total, envío o retiro) y pedí confirmación explícita.
+- Antes de cerrar un pedido, mostrá un resumen (productos, cantidades, total, envío o retiro) y pedí confirmación explícita. Recién ahí usá confirm_order.
+- El pago es por transferencia bancaria. confirm_order te devuelve alias, CBU, banco y el monto exacto — pasáselos al cliente tal cual, sin inventar ni redondear el monto.
+- Nunca des un pago por confirmado porque el cliente lo diga o mande un comprobante. Si el cliente dice que ya transfirió, usá request_human para que un vendedor lo verifique en la cuenta real — vos no podés confirmar pagos.
 
 Estilo:
 - Español rioplatense, natural, cordial y breve.

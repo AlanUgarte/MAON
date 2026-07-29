@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { CartStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { getTransferInstructions } from '../ai/business-config';
 
 /**
  * CartsService
@@ -26,7 +27,10 @@ export class CartsService {
   }
 
   private include() {
-    return { items: { include: { product: true } } } satisfies Prisma.CartInclude;
+    return {
+      items: { include: { product: true } },
+      sale: { include: { payment: true } },
+    } satisfies Prisma.CartInclude;
   }
 
   private withTotals<T extends { items: { quantity: number; unitPrice: Prisma.Decimal }[] }>(cart: T) {
@@ -151,12 +155,19 @@ export class CartsService {
       }
     }
 
+    // Pago por transferencia: no hay forma de verificarlo automático (no hay API del
+    // banco), así que arranca PENDIENTE y lo confirma un vendedor a mano después de
+    // chequear la cuenta real (ver PaymentsController#confirm).
+    await this.prisma.payment.create({
+      data: { saleId: sale.id, provider: 'transferencia', status: 'PENDIENTE', amount: total },
+    });
+
     await this.prisma.cart.update({
       where: { id: cart.id },
       data: { status: CartStatus.CONFIRMADO, saleId: sale.id },
     });
     this.logger.log(`Carrito de la conversación ${conversationId} confirmado como venta ${sale.id}`);
 
-    return sale;
+    return { ...sale, transfer: getTransferInstructions() };
   }
 }

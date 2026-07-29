@@ -122,7 +122,7 @@ function BandejaInner() {
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
   const activeConversationId = active ? conversationIds[active.id] ?? null : null;
-  const { aiMode, cart, busy: aiSalesBusy, takeOver, returnToAI, pauseAI, confirmCart } = useConversationControl(activeConversationId);
+  const { aiMode, cart, busy: aiSalesBusy, takeOver, returnToAI, pauseAI, confirmCart, confirmPayment } = useConversationControl(activeConversationId);
 
   // Al abrir una conversación puntual (no el fallback por defecto), se marca como leída.
   useEffect(() => {
@@ -544,6 +544,21 @@ function BandejaInner() {
                   <Button size="sm" className="mt-2.5 w-full" disabled={aiSalesBusy} onClick={confirmCart}>
                     <ReceiptText className="h-3.5 w-3.5" /> Confirmar pedido
                   </Button>
+                )}
+                {cart.status === 'CONFIRMADO' && cart.sale?.payment?.status !== 'APROBADO' && (
+                  <>
+                    <div className="mt-2.5 rounded-lg bg-amber/10 px-2.5 py-2 text-[11px] text-amber">
+                      Pago por transferencia pendiente — el cliente ya tiene el alias/CBU. Confirmá acá solo cuando veas la plata en la cuenta real.
+                    </div>
+                    <Button size="sm" variant="soft" className="mt-2 w-full" disabled={aiSalesBusy} onClick={confirmPayment}>
+                      <ReceiptText className="h-3.5 w-3.5" /> Marcar pago recibido
+                    </Button>
+                  </>
+                )}
+                {cart.sale?.payment?.status === 'APROBADO' && (
+                  <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald">
+                    <CheckCheck className="h-3.5 w-3.5" /> Pago confirmado
+                  </div>
                 )}
               </div>
             )}
