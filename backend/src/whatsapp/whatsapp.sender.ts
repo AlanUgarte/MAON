@@ -24,6 +24,20 @@ export class WhatsAppSender {
     return !!this.token && !!this.phoneNumberId;
   }
 
+  /**
+   * La API de WhatsApp Cloud rechaza el "9" que se usa en todo el resto del sistema
+   * para celulares argentinos (+549...) — lo quiere sin él (+54...). Confirmado a mano
+   * con un envío real: con el 9 tira "Recipient phone number not in allowed list" (o
+   * simplemente no entrega) aunque el número sea válido y esté bien escrito.
+   * El resto de la app (Client.phone, formularios, etc.) sigue guardando el formato
+   * normal con 9 — esta conversión es solo para el límite con la API de Meta.
+   */
+  private toMetaFormat(phone: string): string {
+    const digits = phone.replace('+', '');
+    if (digits.startsWith('549') && digits.length === 13) return '54' + digits.slice(3);
+    return digits;
+  }
+
   async sendText(to: string, body: string): Promise<{ id?: string; simulated: boolean }> {
     if (!this.enabled) {
       this.logger.warn(`[SIMULADO] → ${to}: ${body}`);
@@ -38,7 +52,7 @@ export class WhatsAppSender {
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: to.replace('+', ''),
+        to: this.toMetaFormat(to),
         type: 'text',
         text: { body },
       }),
@@ -69,7 +83,7 @@ export class WhatsAppSender {
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: to.replace('+', ''),
+        to: this.toMetaFormat(to),
         type: 'template',
         template: { name: templateName, language: { code: languageCode } },
       }),
@@ -93,7 +107,7 @@ export class WhatsAppSender {
       headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: to.replace('+', ''),
+        to: this.toMetaFormat(to),
         type: 'image',
         image: { link: imageUrl, caption },
       }),
