@@ -69,15 +69,21 @@ export class WhatsAppService {
     const isNew = !client;
     if (!client) {
       const [firstName, ...rest] = profileName.split(' ');
+      // Si el primer mensaje viene de un anuncio "Enviar mensaje" de Meta Ads, WhatsApp
+      // manda el dato del anuncio en msg.referral — se usa para marcar el origen real
+      // del lead y agruparlo por campaña en vez de contarlo como WhatsApp orgánico.
+      const adInfo = await this.resolveAdReferral(msg.referral);
       client = await this.prisma.client.create({
         data: {
           firstName: firstName || 'Cliente',
           lastName: rest.join(' ') || null,
           phone,
-          source: LeadSource.WHATSAPP,
+          source: adInfo ? LeadSource.META_ADS : LeadSource.WHATSAPP,
+          metaAdId: adInfo?.adId,
+          metaCampaignId: adInfo?.metaCampaignId,
         },
       });
-      this.logger.log(`Nuevo lead creado desde WhatsApp: ${phone}`);
+      this.logger.log(`Nuevo lead creado desde WhatsApp${adInfo ? ` (Meta Ads, anuncio ${adInfo.adId})` : ''}: ${phone}`);
     }
 
     // 2) Conversación
@@ -277,6 +283,32 @@ export class WhatsAppService {
       default:
         return { content: '[mensaje no soportado]', type: MessageType.SISTEMA };
     }
+  }
+
+  /**
+   * Resuelve el anuncio de Meta Ads que originó la conversación (WhatsApp lo manda
+   * en msg.referral solo en el primer mensaje de un chat abierto vía un botón
+   * "Enviar mensaje" de un anuncio). Crea la campaña la primera vez que se ve ese
+   * anuncio; las siguientes conversaciones desde el mismo anuncio reusan la misma fila,
+   * así el dashboard puede agrupar leads/ventas por campaña.
+   */
+  private async resolveAdReferral(
+    referral: any,
+  ): Promise<{ adId: string; metaCampaignId: string } | null> {
+    if (!referral || referral.source_type !== 'ad' || !referral.source_id) return null;
+    const metaId = String(referral.source_id);
+    let campaign = await this.prisma.metaCampaign.findUnique({ where: { metaId } });
+    if (!campaign) {
+      campaign = await this.prisma.metaCampaign.create({
+        data: {
+          metaId,
+          name: referral.headline || referral.body || `Anuncio ${metaId}`,
+          objective: 'WHATSAPP_CTWA',
+        },
+      });
+      this.logger.log(`Nueva campaña de Meta Ads detectada: ${campaign.name} (${metaId})`);
+    }
+    return { adId: metaId, metaCampaignId: campaign.id };
   }
 
   private toE164(waId: string): string {
