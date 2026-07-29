@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIService } from '../ai/ai.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { WhatsAppSender } from './whatsapp.sender';
 
 /**
@@ -31,6 +32,7 @@ export class WhatsAppService {
     private readonly ai: AIService,
     private readonly sender: WhatsAppSender,
     private readonly config: ConfigService,
+    private readonly conversations: ConversationsService,
   ) {}
 
   /**
@@ -116,27 +118,54 @@ export class WhatsAppService {
       data: { lastInboundAt: now },
     });
 
-    // 4) Capa híbrida de IA (clasifica el mensaje)
-    const decision = this.ai.triageInbound(content);
-
-    // 5) Respuesta automática: DESACTIVADA por defecto.
+    // 4) Respuesta automática (MAON AI Sales): DESACTIVADA por defecto.
     //    El cliente respondés vos (desde el CRM o desde tu WhatsApp).
-    //    Para habilitar auto-respuestas de FAQ, poné AUTO_REPLY_ENABLED=true.
-    const autoReplyEnabled =
-      this.config.get<string>('AUTO_REPLY_ENABLED') === 'true';
-    if (autoReplyEnabled && decision.autoReply && !decision.needsAI) {
-      await this.prisma.message.create({
+    //    Para habilitarla, poné AUTO_REPLY_ENABLED=true.
+    //    Si hay un humano atendiendo (o lo pidió, o está pausada a mano), la IA
+    //    nunca responde — sección 8: nunca deben responder la IA y una persona
+    //    a la vez.
+    const autoReplyEnabled = this.config.get<string>('AUTO_REPLY_ENABLED') === 'true';
+    if (autoReplyEnabled && conversation.aiMode === 'AI_ACTIVE') {
+      // Capa híbrida: si es una FAQ simple, respuesta fija sin gastar tokens.
+      // Si no, el vendedor IA (loop agéntico con catálogo/carrito reales).
+      const decision = this.ai.triageInbound(content);
+      let reply: string;
+      let requestedHuman = false;
+      const isFaqFastPath = !!decision.autoReply && !decision.needsAI;
+      if (isFaqFastPath) {
+        reply = decision.autoReply!;
+      } else {
+        const history = await this.prisma.message.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: 'asc' },
+          take: 40,
+          select: { direction: true, content: true },
+        });
+        const result = await this.ai.runSalesTurn({ conversationId: conversation.id, history });
+        reply = result.reply;
+        requestedHuman = result.requestedHuman;
+      }
+
+      const outMessage = await this.prisma.message.create({
         data: {
           conversationId: conversation.id,
           direction: MessageDirection.SALIENTE,
-          author: MessageAuthor.AUTOMATIZACION,
-          content: decision.autoReply,
+          author: isFaqFastPath ? MessageAuthor.AUTOMATIZACION : MessageAuthor.IA,
+          content: reply,
         },
       });
-      await this.sender.sendText(waId, decision.autoReply);
+      await this.sender.sendText(waId, reply);
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: outMessage.createdAt, lastMessagePreview: reply.slice(0, 120) },
+      });
+
+      if (requestedHuman) {
+        await this.conversations.requestHuman(conversation.id);
+      }
     }
 
-    // 6) Análisis comercial con Claude (SIEMPRE en mensajes entrantes):
+    // 5) Análisis comercial con Claude (SIEMPRE en mensajes entrantes):
     //    score, intención, sentimiento, objeción, resumen y sugerencias
     //    para el vendedor. Esto NO envía nada al cliente.
     if (this.config.get<string>('AI_ANALYSIS_ENABLED') !== 'false') {

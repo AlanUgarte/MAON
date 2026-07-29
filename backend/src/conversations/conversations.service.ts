@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, MessageDirection, MessageAuthor } from '@prisma/client';
+import { Prisma, MessageDirection, MessageAuthor, AIMode } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { isFreeWindowOpen, freeWindowRemainingHours } from '../common/free-window';
+import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 
 @Injectable()
 export class ConversationsService {
+  private readonly logger = new Logger(ConversationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly sender: WhatsAppSender,
   ) {}
 
   private get freeWindowOnly(): boolean {
@@ -80,7 +84,7 @@ export class ConversationsService {
   ) {
     const conv = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      include: { client: { select: { source: true, lastInboundAt: true } } },
+      include: { client: { select: { phone: true, source: true, lastInboundAt: true } } },
     });
     if (!conv) throw new NotFoundException('Conversación no encontrada');
 
@@ -93,6 +97,9 @@ export class ConversationsService {
       );
     }
 
+    // Envío real (o simulado si no hay token configurado, ver WhatsAppSender).
+    const sent = await this.sender.sendText(conv.client.phone, content);
+
     const message = await this.prisma.message.create({
       data: {
         conversationId,
@@ -100,6 +107,7 @@ export class ConversationsService {
         author,
         content,
         sellerId,
+        waMessageId: sent.id,
       },
     });
 
@@ -115,8 +123,60 @@ export class ConversationsService {
       data: { lastContactAt: message.createdAt },
     });
 
-    // NOTE: aquí se invocaría WhatsAppSender.sendText(...) para el envío real.
     return message;
+  }
+
+  // ===========================================================
+  //  MAON AI Sales · control IA/humano de la conversación
+  // ===========================================================
+
+  /** Un vendedor toma la conversación: la IA deja de responder de inmediato. */
+  async takeOver(conversationId: string, userId: string) {
+    await this.findOrThrow(conversationId);
+    this.logger.log(`Conversación ${conversationId} tomada por vendedor ${userId}`);
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { aiMode: AIMode.HUMAN_ACTIVE, takenOverById: userId, aiPausedAt: null },
+    });
+  }
+
+  /** Devuelve la conversación a la IA — la próxima respuesta la genera el asistente de nuevo. */
+  async returnToAI(conversationId: string) {
+    await this.findOrThrow(conversationId);
+    this.logger.log(`Conversación ${conversationId} devuelta a la IA`);
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { aiMode: AIMode.AI_ACTIVE, takenOverById: null, aiPausedAt: null },
+    });
+  }
+
+  /** Pausa la IA sin marcar que un humano la tomó (ej. el admin la frena a mano). */
+  async pauseAI(conversationId: string) {
+    await this.findOrThrow(conversationId);
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { aiMode: AIMode.AI_PAUSED, aiPausedAt: new Date() },
+    });
+  }
+
+  /**
+   * El cliente pidió hablar con una persona (detectado por la IA o pedido manual).
+   * Pausa la IA de inmediato — nunca deben responder la IA y una persona a la vez.
+   */
+  async requestHuman(conversationId: string) {
+    const conv = await this.findOrThrow(conversationId);
+    if (conv.aiMode === AIMode.HUMAN_ACTIVE) return conv; // ya lo tiene un vendedor, no hay nada que cambiar
+    this.logger.log(`Conversación ${conversationId} pidió atención humana`);
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { aiMode: AIMode.HUMAN_REQUESTED, aiPausedAt: new Date() },
+    });
+  }
+
+  private async findOrThrow(conversationId: string) {
+    const conv = await this.prisma.conversation.findUnique({ where: { id: conversationId } });
+    if (!conv) throw new NotFoundException('Conversación no encontrada');
+    return conv;
   }
 
   async assignSeller(clientId: string, sellerId: string) {

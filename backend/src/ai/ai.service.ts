@@ -17,6 +17,23 @@ import {
   OrderCatalogItem,
 } from './prompts';
 import { matchFaq, requiresAI, FaqMatch } from './predefined-responses';
+import { SALES_TOOLS, SALES_SYSTEM_PROMPT } from './ai-tools';
+import { PrismaService } from '../prisma/prisma.service';
+import { CartsService } from '../carts/carts.service';
+
+export interface SalesTurnContext {
+  conversationId: string;
+  history: { direction: 'ENTRANTE' | 'SALIENTE'; content: string }[];
+}
+
+export interface SalesTurnResult {
+  reply: string;
+  requestedHuman: boolean;
+}
+
+const HUMAN_HANDOFF_MESSAGE =
+  'Claro 😊. Voy a derivar tu consulta a un asesor. Una persona continuará la conversación apenas esté disponible.';
+const MAX_TOOL_ITERATIONS = 6;
 
 export interface AIAnalysisResult {
   buyingIntent: 'ALTA' | 'MEDIA' | 'BAJA';
@@ -59,7 +76,11 @@ export class AIService {
   private readonly model: string;
   private readonly enabled: boolean;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly carts: CartsService,
+  ) {
     const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
     this.model = this.config.get<string>('AI_MODEL') || 'claude-sonnet-4-6';
     this.enabled =
@@ -277,6 +298,122 @@ export class AIService {
       this.logger.error(`Error en parseOrder: ${err}`);
       return { items: [], unmatched: [], note: 'No se pudo leer el pedido automáticamente.', usedAI: false };
     }
+  }
+
+  // ===========================================================
+  //  MAON AI SALES · loop agéntico con tool-use real
+  // ===========================================================
+
+  /**
+   * Corre un turno del vendedor IA: le da a Claude herramientas reales
+   * (catálogo, carrito, derivar a humano) y deja que las use hasta que
+   * tenga una respuesta final de texto, o hasta pedir un humano.
+   * Nunca inventa precio/stock — todo pasa por las herramientas.
+   */
+  async runSalesTurn(ctx: SalesTurnContext): Promise<SalesTurnResult> {
+    if (!this.client || !this.enabled) {
+      return { reply: 'Hola! Gracias por escribirnos 😊 ¿En qué te puedo ayudar hoy?', requestedHuman: false };
+    }
+
+    const messages: Anthropic.MessageParam[] = ctx.history.slice(-20).map((m) => ({
+      role: m.direction === 'ENTRANTE' ? 'user' : 'assistant',
+      content: m.content,
+    }));
+
+    for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+      let response: Anthropic.Message;
+      try {
+        response = await this.client.messages.create({
+          model: this.model,
+          max_tokens: 500,
+          system: SALES_SYSTEM_PROMPT,
+          tools: SALES_TOOLS,
+          messages,
+        });
+      } catch (err) {
+        this.logger.error(`Error en runSalesTurn: ${err}`);
+        return { reply: 'Uy, tuvimos un problema técnico. En un ratito te responde alguien del equipo.', requestedHuman: false };
+      }
+
+      const toolUses = response.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+      );
+      if (!toolUses.length) {
+        return { reply: this.extractText(response).trim(), requestedHuman: false };
+      }
+
+      messages.push({ role: 'assistant', content: response.content });
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      let requestedHuman = false;
+      for (const tu of toolUses) {
+        const output = await this.executeSalesTool(tu.name, tu.input as Record<string, any>, ctx.conversationId);
+        await this.prisma.aIToolCall.create({
+          data: { conversationId: ctx.conversationId, tool: tu.name, input: tu.input as any, output: output as any },
+        }).catch((err) => this.logger.error(`No se pudo auditar tool call: ${err}`));
+        if (tu.name === 'request_human') requestedHuman = true;
+        toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(output) });
+      }
+
+      // La IA responde una sola vez y corta apenas deriva a un humano — no sigue
+      // iterando ni le da otra vuelta al modelo para "mejorar" el mensaje de handoff.
+      if (requestedHuman) return { reply: HUMAN_HANDOFF_MESSAGE, requestedHuman: true };
+
+      messages.push({ role: 'user', content: toolResults });
+    }
+
+    this.logger.warn(`runSalesTurn: se agotaron las ${MAX_TOOL_ITERATIONS} iteraciones sin respuesta final (conv ${ctx.conversationId})`);
+    return { reply: 'Dejame confirmar ese dato y ya te escribo. 🙌', requestedHuman: false };
+  }
+
+  private async executeSalesTool(name: string, input: Record<string, any>, conversationId: string): Promise<unknown> {
+    try {
+      switch (name) {
+        case 'search_product':
+          return await this.toolSearchProduct(String(input.query ?? ''));
+        case 'get_product_detail':
+          return await this.toolGetProduct(String(input.productId ?? ''));
+        case 'view_cart':
+          return (await this.carts.get(conversationId)) ?? { items: [], subtotal: 0 };
+        case 'add_to_cart':
+          return await this.carts.addItem(conversationId, String(input.productId), Number(input.quantity) || 1);
+        case 'remove_from_cart':
+          return await this.carts.removeItem(conversationId, String(input.productId));
+        case 'set_shipping':
+          return await this.carts.setShipping(conversationId, !!input.wantsShipping, input.address ? String(input.address) : undefined);
+        case 'request_human':
+          return { ok: true };
+        default:
+          return { error: `Herramienta desconocida: ${name}` };
+      }
+    } catch (err: any) {
+      return { error: err?.message ?? 'Error ejecutando la herramienta' };
+    }
+  }
+
+  private async toolSearchProduct(query: string) {
+    if (!query.trim()) return { results: [] };
+    const products = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { brand: { contains: query, mode: 'insensitive' } },
+          { category: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      take: 8,
+      select: { id: true, name: true, sku: true, brand: true, category: true, price: true, stock: true, unitsPerBulk: true },
+    });
+    return { results: products.map((p) => ({ ...p, price: Number(p.price) })) };
+  }
+
+  private async toolGetProduct(productId: string) {
+    const p = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, name: true, sku: true, brand: true, category: true, price: true, stock: true, unitsPerBulk: true, description: true, images: true },
+    });
+    if (!p) return { error: 'Producto no encontrado' };
+    return { ...p, price: Number(p.price) };
   }
 
   private extractText(response: Anthropic.Message): string {

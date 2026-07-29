@@ -5,6 +5,7 @@ import {
   Search, Send, Phone, Sparkles, Target, MessageSquareWarning,
   Copy, Paperclip, Smile, ChevronDown, Bot, CheckCheck,
   FileText, Image as ImageIcon, X, ArrowLeft, Video, VideoOff,
+  UserCheck, UserX, Pause, ShoppingCart, ReceiptText,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
 import { useChatThreads } from '@/lib/chat-store';
+import { useConversationControl } from '@/lib/ai-sales-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { InvoiceChoiceModal } from '@/components/app/invoice-choice-modal';
@@ -78,7 +80,7 @@ function BandejaInner() {
   const user = getUser();
   // Un vendedor solo ve las conversaciones de sus propios clientes.
   const CLIENTS = user?.role === 'VENDEDOR' ? allClients.filter((c) => c.seller === user.fullName) : allClients;
-  const { getThread, appendMessage: appendToClient, loadThread } = useChatThreads();
+  const { getThread, appendMessage: appendToClient, loadThread, conversationIds } = useChatThreads();
   const { products: fullCatalog } = useProductCatalog();
   const { settings } = useTiendaSettings();
   const PRODUCT_ROWS = useMemo(
@@ -119,6 +121,8 @@ function BandejaInner() {
   }, [activeId]);
 
   const active = CLIENTS.find((c) => c.id === activeId) ?? CLIENTS[0];
+  const activeConversationId = active ? conversationIds[active.id] ?? null : null;
+  const { aiMode, cart, busy: aiSalesBusy, takeOver, returnToAI, pauseAI, confirmCart } = useConversationControl(activeConversationId);
 
   // Al abrir una conversación puntual (no el fallback por defecto), se marca como leída.
   useEffect(() => {
@@ -309,6 +313,27 @@ function BandejaInner() {
               <div className="flex items-center gap-2 text-[11px] text-muted"><Phone className="h-3 w-3" /> {active.phone}</div>
             </div>
             <StatusBadge stage={active.stage} />
+            {aiMode && (
+              <Badge tone={aiMode === 'AI_ACTIVE' ? 'sky' : aiMode === 'HUMAN_ACTIVE' ? 'emerald' : 'amber'} dot>
+                {aiMode === 'AI_ACTIVE' && 'IA atendiendo'}
+                {aiMode === 'HUMAN_REQUESTED' && 'Pidió un humano'}
+                {aiMode === 'HUMAN_ACTIVE' && 'Atendida por vos'}
+                {aiMode === 'AI_PAUSED' && 'IA pausada'}
+              </Badge>
+            )}
+            {aiMode && aiMode !== 'HUMAN_ACTIVE' && (
+              <Button variant="outline" size="sm" disabled={aiSalesBusy} onClick={takeOver} className="hidden sm:inline-flex">
+                <UserCheck className="h-4 w-4" /> Tomar conversación
+              </Button>
+            )}
+            {aiMode === 'HUMAN_ACTIVE' && (
+              <Button variant="outline" size="sm" disabled={aiSalesBusy} onClick={returnToAI} className="hidden sm:inline-flex">
+                <UserX className="h-4 w-4" /> Devolver a IA
+              </Button>
+            )}
+            {aiMode === 'AI_ACTIVE' && (
+              <Button variant="ghost" size="icon" aria-label="Pausar IA" disabled={aiSalesBusy} onClick={pauseAI}><Pause className="h-4 w-4" /></Button>
+            )}
             <Button variant="outline" size="sm" className="hidden sm:inline-flex"><ChevronDown className="h-4 w-4" /> Estado</Button>
           </div>
 
@@ -497,6 +522,31 @@ function BandejaInner() {
                 <div className="text-[13px] font-medium text-content">{active.intent === 'ALTA' ? 'Cerrar venta' : 'Enviar catálogo'}</div>
               </div>
             </div>
+
+            {cart && cart.items.length > 0 && (
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary"><ShoppingCart className="h-3.5 w-3.5" /> Carrito de esta conversación</span>
+                  <Badge tone={cart.status === 'CONFIRMADO' ? 'emerald' : 'muted'}>{cart.status === 'CONFIRMADO' ? 'Confirmado' : 'Abierto'}</Badge>
+                </div>
+                <div className="space-y-1">
+                  {cart.items.map((it) => (
+                    <div key={it.id} className="flex justify-between gap-2 text-[12px] text-content">
+                      <span className="truncate">{it.quantity}x {it.product.name}</span>
+                      <span className="tnum shrink-0">{money(Number(it.unitPrice) * it.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-primary/10 pt-2 text-[13px] font-bold text-content">
+                  <span>Total</span><span className="tnum">{money(cart.subtotal)}</span>
+                </div>
+                {cart.status === 'ABIERTO' && (
+                  <Button size="sm" className="mt-2.5 w-full" disabled={aiSalesBusy} onClick={confirmCart}>
+                    <ReceiptText className="h-3.5 w-3.5" /> Confirmar pedido
+                  </Button>
+                )}
+              </div>
+            )}
 
             <div>
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted">Producto de interés</div>

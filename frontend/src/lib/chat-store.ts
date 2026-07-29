@@ -100,5 +100,5 @@ export function useChatThreads() {
     return null;
   };
 
-  return { getThread, appendMessage, loadThread, source };
+  return { getThread, appendMessage, loadThread, source, conversationIds };
 }

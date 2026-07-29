@@ -40,4 +40,21 @@ export class ConversationsController {
   assign(@Param('id') clientId: string, @Body('sellerId') sellerId: string) {
     return this.conversations.assignSeller(clientId, sellerId);
   }
+
+  // --- MAON AI Sales: control IA/humano (sección 8) ---
+
+  @Post(':id/take-over')
+  takeOver(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.conversations.takeOver(id, userId);
+  }
+
+  @Post(':id/return-to-ai')
+  returnToAI(@Param('id') id: string) {
+    return this.conversations.returnToAI(id);
+  }
+
+  @Post(':id/pause-ai')
+  pauseAI(@Param('id') id: string) {
+    return this.conversations.pauseAI(id);
+  }
 }

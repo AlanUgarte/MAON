@@ -123,6 +123,15 @@ export const api = {
   sendMessage: (id: string, content: string) =>
     request<any>(`/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content }) }),
 
+  // MAON AI Sales · control IA/humano de la conversación
+  takeOverConversation: (id: string) => request<any>(`/conversations/${id}/take-over`, { method: 'POST' }),
+  returnToAI: (id: string) => request<any>(`/conversations/${id}/return-to-ai`, { method: 'POST' }),
+  pauseAI: (id: string) => request<any>(`/conversations/${id}/pause-ai`, { method: 'POST' }),
+
+  // MAON AI Sales · carrito de la conversación
+  getCart: (conversationId: string) => request<any>(`/conversations/${conversationId}/cart`),
+  confirmCart: (conversationId: string) => request<any>(`/conversations/${conversationId}/cart/confirm`, { method: 'POST' }),
+
   // IA
   suggest: (clientId: string) =>
     request<any>(`/ai/clients/${clientId}/suggest`, { method: 'POST' }),

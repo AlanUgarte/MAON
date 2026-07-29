@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
+import { ConversationsModule } from '../conversations/conversations.module';
 import { WhatsAppService } from './whatsapp.service';
 import { WhatsAppController } from './whatsapp.controller';
-import { WhatsAppSender } from './whatsapp.sender';
+import { WhatsAppSenderModule } from './whatsapp-sender.module';
 
 @Module({
-  providers: [WhatsAppService, WhatsAppSender],
+  imports: [WhatsAppSenderModule, ConversationsModule],
+  providers: [WhatsAppService],
   controllers: [WhatsAppController],
-  exports: [WhatsAppService, WhatsAppSender],
+  exports: [WhatsAppService, WhatsAppSenderModule],
 })
 export class WhatsAppModule {}
