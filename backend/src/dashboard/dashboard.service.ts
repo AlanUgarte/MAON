@@ -63,7 +63,23 @@ export class DashboardService {
       salesByDay: await this.salesByDay(saleWhere, 14),
       salesByProduct: await this.salesByProduct(sellerId),
       conversionByCampaign: sellerId ? [] : await this.conversionByCampaign(),
+      // Conversaciones/carritos no tienen vendedor propio (son de la cuenta de WhatsApp
+      // del negocio) — estas métricas quedan globales aunque el dashboard esté acotado a un vendedor.
+      aiSales: sellerId ? null : await this.aiSalesMetrics(),
     };
+  }
+
+  /** MAON AI Sales (sección 20): actividad del vendedor IA, no atribuible a un vendedor humano. */
+  private async aiSalesMetrics() {
+    const [cartsOpen, ordersFromAI, paymentsPending, paymentsApproved, humanHandoffs, aiActive] = await this.prisma.$transaction([
+      this.prisma.cart.count({ where: { status: 'ABIERTO' } }),
+      this.prisma.cart.count({ where: { status: 'CONFIRMADO' } }),
+      this.prisma.payment.count({ where: { status: 'PENDIENTE' } }),
+      this.prisma.payment.count({ where: { status: 'APROBADO' } }),
+      this.prisma.conversation.count({ where: { aiMode: { in: ['HUMAN_REQUESTED', 'HUMAN_ACTIVE'] } } }),
+      this.prisma.conversation.count({ where: { aiMode: 'AI_ACTIVE' } }),
+    ]);
+    return { cartsOpen, ordersFromAI, paymentsPending, paymentsApproved, humanHandoffs, aiActive };
   }
 
   private async pipelineCounts(clientWhere: Record<string, any>) {

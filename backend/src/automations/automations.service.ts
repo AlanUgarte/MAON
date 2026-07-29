@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 import { AIService } from '../ai/ai.service';
 import { isFreeWindowOpen } from '../common/free-window';
+import { getTransferInstructions } from '../ai/business-config';
 import { CreateAutomationDto } from './dto/create-automation.dto';
 import { UpdateAutomationDto } from './dto/update-automation.dto';
 
@@ -82,6 +83,52 @@ export class AutomationsService {
     }
   }
 
+  /**
+   * Recordatorio de pago pendiente (MAON AI Sales, sección 21): un pedido
+   * confirmado por transferencia que sigue sin pago pasadas N horas recibe UN
+   * recordatorio con los datos de transferencia. No es una regla configurable
+   * desde /automatizaciones porque depende del modelo Payment, no de Client —
+   * el umbral se ajusta por env var si hace falta.
+   */
+  @Cron(CronExpression.EVERY_3_HOURS)
+  async remindPendingPayments() {
+    const hours = Number(this.config.get<string>('PAYMENT_REMINDER_HOURS')) || 3;
+    const cutoff = new Date(Date.now() - hours * 3600_000);
+
+    const pending = await this.prisma.sale.findMany({
+      where: { status: 'PENDIENTE', createdAt: { lte: cutoff }, payment: { status: 'PENDIENTE' } },
+      include: {
+        client: {
+          include: { conversations: { orderBy: { createdAt: 'desc' }, take: 1, include: { messages: { orderBy: { createdAt: 'desc' }, take: 1 } } } },
+        },
+        payment: true,
+      },
+      take: 100,
+    });
+
+    let sent = 0;
+    for (const sale of pending) {
+      const conv = sale.client.conversations[0];
+      if (!conv || conv.aiMode !== 'AI_ACTIVE') continue;
+      const lastMsg = conv.messages[0];
+      if (lastMsg && lastMsg.direction === 'SALIENTE') continue; // ya se lo recordamos una vez, no insistir
+
+      const windowClosed = !isFreeWindowOpen(sale.client.lastInboundAt, sale.client.source === 'META_ADS');
+      if (this.freeWindowOnly && windowClosed) continue;
+
+      const t = getTransferInstructions();
+      const amount = Number(sale.payment!.amount).toLocaleString('es-AR');
+      const text = `Hola! 👋 Te escribimos porque tu pedido de $${amount} todavía figura sin pago. Cuando puedas, transferí a:\n\nAlias: ${t.alias}\nCBU: ${t.cbu}\n${t.bank} · ${t.holder}\n\nApenas lo veamos te confirmamos. Cualquier cosa quedamos a disposición.`;
+
+      await this.prisma.message.create({
+        data: { conversationId: conv.id, direction: MessageDirection.SALIENTE, author: MessageAuthor.AUTOMATIZACION, content: text },
+      });
+      await this.sender.sendText(sale.client.phone, text);
+      sent++;
+    }
+    if (sent) this.logger.log(`Recordatorio de pago pendiente enviado a ${sent} cliente(s)`);
+  }
+
   private async executeRule(rule: any) {
     const cfg = (rule.triggerConfig ?? {}) as any;
     let cutoff: Date | null = null;
@@ -101,13 +148,27 @@ export class AutomationsService {
       },
       include: {
         interestedProduct: true,
-        conversations: { orderBy: { createdAt: 'desc' }, take: 1 },
+        conversations: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        },
       },
       take: 200,
     });
 
     let executed = 0;
     for (const client of targets) {
+      const conv = client.conversations[0];
+      // Si un humano está atendiendo (o el cliente lo pidió, o está pausada), no es
+      // trabajo del bot insistir — sección 21: "detener si solicita atención humana".
+      if (conv && conv.aiMode !== 'AI_ACTIVE') continue;
+      // Ya le mandamos un seguimiento y todavía no contestó: no insistir de nuevo en
+      // cada corrida del cron — antes esto reenviaba el mismo mensaje cada hora para
+      // siempre, porque nada acá marcaba que ya se había hecho el seguimiento.
+      const lastMsg = conv?.messages[0];
+      if (lastMsg && lastMsg.direction === 'SALIENTE') continue;
+
       await this.applyAction(rule, client);
       executed++;
     }

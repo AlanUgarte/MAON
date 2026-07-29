@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Users, TrendingUp, DollarSign, Target, Receipt, Clock,
   Flame, ArrowUpRight, ChevronRight, Pencil, Sparkles,
+  ShoppingCart, Bot, UserCheck, Landmark,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { StatCard } from '@/components/app/stat-card';
@@ -115,6 +116,19 @@ export default function DashboardPage() {
           <StatCard label="Conversión general" value={`${kpis.conversion}%`} icon={Target} tone="amber" hint="leads → ventas" />
           <StatCard label="Ticket promedio" value={formatARS(kpis.avgTicket)} icon={Receipt} tone="sky" />
         </section>
+
+        {/* MAON AI Sales */}
+        {overview?.aiSales && (
+          <section>
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted"><Bot className="h-3.5 w-3.5" /> MAON AI Sales</div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <StatCard label="Vendedor IA atendiendo" value={formatNumber(overview.aiSales.aiActive)} icon={Bot} tone="sky" hint="conversaciones activas" />
+              <StatCard label="Pedidos por IA" value={formatNumber(overview.aiSales.ordersFromAI)} icon={ShoppingCart} tone="emerald" hint={`${overview.aiSales.cartsOpen} carritos abiertos`} />
+              <StatCard label="Pagos pendientes" value={formatNumber(overview.aiSales.paymentsPending)} icon={Landmark} tone="amber" hint={`${overview.aiSales.paymentsApproved} confirmados`} />
+              <StatCard label="Derivadas a un humano" value={formatNumber(overview.aiSales.humanHandoffs)} icon={UserCheck} tone="primary" hint="pidieron o tomaron un vendedor" />
+            </div>
+          </section>
+        )}
 
         {/* Resumen financiero */}
         <Card>
