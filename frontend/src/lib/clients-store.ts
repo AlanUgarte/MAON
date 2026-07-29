@@ -63,7 +63,7 @@ export function useClients() {
     // Sin token (ej. la tienda pública) el fetch va a 401 sí o sí — se ahorra el viaje de red.
     if (!getToken()) { setClients(load()); setSource('local'); return; }
     let cancelled = false;
-    api.clients()
+    const fetchClients = () => api.clients()
       .then((res) => {
         if (cancelled) return;
         const rows = (res.data ?? res).map(fromBackend);
@@ -73,7 +73,12 @@ export function useClients() {
       .catch(() => {
         if (!cancelled) { setClients(load()); setSource('local'); }
       });
-    return () => { cancelled = true; };
+    fetchClients();
+    // Refresco periódico: así un lead nuevo (o un cambio de otro vendedor) aparece
+    // en la lista sin recargar la página — "tiempo real" en el sentido de que no
+    // hace falta ninguna acción manual para verlo.
+    const poll = setInterval(fetchClients, 8000);
+    return () => { cancelled = true; clearInterval(poll); };
   }, []);
 
   const save = (next: Client[]) => {

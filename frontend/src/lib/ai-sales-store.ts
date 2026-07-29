@@ -46,7 +46,15 @@ export function useConversationControl(conversationId: string | null) {
     }
   }, [conversationId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    if (!conversationId) return;
+    // Mientras se mira esta conversación, el estado IA/carrito se refresca solo
+    // (por si el vendedor toma la charla desde otro dispositivo, o la IA sigue
+    // armando el pedido en paralelo).
+    const poll = setInterval(refresh, 4000);
+    return () => clearInterval(poll);
+  }, [refresh, conversationId]);
 
   const run = async (action: (id: string) => Promise<any>) => {
     if (!conversationId) return;

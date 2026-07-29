@@ -132,11 +132,16 @@ function BandejaInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  // Trae los mensajes reales del backend al abrir un chat (si está conectado).
+  // Trae los mensajes reales del backend al abrir un chat (si está conectado), y los
+  // sigue refrescando mientras el chat queda abierto — así un mensaje nuevo del
+  // cliente aparece solo mientras se está hablando con él, sin recargar la página.
   useEffect(() => {
     if (!activeId) return;
     const opened = CLIENTS.find((c) => c.id === activeId);
-    if (opened) loadThread(opened);
+    if (!opened) return;
+    loadThread(opened);
+    const poll = setInterval(() => loadThread(opened), 4000);
+    return () => clearInterval(poll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
