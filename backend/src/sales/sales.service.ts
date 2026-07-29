@@ -1,14 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { MessageAuthor, MessageDirection, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
+import { getTransferInstructions } from '../ai/business-config';
 import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
 
 @Injectable()
 export class SalesService {
+  private readonly logger = new Logger(SalesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly sender: WhatsAppSender,
   ) {}
 
   /** Control de stock opcional: si está apagado, no descuenta ni valida stock. */
@@ -89,12 +94,14 @@ export class SalesService {
     const bySku = new Map(products.map((p) => [p.sku, p]));
 
     const items: Prisma.SaleItemCreateManySaleInput[] = [];
+    const confirmationItems: { name: string; quantity: number; unitPrice: number }[] = [];
     let total = new Prisma.Decimal(0);
     let skipped = 0;
     for (const [sku, quantity] of qtyBySku) {
       const prod = bySku.get(sku);
       if (!prod) { skipped++; continue; }
       items.push({ productId: prod.id, quantity, unitPrice: prod.price });
+      confirmationItems.push({ name: prod.name, quantity, unitPrice: Number(prod.price) });
       total = total.add(prod.price.mul(quantity));
     }
     if (!items.length) return { ok: false, reason: 'ningún SKU reconocido' };
@@ -127,7 +134,47 @@ export class SalesService {
       },
     });
 
+    // Pago por transferencia: pendiente hasta que un vendedor lo confirme a mano
+    // (no hay forma de verificar una transferencia bancaria por API) — mismo
+    // circuito que ya usa el carrito del vendedor IA.
+    await this.prisma.payment.create({
+      data: { saleId: sale.id, provider: 'transferencia', status: 'PENDIENTE', amount: total },
+    });
+    await this.sendOrderConfirmation(client.id, client.phone, confirmationItems, Number(total));
+
     return { ok: true, saleId: sale.id, matched: items.length, skipped };
+  }
+
+  /** Confirma el pedido al cliente por WhatsApp: resumen + datos de transferencia. */
+  private async sendOrderConfirmation(
+    clientId: string,
+    phone: string,
+    items: { name: string; quantity: number; unitPrice: number }[],
+    total: number,
+  ) {
+    try {
+      let conversation = await this.prisma.conversation.findFirst({
+        where: { clientId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!conversation) conversation = await this.prisma.conversation.create({ data: { clientId } });
+
+      const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+      const lineas = items.map((it) => `${it.quantity}x ${it.name} — ${money(it.unitPrice * it.quantity)}`).join('\n');
+      const t = getTransferInstructions();
+      const text = `¡Pedido confirmado con éxito! ✅\n\n${lineas}\n\n*Total: ${money(total)}*\n\nPara registrar tu pago, transferí a:\nAlias: ${t.alias}\nCBU: ${t.cbu}\n${t.bank} · ${t.holder}\n\nCuando transfieras, mandanos el comprobante por acá y te confirmamos el pedido. ¡Gracias por tu compra! 🙌`;
+
+      await this.prisma.message.create({
+        data: { conversationId: conversation.id, direction: MessageDirection.SALIENTE, author: MessageAuthor.AUTOMATIZACION, content: text },
+      });
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date(), lastMessagePreview: text.slice(0, 120) },
+      });
+      await this.sender.sendText(phone, text);
+    } catch (err) {
+      this.logger.error(`No se pudo mandar la confirmación de pedido: ${err}`);
+    }
   }
 
   findAll() {

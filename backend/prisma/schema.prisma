@@ -705,7 +705,7 @@ model TiendaSettings {
   heroImageUrl     String?
   minCompra        Int      @default(50000)
   envioGratisDesde Int      @default(85000)
-  whatsappNumber   String   @default("5493412708638")
+  whatsappNumber   String   @default("5493413807110")
   margenVenta      Float    @default(0.12)
   /// Ids de producto (del catálogo estático del front) ocultos en la tienda pública.
   hiddenProductIds String[] @default([])
@@ -734,7 +734,7 @@ model EstufaSettings {
   cost           Decimal  @default(15000) @db.Decimal(12, 2)
   /// Fracción, no %: 0.3333 = 33.33% (igual convención que TiendaSettings.margenVenta).
   marginPct      Float    @default(0.3333)
-  whatsappNumber String   @default("5493412708638")
+  whatsappNumber String   @default("5493413807110")
   /// Carrusel de imágenes del hero — misma forma que TiendaSettings.heroCarousel. Si tiene
   /// algo activo, reemplaza la foto fija de /estufa/hero.png.
   heroCarousel   Json     @default("[]")
@@ -755,7 +755,7 @@ model CotillonSettings {
   heroImageUrl     String?
   minCompra        Int      @default(30000)
   envioGratisDesde Int      @default(60000)
-  whatsappNumber   String   @default("5493412708638")
+  whatsappNumber   String   @default("5493413807110")
   margenVenta      Float    @default(0.3)
   hiddenProductIds String[] @default([])
   productPromos    Json     @default("{}")

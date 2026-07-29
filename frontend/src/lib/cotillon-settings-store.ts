@@ -39,7 +39,7 @@ export const DEFAULT_COTILLON_SETTINGS: CotillonSettings = {
   promoCards: [],
   minCompra: 30000,
   envioGratisDesde: 60000,
-  whatsappNumber: '5493412708638',
+  whatsappNumber: '5493413807110',
   margenVenta: 0.3,
   hiddenProductIds: [],
   productPromos: {},

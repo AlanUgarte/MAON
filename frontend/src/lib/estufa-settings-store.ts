@@ -35,7 +35,7 @@ export const DEFAULT_ESTUFA_SETTINGS: EstufaSettings = {
   heroSubtitle: 'Calienta rápido cualquier ambiente chico o mediano, es liviana y se traslada fácil por toda la casa.',
   cost: 15000,
   marginPct: 0.3333,
-  whatsappNumber: '5493412708638',
+  whatsappNumber: '5493413807110',
   heroCarousel: [],
 };
 
