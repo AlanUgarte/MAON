@@ -92,6 +92,57 @@ export class WhatsAppSender {
     return { id: data.messages?.[0]?.id, simulated: false };
   }
 
+  /**
+   * Sube un archivo (ej. el PDF de un comprobante) a los servidores de Meta y lo manda
+   * como documento adjunto. Dos pasos porque la API de WhatsApp no acepta el archivo
+   * directo en el mensaje: primero se sube a POST /{phoneNumberId}/media (multipart,
+   * devuelve un media id), después se referencia ese id en el mensaje.
+   */
+  async sendDocument(
+    to: string,
+    file: Buffer,
+    filename: string,
+    mimeType = 'application/pdf',
+  ): Promise<{ id?: string; simulated: boolean }> {
+    if (!this.enabled) {
+      this.logger.warn(`[SIMULADO documento] → ${to}: ${filename} (${file.length} bytes)`);
+      return { simulated: true };
+    }
+    const base = `https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}`;
+
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('file', new Blob([new Uint8Array(file)], { type: mimeType }), filename);
+
+    const uploadRes = await fetch(`${base}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: form,
+    });
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok || !uploadData.id) {
+      this.logger.error(`Error subiendo documento a WhatsApp: ${JSON.stringify(uploadData)}`);
+      throw new Error('No se pudo subir el documento a WhatsApp');
+    }
+
+    const res = await fetch(`${base}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: this.toMetaFormat(to),
+        type: 'document',
+        document: { id: uploadData.id, filename },
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      this.logger.error(`Error enviando documento por WhatsApp: ${JSON.stringify(data)}`);
+      throw new Error('No se pudo enviar el documento de WhatsApp');
+    }
+    return { id: data.messages?.[0]?.id, simulated: false };
+  }
+
   async sendImage(
     to: string,
     imageUrl: string,

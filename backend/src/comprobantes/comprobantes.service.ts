@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { MessageAuthor, MessageDirection, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
+import { buildComprobantePdf } from './comprobante-pdf';
 import { CreateComprobanteDto, ComprobanteTipo, ComprobanteLetra } from './dto/create-comprobante.dto';
 
 const PREFIX: Record<string, string> = {
@@ -21,7 +23,12 @@ const DEFAULT_LETRA: Record<string, ComprobanteLetra> = {
 
 @Injectable()
 export class ComprobantesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ComprobantesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sender: WhatsAppSender,
+  ) {}
 
   private isNotaCredito(tipo: ComprobanteTipo) {
     return tipo === ComprobanteTipo.NOTA_CREDITO || tipo === ComprobanteTipo.NOTA_CREDITO_REMITO;
@@ -96,7 +103,7 @@ export class ComprobantesService {
     for (let attempt = 0; ; attempt++) {
       const numero = await this.nextNumero(dto.tipo);
       try {
-        return await this.prisma.comprobante.create({
+        const comprobante = await this.prisma.comprobante.create({
           data: {
             numero,
             tipo: dto.tipo as any,
@@ -115,11 +122,47 @@ export class ComprobantesService {
           },
           include: { items: true, client: true },
         });
+        // No nota de crédito: no tiene sentido mandarle por WhatsApp un ajuste al revés
+        // sin contexto. Un error acá no debe tirar abajo la creación del comprobante.
+        if (!this.isNotaCredito(dto.tipo)) {
+          this.sendComprobanteByWhatsapp(comprobante).catch((err) =>
+            this.logger.error(`No se pudo mandar el comprobante ${comprobante.numero} por WhatsApp: ${err}`),
+          );
+        }
+        return comprobante;
       } catch (err) {
         const isDuplicateNumero = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
         if (!isDuplicateNumero || attempt >= 4) throw err;
       }
     }
+  }
+
+  /** Genera el PDF del comprobante y se lo manda al cliente por WhatsApp como adjunto. */
+  private async sendComprobanteByWhatsapp(comprobante: Prisma.ComprobanteGetPayload<{ include: { items: true; client: true } }>) {
+    const pdf = await buildComprobantePdf(comprobante);
+    const filename = `${comprobante.numero.replace(/\s+/g, '_')}.pdf`;
+
+    let conversation = await this.prisma.conversation.findFirst({
+      where: { clientId: comprobante.clientId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!conversation) conversation = await this.prisma.conversation.create({ data: { clientId: comprobante.clientId } });
+
+    const caption = `Te paso tu comprobante 📄 (${comprobante.numero})`;
+    await this.sender.sendDocument(comprobante.client.phone, pdf, filename);
+    await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: MessageDirection.SALIENTE,
+        author: MessageAuthor.AUTOMATIZACION,
+        type: 'DOCUMENTO',
+        content: caption,
+      },
+    });
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date(), lastMessagePreview: caption },
+    });
   }
 
   findAll(clientId?: string) {
