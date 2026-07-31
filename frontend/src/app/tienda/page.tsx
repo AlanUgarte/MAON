@@ -144,7 +144,10 @@ function TiendaInner() {
         searchTokens.every((t) => haystack.includes(t)) &&
         (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
         (view !== 'NOVEDADES' || !!promo?.isNew);
-    });
+    })
+      // Con foto primero, sin foto al final — un producto sin imagen se ve peor
+      // (el ícono de caja genérico) y conviene que no sea lo primero que aparezca.
+      .sort((a, b) => (a.img ? 0 : 1) - (b.img ? 0 : 1));
   }, [catalog, searchTokens, category, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.

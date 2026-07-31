@@ -134,7 +134,9 @@ function CotillonInner() {
         searchTokens.every((t) => haystack.includes(t)) &&
         (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
         (view !== 'NOVEDADES' || !!promo?.isNew);
-    });
+    })
+      // Con foto primero, sin foto al final.
+      .sort((a, b) => (a.img ? 0 : 1) - (b.img ? 0 : 1));
   }, [catalog, searchTokens, linea, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, linea, brand, priceMin, priceMax, view]);
