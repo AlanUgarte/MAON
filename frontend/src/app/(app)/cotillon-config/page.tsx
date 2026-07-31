@@ -168,14 +168,17 @@ export default function CotillonConfigPage() {
 
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
-  const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[]; error?: string } | null>(null);
+  const [importResult, setImportResult] = useState<{ matched: number; unmatched: string[]; removed: number; error?: string } | null>(null);
   const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
   const runImport = () => {
     if (!importText.trim()) {
-      setImportResult({ matched: 0, unmatched: [], error: 'Pegá al menos una línea con el formato SKU | promoción antes de importar.' });
+      setImportResult({ matched: 0, unmatched: [], removed: 0, error: 'Pegá al menos una línea con el formato SKU | promoción antes de importar.' });
       return;
     }
-    const nextPromos = { ...form.productPromos };
+    // Reemplaza las promos, no las suma: lo que no está en esta lista nueva se
+    // saca del sistema.
+    const previousIds = Object.keys(form.productPromos);
+    const nextPromos: typeof form.productPromos = {};
     const unmatched: string[] = [];
     let matched = 0;
     importText.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
@@ -206,7 +209,8 @@ export default function CotillonConfigPage() {
     const updated = { ...form, productPromos: nextPromos };
     setForm(updated);
     save(updated);
-    setImportResult({ matched, unmatched });
+    const removed = previousIds.filter((id) => !(id in nextPromos)).length;
+    setImportResult({ matched, unmatched, removed });
   };
 
   const hasActivePromo = (id: string) => {
@@ -604,7 +608,7 @@ export default function CotillonConfigPage() {
           <div className="card flex max-h-[85vh] w-full max-w-lg flex-col p-5" onClick={(e) => e.stopPropagation()}>
             <div className="text-base font-semibold text-content">Importar promos</div>
             <p className="mt-1.5 text-[12.5px] text-muted">
-              Una línea por producto: <code>SKU | 21x20</code> (2x1, 3x2...), <code>SKU | 10+1</code> (bonificación, cada 10 llevás 1 gratis), <code>SKU | 15%</code>, <code>SKU | NUEVO</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado.
+              Una línea por producto: <code>SKU | 21x20</code> (2x1, 3x2...), <code>SKU | 10+1</code> (bonificación, cada 10 llevás 1 gratis), <code>SKU | 15%</code>, <code>SKU | NUEVO</code>, o lo mismo con el nombre del producto en vez del SKU. El SKU matchea exacto; el nombre matchea aproximado. <b>Esta lista reemplaza a la anterior</b>: el producto que tenía promo y no aparece acá, pierde la promo.
             </p>
             <textarea
               rows={10}
@@ -622,6 +626,9 @@ export default function CotillonConfigPage() {
                     <div className="flex items-center gap-1.5 font-semibold text-emerald">
                       <Check className="h-4 w-4" /> {importResult.matched} producto{importResult.matched === 1 ? '' : 's'} actualizado{importResult.matched === 1 ? '' : 's'}.
                     </div>
+                    {importResult.removed > 0 && (
+                      <div className="mt-1 text-muted">Se sacaron {importResult.removed} promoción{importResult.removed === 1 ? '' : 'es'} vieja{importResult.removed === 1 ? '' : 's'} que no estaba{importResult.removed === 1 ? '' : 'n'} en esta lista.</div>
+                    )}
                     {importResult.unmatched.length > 0 && (
                       <div className="mt-2 text-rose">
                         <div className="font-semibold">Sin encontrar ({importResult.unmatched.length}):</div>
