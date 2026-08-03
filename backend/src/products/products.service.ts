@@ -120,12 +120,18 @@ export class ProductsService {
     const toUpdate = items.filter((i) => existingBySku.has(i.sku));
     const skippedUnknownSku = items.filter((i) => !existingBySku.has(i.sku) && !i.name).length;
 
-    // Muestra de cambios (antes/después) para poder revisar antes de confirmar — sobre
-    // todo útil en dryRun, donde todavía no se tocó nada en la base.
-    const sample = toUpdate.slice(0, 30).map((it) => {
-      const current = existingBySku.get(it.sku)!;
-      return { sku: it.sku, name: current.name, oldPrice: Number(current.price), newPrice: it.price };
-    });
+    // Muestra de cambios reales (antes/después/%) para poder revisar antes de confirmar —
+    // sobre todo útil en dryRun, donde todavía no se tocó nada en la base. Solo artículos
+    // cuyo precio realmente cambió (toUpdate trae también los que quedan igual).
+    const changed = toUpdate
+      .map((it) => {
+        const current = existingBySku.get(it.sku)!;
+        const oldPrice = Number(current.price);
+        return { sku: it.sku, name: current.name, oldPrice, newPrice: it.price, pctChange: oldPrice > 0 ? ((it.price - oldPrice) / oldPrice) * 100 : 0 };
+      })
+      .filter((c) => c.oldPrice !== c.newPrice)
+      .sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
+    const sample = changed.slice(0, 30);
 
     if (!dryRun) {
       // En chunks: una sola sentencia con las 10.000+ filas se pasa del límite de
@@ -172,6 +178,7 @@ export class ProductsService {
       dryRun,
       created: toCreate.length,
       updated: toUpdate.length,
+      changed: changed.length,
       requested: items.length,
       sample,
       skippedNoSku,

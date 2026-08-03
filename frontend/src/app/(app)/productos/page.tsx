@@ -63,8 +63,8 @@ export default function ProductosPage() {
   const [pendingPriceFile, setPendingPriceFile] = useState<File | null>(null);
   const [priceImportBusy, setPriceImportBusy] = useState(false);
   const [priceImportResult, setPriceImportResult] = useState<{
-    dryRun: boolean; created: number; updated: number; requested: number;
-    sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+    dryRun: boolean; created: number; updated: number; changed: number; requested: number;
+    sample: { sku: string; name: string; oldPrice: number; newPrice: number; pctChange: number }[];
     error?: string;
   } | null>(null);
   const runPriceImport = async (file: File, dryRun: boolean) => {
@@ -76,7 +76,7 @@ export default function ProductosPage() {
       setPendingPriceFile(dryRun ? file : null);
     } catch (err: any) {
       setPriceImportResult({
-        dryRun, created: 0, updated: 0, requested: 0, sample: [],
+        dryRun, created: 0, updated: 0, changed: 0, requested: 0, sample: [],
         error: err.message || 'No se pudo procesar el archivo',
       });
       setPendingPriceFile(null);
@@ -505,25 +505,30 @@ export default function ProductosPage() {
               <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto text-[13px]">
                 {priceImportResult.dryRun ? (
                   <div className="flex items-center gap-1.5 font-semibold text-amber">
-                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} (de {priceImportResult.requested} en el archivo). Todavía no se guardó nada.
+                    <Package className="h-4 w-4" /> Vista previa: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'}, {priceImportResult.changed} con precio distinto (de {priceImportResult.updated} ya existentes en el archivo, {priceImportResult.requested} en total). Todavía no se guardó nada.
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 font-semibold text-emerald">
-                    <Check className="h-4 w-4" /> Listo: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.updated} actualizado{priceImportResult.updated === 1 ? '' : 's'} de verdad.
+                    <Check className="h-4 w-4" /> Listo: {priceImportResult.created} producto{priceImportResult.created === 1 ? '' : 's'} nuevo{priceImportResult.created === 1 ? '' : 's'} y {priceImportResult.changed} con precio actualizado de verdad.
                   </div>
                 )}
-                {priceImportResult.sample.length > 0 && (
+                {priceImportResult.sample.length > 0 ? (
                   <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3">
-                    <div className="mb-1.5 font-semibold">Ejemplos de precio (productos que ya existían):</div>
+                    <div className="mb-1.5 font-semibold">Precios que cambiaron (mayor % primero):</div>
                     <div className="space-y-1">
-                      {priceImportResult.sample.slice(0, 10).map((s) => (
+                      {priceImportResult.sample.slice(0, 15).map((s) => (
                         <div key={s.sku} className="flex items-center justify-between gap-2 text-[12px]">
                           <span className="truncate text-muted">{s.name}</span>
-                          <span className="tnum shrink-0">{money(s.oldPrice)} → <b className={s.newPrice > s.oldPrice ? 'text-rose' : 'text-emerald'}>{money(s.newPrice)}</b></span>
+                          <span className="tnum shrink-0 whitespace-nowrap">
+                            {money(s.oldPrice)} → <b className={s.newPrice > s.oldPrice ? 'text-rose' : 'text-emerald'}>{money(s.newPrice)}</b>{' '}
+                            <span className={s.newPrice > s.oldPrice ? 'text-rose' : 'text-emerald'}>({s.pctChange > 0 ? '+' : ''}{s.pctChange.toFixed(1)}%)</span>
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
+                ) : priceImportResult.updated > 0 && (
+                  <div className="rounded-lg border border-line/10 bg-surface-2/60 p-3 text-muted">Ningún precio cambió respecto al que ya está cargado — el catálogo ya estaba al día.</div>
                 )}
                 {!priceImportResult.dryRun && <p className="text-muted">Recargá la página para ver los productos y precios nuevos en la lista.</p>}
               </div>

@@ -166,8 +166,8 @@ export const api = {
       throw new Error(detail.message || `Error ${res.status}`);
     }
     return res.json() as Promise<{
-      dryRun: boolean; created: number; updated: number; requested: number;
-      sample: { sku: string; name: string; oldPrice: number; newPrice: number }[];
+      dryRun: boolean; created: number; updated: number; changed: number; requested: number;
+      sample: { sku: string; name: string; oldPrice: number; newPrice: number; pctChange: number }[];
       skippedNoSku: number; skippedBadPrice: number;
     }>;
   },
