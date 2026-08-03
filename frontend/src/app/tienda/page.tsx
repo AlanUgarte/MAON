@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight, Award, MapPin, Lock } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -15,6 +15,7 @@ const BRAND_LIGHT = '#2E5A8C';
 const BRAND_SOFT = '#EEF2F8';
 const ACCENT = '#E38A1F';    // ámbar, contraste cálido sobre el azul
 const WHATSAPP = '#25D366';
+const HERO_BLUE = '#2F6FED'; // azul eléctrico solo del hero (banner foto + franja de confianza)
 
 const CAT_ICON: Record<string, string> = {
   Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
@@ -82,8 +83,17 @@ function TiendaInner() {
     return Math.round(applies ? base * (1 - promo!.discountPct! / 100) : base);
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
-  // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
-  const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 4).map((p) => p.img), [catalog]);
+  // Resalta en azul la parte final del título ("de confianza") y "100% segura" del
+  // subtítulo cuando aparecen — funciona con el texto por defecto y cualquier título
+  // configurado que los incluya; si no aparecen, se muestra el texto tal cual.
+  const heroTitleParts = useMemo(() => {
+    const m = settings.heroTitle.match(/(.*)(de confianza)(.*)/is);
+    return m ? [m[1], m[2], m[3]] as const : null;
+  }, [settings.heroTitle]);
+  const heroSubtitleParts = useMemo(() => {
+    const m = settings.heroSubtitle.match(/(.*)(100% segura)(.*)/is);
+    return m ? [m[1], m[2], m[3]] as const : null;
+  }, [settings.heroSubtitle]);
 
   // Carrusel de banners configurado desde tienda-config: si hay alguno activo, reemplaza
   // por completo al banner de texto+fotos genérico.
@@ -412,64 +422,81 @@ function TiendaInner() {
         </div>
       ) : (
         <div
-          className="relative overflow-hidden bg-cover bg-center px-4 py-10 text-white sm:py-14"
+          className="relative overflow-hidden bg-cover bg-center px-4 py-14 text-white sm:py-20"
           style={settings.heroImageUrl
-            ? { backgroundImage: `linear-gradient(rgba(14,32,54,.55), rgba(14,32,54,.55)), url(${settings.heroImageUrl})` }
+            ? { backgroundImage: `linear-gradient(90deg, rgba(6,14,28,.95) 0%, rgba(6,14,28,.85) 30%, rgba(6,14,28,.35) 62%, rgba(6,14,28,.08) 100%), url(${settings.heroImageUrl})` }
             : { background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}
         >
-          {!settings.heroImageUrl && (
-            <>
-              <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
-              <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
+          {/* Patrón de puntos, arriba a la izquierda */}
+          <div
+            className="pointer-events-none absolute left-0 top-0 h-56 w-56 opacity-40"
+            style={{ backgroundImage: `radial-gradient(${HERO_BLUE}55 1px, transparent 1px)`, backgroundSize: '16px 16px' }}
+          />
+          {/* Líneas diagonales, abajo a la izquierda */}
+          <div
+            className="pointer-events-none absolute bottom-0 left-0 h-56 w-56 opacity-50"
+            style={{ backgroundImage: `repeating-linear-gradient(135deg, ${HERO_BLUE}40 0 2px, transparent 2px 34px)` }}
+          />
 
-              {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
-              <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
-                Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
+          <div className="relative mx-auto max-w-[1600px]">
+            <div className="max-w-xl animate-fade-up">
+              <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/25 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide">
+                <Zap className="h-3.5 w-3.5" style={{ color: HERO_BLUE }} fill="currentColor" /> {settings.heroBadge}
               </div>
-            </>
-          )}
-
-          <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
-            <div className="animate-fade-up">
-              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
-                <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
-              </div>
-              <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
-                {settings.heroTitle}
+              <h1 className="font-display text-4xl font-extrabold leading-tight sm:text-5xl">
+                {heroTitleParts ? (
+                  <>
+                    <div>{heroTitleParts[0].trim()}</div>
+                    <div style={{ color: HERO_BLUE }}>{heroTitleParts[1]}{heroTitleParts[2]}</div>
+                  </>
+                ) : settings.heroTitle}
               </h1>
-              <p className="mt-2 max-w-md text-[14px] text-white/80">
-                {settings.heroSubtitle}
+              <div className="my-4 h-1 w-16 rounded-full" style={{ background: HERO_BLUE }} />
+              <p className="max-w-md text-[15px] leading-relaxed text-white/80">
+                {heroSubtitleParts ? (
+                  <>{heroSubtitleParts[0]}<span className="font-semibold" style={{ color: HERO_BLUE }}>{heroSubtitleParts[1]}</span>{heroSubtitleParts[2]}</>
+                ) : settings.heroSubtitle}
               </p>
-              <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
-                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
-                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
-                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
-                <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
+              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-4 text-[12.5px] font-medium text-white/90">
+                {[
+                  { icon: PackageCheck, label: 'Venta por bulto cerrado' },
+                  { icon: Truck, label: 'Envíos a todo el país' },
+                  { icon: ShieldCheck, label: 'Pedido confirmado por WhatsApp' },
+                ].map(({ icon: Icon, label }) => (
+                  <span key={label} className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: HERO_BLUE, color: HERO_BLUE }}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    {label}
+                  </span>
+                ))}
               </div>
             </div>
-
-            {/* Fotos de productos reales sobre un pedestal, como vidriera (solo si no hay imagen propia) */}
-            {!settings.heroImageUrl && heroImgs.length > 0 && (
-              <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
-                {/* Sombra elíptica compartida, simula el "pedestal" */}
-                <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />
-                {heroImgs.map((src, i) => {
-                  const size = 88 + i * 22; // asciende de izquierda a derecha
-                  return (
-                    <div
-                      key={i}
-                      className="relative overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
-                      style={{ width: size, height: size }}
-                    >
-                      <img src={src} alt="" className="h-full w-full object-contain p-1.5" />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
       )}
+
+      {/* Franja de confianza: pegada al hero */}
+      <div className="px-4 pt-4">
+        <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-3 rounded-2xl p-4 sm:grid-cols-4 sm:p-5" style={{ background: BRAND_DARK }}>
+          {[
+            { icon: Award, title: 'BULTO CERRADO', desc: 'Venta exclusiva por bulto cerrado' },
+            { icon: MapPin, title: 'EN TODO EL PAÍS', desc: 'Llegamos a donde estés' },
+            { icon: Lock, title: 'COMPRA SEGURA', desc: 'Tus datos y compras protegidos' },
+            { icon: MessageCircle, title: 'ATENCIÓN RÁPIDA', desc: 'Respondemos por WhatsApp' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white" style={{ background: HERO_BLUE }}>
+                <Icon className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[11px] font-extrabold uppercase tracking-wide text-white">{title}</div>
+                <div className="truncate text-[11px] text-white/55">{desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Tarjetas promocionales chicas debajo del carrusel/banner */}
       {activeCards.length > 0 && (
