@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock, Tag,
+  Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Eye, EyeOff, Search, ReceiptText, Download, Clock, Tag, RefreshCw,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -120,7 +120,7 @@ export default function TiendaConfigPage() {
   // Un vendedor solo ve sus propios pedidos de tienda (a quién le vendió, quién le debe, etc.).
   const orders = isVendedor ? allOrders.filter((o) => o.seller === user!.fullName) : allOrders;
   const { comprobantes } = useComprobantesStore();
-  const { products: PRODUCT_ROWS } = useProductCatalog();
+  const { products: PRODUCT_ROWS, syncing: syncingCatalog, refresh: refreshCatalog, lastSyncedAt } = useProductCatalog();
   const [form, setForm] = useState<TiendaSettings>(settings);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>(isVendedor ? 'pedidos' : 'general');
@@ -419,6 +419,13 @@ export default function TiendaConfigPage() {
               <div className="flex items-center gap-2">
                 {saved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald"><Check className="h-3.5 w-3.5" /> Guardado</span>}
                 <span className="text-xs text-muted">{visibleCount} de {PRODUCT_ROWS.length} visibles</span>
+                <Button
+                  size="sm" variant="outline" onClick={() => refreshCatalog()} disabled={syncingCatalog}
+                  title={lastSyncedAt ? `Última sincronización: ${lastSyncedAt.toLocaleTimeString('es-AR')}` : undefined}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${syncingCatalog ? 'animate-spin' : ''}`} />
+                  {syncingCatalog ? 'Sincronizando...' : 'Sincronizar productos'}
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => { setShowImport(true); setImportResult(null); }}>Importar promos</Button>
               </div>
             </CardHeader>

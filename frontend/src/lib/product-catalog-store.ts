@@ -13,26 +13,37 @@
 // vendidos) — el pedido nunca quedaba registrado. Ahora el catálogo real
 // reemplaza la semilla por completo apenas carga; la semilla queda solo como
 // lo que se ve un instante mientras se hace el fetch (o si el fetch falla).
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PRODUCT_ROWS, type ProductRow } from './mock';
 import { API_URL } from './api';
 
 export function useProductCatalog() {
   const [products, setProducts] = useState<ProductRow[]>(PRODUCT_ROWS);
   const [source, setSource] = useState<'full' | 'seed'>('seed');
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const mounted = useRef(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_URL}/catalog`)
-      .then((r) => r.json())
-      .then((rows: ProductRow[]) => {
-        if (cancelled || !rows.length) return;
-        setProducts(rows);
-        setSource('full');
-      })
-      .catch(() => {}); // sin conexión: se queda con el catálogo semilla como último recurso
-    return () => { cancelled = true; };
+  const refresh = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const rows: ProductRow[] = await fetch(`${API_URL}/catalog`).then((r) => r.json());
+      if (!mounted.current || !rows.length) return;
+      setProducts(rows);
+      setSource('full');
+      setLastSyncedAt(new Date());
+    } catch {
+      // sin conexión: se queda con lo que ya tenía cargado (semilla o el último catálogo bueno)
+    } finally {
+      if (mounted.current) setSyncing(false);
+    }
   }, []);
 
-  return { products, source };
+  useEffect(() => {
+    mounted.current = true;
+    refresh();
+    return () => { mounted.current = false; };
+  }, [refresh]);
+
+  return { products, source, syncing, lastSyncedAt, refresh };
 }
