@@ -32,7 +32,7 @@ async function main() {
   const col = (name) => header.indexOf(name);
   const skuCol = col('Código'), nameCol = col('Nombre del Artículo'), catCol = col('Categoría'),
     brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), bultoCol = col('BRUTO BULTO'), unidadCol = col('BRUTO UNIDAD'),
-    stockCol = col('Stock');
+    stockCol = col('Stock'), lineCol = col('Línea');
   if (skuCol === -1 || (bultoCol === -1 && unidadCol === -1)) {
     throw new Error('Faltan las columnas "Código" y/o "BRUTO BULTO"/"BRUTO UNIDAD"');
   }
@@ -53,6 +53,7 @@ async function main() {
       sku,
       name: nameCol !== -1 ? (String(row[nameCol] ?? '').trim() || null) : null,
       category: catCol !== -1 ? (String(row[catCol] ?? '').trim() || null) : null,
+      line: lineCol !== -1 ? (String(row[lineCol] ?? '').trim().replace(/^-+\s*/, '') || null) : null,
       brand: brandCol !== -1 ? (String(row[brandCol] ?? '').trim() || null) : null,
       units: unitsCol !== -1 ? (Number(row[unitsCol]) || null) : null,
       price: Math.round(price * 100) / 100,
@@ -96,20 +97,20 @@ async function main() {
   for (let i = 0; i < toCreate.length; i += CHUNK) {
     const chunk = toCreate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock ?? 0}::int)`),
+      chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.line}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock ?? 0}::int)`),
       ',',
     );
     await prisma.$executeRaw`
-      INSERT INTO "Product" (id, name, sku, category, brand, "unitsPerBulk", price, stock, "isActive", "createdAt", "updatedAt")
-      SELECT id, name, sku, category, brand, "unitsPerBulk", price, stock, true, now(), now()
-      FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price, stock)
+      INSERT INTO "Product" (id, name, sku, category, line, brand, "unitsPerBulk", price, stock, "isActive", "createdAt", "updatedAt")
+      SELECT id, name, sku, category, line, brand, "unitsPerBulk", price, stock, true, now(), now()
+      FROM (VALUES ${values}) AS v(id, name, sku, category, line, brand, "unitsPerBulk", price, stock)
     `;
     console.log(`Creados ${Math.min(i + CHUNK, toCreate.length)}/${toCreate.length}`);
   }
   for (let i = 0; i < toUpdate.length; i += CHUNK) {
     const chunk = toUpdate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.name}::text, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock}::int)`),
+      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.name}::text, ${it.category}::text, ${it.line}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock}::int)`),
       ',',
     );
     await prisma.$executeRaw`
@@ -117,11 +118,12 @@ async function main() {
         price = v.price,
         name = COALESCE(v.name, p.name),
         category = COALESCE(v.category, p.category),
+        line = COALESCE(v.line, p.line),
         brand = COALESCE(v.brand, p.brand),
         "unitsPerBulk" = COALESCE(v.units, p."unitsPerBulk"),
         stock = COALESCE(v.stock, p.stock),
         "updatedAt" = now()
-      FROM (VALUES ${values}) AS v(sku, name, category, brand, units, price, stock)
+      FROM (VALUES ${values}) AS v(sku, name, category, line, brand, units, price, stock)
       WHERE p.sku = v.sku
     `;
     console.log(`Actualizados ${Math.min(i + CHUNK, toUpdate.length)}/${toUpdate.length}`);

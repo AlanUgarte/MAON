@@ -458,6 +458,9 @@ model Product {
   name         String
   sku          String   @unique
   category     String?
+  /// Sub-rubro dentro de la categoría (ej: "CEREALES" dentro de "Alimentos") — viene
+  /// del Excel del proveedor (columna "Línea"), se usa en el desplegable de categorías.
+  line         String?
   brand        String?
   /// Unidades por bulto (ej: 24 en "24*200 GR")
   unitsPerBulk Int?

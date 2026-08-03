@@ -22,6 +22,32 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Catálogo público (Tienda/Cotillón/FastCotillón): sin cost/marginPct (no son datos
+   * para mostrar a clientes), en vivo desde la DB — reemplaza al JSON estático que había
+   * que regenerar y redeployar a mano cada vez que cambiaba un precio o el stock.
+   */
+  async findPublicCatalog() {
+    const products = await this.prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { sku: true, name: true, category: true, line: true, brand: true, unitsPerBulk: true, images: true, price: true, stock: true },
+    });
+    return products.map((p) => ({
+      id: `t${p.sku}`,
+      name: p.name,
+      sku: p.sku,
+      category: p.category ?? '',
+      brand: p.brand ?? '-',
+      units: p.unitsPerBulk ?? 0,
+      img: p.images?.[0] ?? '',
+      price: Number(p.price),
+      stock: p.stock ?? 0,
+      active: true,
+      line: p.line ?? undefined,
+    }));
+  }
+
   async findOne(id: string) {
     const p = await this.prisma.product.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Producto no encontrado');
