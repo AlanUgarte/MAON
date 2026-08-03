@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, ChevronLeft, ChevronRight, Package, Lock, ArrowRight, ShoppingBag, CheckCircle2, Award } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight, Package, MapPin, Lock } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -10,11 +10,11 @@ import { useTiendaSettings } from '@/lib/tienda-settings-store';
 import { useTiendaOrders } from '@/lib/tienda-orders-store';
 
 const BRAND = '#1B3358';     // azul marino elegante de marca
-const BRAND_DARK = '#0A1626'; // negro azulado, fondo de secciones industriales
+const BRAND_DARK = '#0E2036';
 const BRAND_LIGHT = '#2E5A8C';
 const BRAND_SOFT = '#EEF2F8';
-const ELECTRIC = '#2F6FED';  // azul eléctrico, color principal de interacción (CTAs, precios, hover)
-const WHATSAPP = '#25D366';  // verde, exclusivo para botones de WhatsApp
+const ACCENT = '#E38A1F';    // ámbar, contraste cálido sobre el azul
+const WHATSAPP = '#25D366';
 
 const CAT_ICON: Record<string, string> = {
   Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
@@ -82,12 +82,8 @@ function TiendaInner() {
     return Math.round(applies ? base * (1 - promo!.discountPct! / 100) : base);
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
-  // Resalta "de confianza" en azul eléctrico dentro del título del hero, si aparece
-  // (funciona con el texto por defecto y con cualquier título configurado que lo incluya).
-  const heroTitleParts = useMemo(() => {
-    const m = settings.heroTitle.match(/(.*)(de confianza)(.*)/is);
-    return m ? [m[1], m[2], m[3]] as const : null;
-  }, [settings.heroTitle]);
+  // Fotos reales para decorar el banner de inicio (las primeras 3 con imagen del catálogo).
+  const heroImgs = useMemo(() => catalog.filter((p) => p.img).slice(0, 4).map((p) => p.img), [catalog]);
 
   // Carrusel de banners configurado desde tienda-config: si hay alguno activo, reemplaza
   // por completo al banner de texto+fotos genérico.
@@ -206,11 +202,13 @@ function TiendaInner() {
   const qtyInCart = (productId: string) => cart.find((c) => c.productId === productId)?.qty ?? 0;
 
   const buildOrderText = () => {
-    const lines = cartLines.map((l) => `• ${l.qty} × ${l.product.name} — ${money(l.subtotal)}`).join('\n');
+    const lines = cartLines.map((l, i) =>
+      `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} bulto${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
+    ).join('\n\n');
     const envio = form.wantsShipping
-      ? `📍 Envío: ${envioGratis ? 'gratis' : 'a coordinar'}\nDirección: ${form.address}\nHorario disponible: ${form.schedule}`
-      : '📍 Envío: no quiere, retira en el local';
-    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n📦 PRODUCTOS\n\n${lines}\n\n💰 Total estimado: ${money(subtotal)}\n\n${envio}\n\nNombre: ${form.name}\nTeléfono: ${form.phone}\n\nQuedo atento a la confirmación de stock, precio final y envío.`;
+      ? `Envío: ${envioGratis ? 'gratis' : 'a coordinar'}\nDirección: ${form.address}\nHorario disponible: ${form.schedule}`
+      : 'Envío: no quiere, retira en el local';
+    return `¡Hola! Quiero hacer este pedido en *MAON - Mayorista Online*:\n\n${lines}\n\n${envio}\n*Total: ${money(subtotal)}*\n\nNombre: ${form.name}\nTeléfono: ${form.phone}\n\nEl pedido se despacha entre 24 y 48 hs.`;
   };
 
   const [sending, setSending] = useState(false);
@@ -283,63 +281,55 @@ function TiendaInner() {
 
   return (
     <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
-      {/* Banner superior: delgado, oscuro, con el mismo mensaje configurable de siempre */}
-      <div className="truncate px-4 py-1.5 text-center text-[11px] font-medium tracking-wide text-white/70" style={{ background: '#060D18' }}>
+      {/* Banner superior */}
+      <div className="truncate px-4 py-1.5 text-center text-[11px] font-medium tracking-wide text-white/90" style={{ background: '#1A1A1A' }}>
         {settings.topBannerText}
       </div>
 
       {/* Barra de compra mínima */}
-      <div className="flex items-center justify-center gap-1.5 px-4 py-2 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: BRAND_DARK }}>
-        <Truck className="h-3.5 w-3.5" /> 🚚 COMPRA MÍNIMA {money(settings.minCompra)} · ENVÍO GRATIS DESDE {money(settings.envioGratisDesde)} A TODO EL PAÍS
+      <div className="flex items-center justify-center gap-1.5 px-4 py-2 text-center text-[11px] font-semibold tracking-wide text-white" style={{ background: BRAND }}>
+        <Truck className="h-3.5 w-3.5" /> COMPRA MÍNIMA {money(settings.minCompra)} · ENVÍO GRATIS DESDE {money(settings.envioGratisDesde)}
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] px-4 py-3 shadow-[0_1px_0_0_rgba(0,0,0,0.2)] backdrop-blur" style={{ background: `${BRAND_DARK}F2` }}>
+      <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 px-4 py-3 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 sm:gap-4">
           <button
             onClick={goHome}
             className="flex shrink-0 items-center gap-2 text-left transition active:scale-[0.98]"
             aria-label="Volver al inicio de la tienda"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${ELECTRIC}, ${BRAND})` }}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${BRAND_LIGHT}, ${BRAND})` }}>
               <Zap className="h-5 w-5" fill="currentColor" />
             </div>
             <div className="hidden leading-none sm:block">
-              <div className="font-display text-lg font-extrabold tracking-tight text-white">MAON</div>
-              <div className="text-[10px] font-medium uppercase tracking-widest text-white/40">Mayorista Online</div>
+              <div className="font-display text-lg font-extrabold tracking-tight" style={{ color: BRAND }}>MAON</div>
+              <div className="text-[10px] font-medium uppercase tracking-widest text-neutral-400">Mayorista Online</div>
             </div>
           </button>
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="¿Qué estás buscando?"
-              className="h-11 w-full rounded-full border border-white/10 bg-white/[0.06] pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-transparent focus:bg-white/10 focus:ring-2"
-              style={{ ['--tw-ring-color' as any]: `${ELECTRIC}66` }}
+              className="h-11 w-full rounded-full border border-black/[0.08] bg-neutral-50 pl-10 pr-4 text-sm text-neutral-800 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
             />
           </div>
           <button
             onClick={() => setShowCart(true)}
-            className={`relative flex h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm font-bold text-white transition hover:bg-white/10 ${bump ? 'scale-105' : 'scale-100'}`}
+            className={`relative flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold text-white shadow-sm transition ${bump ? 'scale-105' : 'scale-100'}`}
+            style={{ background: BRAND }}
           >
             <ShoppingCart className="h-4 w-4" />
-            <span className="hidden sm:inline">Mi pedido</span>
+            <span className="hidden sm:inline">{money(subtotal)}</span>
             {cartCount > 0 && (
-              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold text-white transition-transform ${bump ? 'scale-125' : 'scale-100'}`} style={{ background: ELECTRIC }}>
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold text-white" style={{ background: ACCENT }}>
                 {cartCount}
               </span>
             )}
           </button>
-          <a
-            href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent('¡Hola! Quiero hacer una consulta.')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden h-11 items-center gap-2 rounded-full px-4 text-sm font-bold text-white shadow-sm transition hover:brightness-110 active:scale-[0.98] sm:flex"
-            style={{ background: WHATSAPP }}
-          >
-            <MessageCircle className="h-4 w-4" /> Pedir por WhatsApp
-          </a>
         </div>
 
         {/* Ofertas / Novedades */}
@@ -347,14 +337,14 @@ function TiendaInner() {
           <button
             onClick={() => setView(view === 'OFERTAS' ? '' : 'OFERTAS')}
             className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition"
-            style={view === 'OFERTAS' ? { background: ELECTRIC, color: '#fff' } : { background: 'rgba(255,255,255,0.07)', color: '#fff' }}
+            style={view === 'OFERTAS' ? { background: ACCENT, color: '#fff' } : { background: `${ACCENT}18`, color: ACCENT }}
           >
             🔥 Ofertas
           </button>
           <button
             onClick={() => setView(view === 'NOVEDADES' ? '' : 'NOVEDADES')}
             className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition"
-            style={view === 'NOVEDADES' ? { background: ELECTRIC, color: '#fff' } : { background: 'rgba(255,255,255,0.07)', color: '#fff' }}
+            style={view === 'NOVEDADES' ? { background: BRAND, color: '#fff' } : { background: `${BRAND}12`, color: BRAND }}
           >
             ✨ Novedades
           </button>
@@ -365,16 +355,16 @@ function TiendaInner() {
           <button
             onClick={() => setCategory('')}
             className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
-            style={!category ? { background: ELECTRIC, color: '#fff' } : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}
+            style={!category ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
           >
-            Todas las categorías
+            Todas
           </button>
           {categories.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c!)}
               className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
-              style={category === c ? { background: ELECTRIC, color: '#fff' } : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}
+              style={category === c ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
             >
               {CAT_ICON[c!] ?? ''} {c}
             </button>
@@ -422,50 +412,67 @@ function TiendaInner() {
         </div>
       ) : (
         <div
-          className="relative flex min-h-[520px] items-center overflow-hidden bg-cover bg-center px-4 py-14 text-white sm:min-h-[600px] lg:min-h-[680px]"
+          className="relative overflow-hidden bg-cover bg-center px-4 py-10 text-white sm:py-14"
           style={settings.heroImageUrl
-            ? { backgroundImage: `linear-gradient(90deg, rgba(6,12,24,.94) 0%, rgba(6,12,24,.82) 32%, rgba(6,12,24,.4) 65%, rgba(6,12,24,.15) 100%), url(${settings.heroImageUrl})` }
+            ? { backgroundImage: `linear-gradient(rgba(14,32,54,.55), rgba(14,32,54,.55)), url(${settings.heroImageUrl})` }
             : { background: `linear-gradient(120deg, ${BRAND}, ${BRAND_DARK} 70%)` }}
         >
           {!settings.heroImageUrl && (
             <>
               <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
               <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-white/[0.04]" />
+
+              {/* Badge circular, esquina superior derecha (no pisa las fotos) */}
+              <div className="pointer-events-none absolute right-6 top-6 hidden h-[92px] w-[92px] items-center justify-center rounded-full border border-white/25 text-center text-[10.5px] font-bold uppercase leading-tight text-white/90 sm:flex">
+                Precios<br />mayoristas<br /><span className="text-white/60">todo el año</span>
+              </div>
             </>
           )}
 
-          <div className="relative mx-auto w-full max-w-[1600px]">
-            <div className="max-w-xl animate-fade-up">
-              <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold backdrop-blur">
+          <div className="relative mx-auto flex max-w-[1600px] flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
+            <div className="animate-fade-up">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold">
                 <Sparkles className="h-3.5 w-3.5" /> {settings.heroBadge}
               </div>
-              <h1 className="font-display text-4xl font-extrabold leading-tight sm:text-5xl">
-                {heroTitleParts ? (
-                  <>{heroTitleParts[0]}<span style={{ color: ELECTRIC }}>{heroTitleParts[1]}</span>{heroTitleParts[2]}</>
-                ) : settings.heroTitle}
+              <h1 className="max-w-lg font-display text-3xl font-extrabold leading-tight sm:text-4xl">
+                {settings.heroTitle}
               </h1>
-              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/75">
+              <p className="mt-2 max-w-md text-[14px] text-white/80">
                 {settings.heroSubtitle}
               </p>
-              <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] text-white/85">
-                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4" style={{ color: ELECTRIC }} /> Venta por bulto cerrado</span>
-                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4" style={{ color: ELECTRIC }} /> Envíos a todo el país</span>
-                <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" style={{ color: ELECTRIC }} /> Pedido confirmado por WhatsApp</span>
+              <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[12px] text-white/85">
+                <span className="flex items-center gap-1.5"><PackageCheck className="h-4 w-4 text-white/60" /> Venta por bulto cerrado</span>
+                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-white/60" /> Envíos a todo el país</span>
+                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-white/60" /> Despacho en 24 a 48 hs</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-white/60" /> Pedido confirmado por WhatsApp</span>
               </div>
-              <a
-                href="#catalogo"
-                className="mt-8 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
-                style={{ background: ELECTRIC }}
-              >
-                Ver productos <ArrowRight className="h-4 w-4" />
-              </a>
             </div>
+
+            {/* Fotos de productos reales sobre un pedestal, como vidriera (solo si no hay imagen propia) */}
+            {!settings.heroImageUrl && heroImgs.length > 0 && (
+              <div className="relative hidden shrink-0 items-end gap-4 pr-2 lg:flex">
+                {/* Sombra elíptica compartida, simula el "pedestal" */}
+                <div className="pointer-events-none absolute -bottom-2 left-1/2 h-6 w-[85%] -translate-x-1/2 rounded-[100%] bg-black/25 blur-md" />
+                {heroImgs.map((src, i) => {
+                  const size = 88 + i * 22; // asciende de izquierda a derecha
+                  return (
+                    <div
+                      key={i}
+                      className="relative overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
+                      style={{ width: size, height: size }}
+                    >
+                      <img src={src} alt="" className="h-full w-full object-contain p-1.5" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Tarjetas de confianza: oscuras, flotan superpuestas al borde inferior del hero */}
-      <div className="relative z-10 mx-auto -mt-10 max-w-[1600px] px-4 sm:-mt-12">
+      {/* Estadísticas de confianza: refuerzan escala y seriedad justo debajo del hero */}
+      <div className="mx-auto max-w-[1600px] px-4 pt-5">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { icon: Package, top: `+${catalog.length.toLocaleString('es-AR')}`, bottom: 'Productos' },
@@ -473,79 +480,38 @@ function TiendaInner() {
             { icon: ShieldCheck, top: 'Compra 100%', bottom: 'segura' },
             { icon: MessageCircle, top: 'Atención por', bottom: 'WhatsApp' },
           ].map(({ icon: Icon, top, bottom }) => (
-            <div key={bottom} className="flex items-center gap-2.5 rounded-2xl border border-white/10 px-3.5 py-3 shadow-lg backdrop-blur sm:px-4 sm:py-3.5" style={{ background: `${BRAND_DARK}E8` }}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10" style={{ color: ELECTRIC }}>
+            <div key={bottom} className="flex items-center gap-2.5 rounded-2xl border border-black/5 bg-white px-3.5 py-3 shadow-sm sm:px-4 sm:py-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: BRAND_SOFT, color: BRAND }}>
                 <Icon className="h-4.5 w-4.5" />
               </div>
               <div className="min-w-0 leading-tight">
-                <div className="truncate text-[13px] font-extrabold text-white sm:text-[14px]">{top}</div>
-                <div className="truncate text-[11.5px] text-white/50">{bottom}</div>
+                <div className="truncate text-[13px] font-extrabold text-neutral-800 sm:text-[14px]">{top}</div>
+                <div className="truncate text-[11.5px] text-neutral-400">{bottom}</div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ¿Cómo comprar?: 5 pasos, conectados con línea punteada en escritorio */}
-      <div className="px-4 py-14" style={{ background: BRAND_DARK }}>
-        <div className="mx-auto max-w-[1600px]">
-          <h2 className="text-center font-display text-xl font-extrabold tracking-wide text-white sm:text-2xl">¿CÓMO COMPRAR?</h2>
-          <div className="relative mx-auto mt-10 flex max-w-5xl flex-col gap-8 sm:flex-row sm:justify-between sm:gap-4">
-            <div className="pointer-events-none absolute left-0 right-0 top-6 hidden border-t-2 border-dashed border-white/15 sm:block" />
-            {[
-              { icon: ShoppingBag, title: 'Elegí tus productos', desc: 'Navegá por nuestras categorías y agregalos a tu pedido.' },
-              { icon: ShoppingCart, title: 'Revisá tu pedido', desc: 'Verificá los productos y cantidades.' },
-              { icon: MessageCircle, title: 'Enviá tu pedido', desc: 'Hacé clic en "Pedir por WhatsApp" y te enviamos el detalle.' },
-              { icon: CheckCircle2, title: 'Confirmación', desc: 'Te confirmamos stock, precio final y envío.' },
-              { icon: Truck, title: 'Recibí tu pedido', desc: 'Enviamos tu pedido a todo el país.' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <div key={title} className="relative flex flex-row items-start gap-3 sm:flex-col sm:items-center sm:text-center sm:gap-3 sm:px-2">
-                <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-lg" style={{ background: ELECTRIC }}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-bold text-white">{i + 1}. {title}</div>
-                  <div className="mt-0.5 text-[12px] leading-snug text-white/50 sm:max-w-[160px]">{desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Bloque final de confianza: 3 beneficios + WhatsApp destacado en verde */}
-      <div className="px-4 py-5" style={{ background: BRAND_DARK }}>
-        <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Franja de confianza: refuerza los mismos beneficios del hero con más detalle */}
+      <div className="mx-auto max-w-[1600px] px-4 pt-4">
+        <div className="grid grid-cols-2 gap-3 rounded-2xl p-4 sm:grid-cols-4 sm:p-5" style={{ background: BRAND_DARK }}>
           {[
-            { icon: Lock, title: 'COMPRA SEGURA', desc: 'Tus datos y compras protegidos.' },
-            { icon: Award, title: 'PRECIOS MAYORISTAS', desc: 'Los mejores precios por bulto.' },
-            { icon: Truck, title: 'ENVÍOS A TODO EL PAÍS', desc: 'Rápido, seguro y confiable.' },
+            { icon: PackageCheck, title: 'BULTO CERRADO', desc: 'Venta exclusiva por bulto cerrado' },
+            { icon: MapPin, title: 'EN TODO EL PAÍS', desc: 'Llegamos a donde estés' },
+            { icon: Lock, title: 'COMPRA SEGURA', desc: 'Tus datos y compras protegidos' },
+            { icon: MessageCircle, title: 'ATENCIÓN RÁPIDA', desc: 'Respondemos por WhatsApp' },
           ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10" style={{ color: ELECTRIC }}>
+            <div key={title} className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
                 <Icon className="h-4.5 w-4.5" />
               </div>
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-[11px] font-extrabold uppercase tracking-wide text-white">{title}</div>
-                <div className="truncate text-[11px] text-white/50">{desc}</div>
+                <div className="truncate text-[11px] text-white/55">{desc}</div>
               </div>
             </div>
           ))}
-          <a
-            href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent('¡Hola! Quiero hacer una consulta.')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-3 rounded-xl p-3.5 transition hover:brightness-110"
-            style={{ background: WHATSAPP }}
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
-              <MessageCircle className="h-4.5 w-4.5" />
-            </div>
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-[11px] font-extrabold uppercase tracking-wide text-white">Pedí directo por WhatsApp</div>
-              <div className="truncate text-[11px] text-white/80">Te confirmamos stock, precio y envío al instante.</div>
-            </div>
-          </a>
         </div>
       </div>
 
@@ -563,7 +529,7 @@ function TiendaInner() {
       )}
 
       {/* Body */}
-      <main id="catalogo" className="mx-auto flex max-w-[1600px] scroll-mt-24 gap-6 p-4 pt-6">
+      <main className="mx-auto flex max-w-[1600px] gap-6 p-4 pt-6">
         <aside className="hidden w-[240px] shrink-0 md:block">
           <div className="sticky top-[140px] space-y-4">
             <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
@@ -624,7 +590,7 @@ function TiendaInner() {
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
               </button>
               {(category || brand || search || priceMin || priceMax) && (
-                <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ELECTRIC }}>
+                <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
                   Limpiar filtros
                 </button>
               )}
@@ -643,7 +609,7 @@ function TiendaInner() {
                       <span className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
                     )}
                     {(promo?.label || promo?.discountPct) && (
-                      <span className="absolute bottom-2 left-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: ELECTRIC }}>
+                      <span className="absolute bottom-2 left-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: ACCENT }}>
                         {promo.label || `${promo.discountPct}% OFF`}
                       </span>
                     )}
@@ -656,7 +622,7 @@ function TiendaInner() {
                     {!!promo?.discountPct && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
                   {!!promo?.discountPct && inCart > 0 && inCart < promoMinQty(promo.label) && (
-                    <div className="text-[10px] font-semibold" style={{ color: ELECTRIC }}>
+                    <div className="text-[10px] font-semibold" style={{ color: ACCENT }}>
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>
                   )}
@@ -666,13 +632,13 @@ function TiendaInner() {
                       <button
                         onClick={() => addToCart(p.id)}
                         className="w-full rounded-lg py-2 text-[12px] font-bold text-white transition active:scale-95"
-                        style={{ background: ELECTRIC }}
+                        style={{ background: ACCENT }}
                       >
                         Agregar
                       </button>
                     ) : (
-                      <div className="flex items-center justify-between rounded-lg border px-1 py-1" style={{ borderColor: `${ELECTRIC}55`, background: `${ELECTRIC}12` }}>
-                        <button onClick={() => changeQty(p.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ELECTRIC }}><Minus className="h-3.5 w-3.5" /></button>
+                      <div className="flex items-center justify-between rounded-lg border px-1 py-1" style={{ borderColor: `${ACCENT}55`, background: `${ACCENT}12` }}>
+                        <button onClick={() => changeQty(p.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Minus className="h-3.5 w-3.5" /></button>
                         <input
                           type="number"
                           min={1}
@@ -681,7 +647,7 @@ function TiendaInner() {
                           onClick={(e) => e.stopPropagation()}
                           className="w-10 border-0 bg-transparent text-center text-[13px] font-bold text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
-                        <button onClick={() => changeQty(p.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ELECTRIC }}><Plus className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => changeQty(p.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                     )}
                   </div>
@@ -732,7 +698,7 @@ function TiendaInner() {
         className={`fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[420px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${showCart ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex items-center justify-between p-4 text-white" style={{ background: BRAND }}>
-          <div className="flex items-center gap-2 font-bold"><ShoppingCart className="h-4 w-4" /> Mi pedido · {cartCount} producto{cartCount === 1 ? '' : 's'}</div>
+          <div className="flex items-center gap-2 font-bold"><ShoppingCart className="h-4 w-4" /> Mi carrito · {cartCount} producto{cartCount === 1 ? '' : 's'}</div>
           <button onClick={() => setShowCart(false)}><X className="h-5 w-5" /></button>
         </div>
 
@@ -742,7 +708,7 @@ function TiendaInner() {
             <span>{money(subtotal)} / {money(settings.minCompra)}</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, background: faltante > 0 ? ELECTRIC : '#22C55E' }} />
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, background: faltante > 0 ? ACCENT : '#22C55E' }} />
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[11.5px] font-medium" style={{ color: envioGratis ? '#22C55E' : '#666' }}>
             <Truck className="h-3.5 w-3.5" />
@@ -786,7 +752,7 @@ function TiendaInner() {
             disabled={cartLines.length === 0}
             onClick={() => { setShowCart(false); setShowCheckout(true); }}
             className="flex w-full items-center justify-center gap-2 rounded-full py-3 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
-            style={{ background: WHATSAPP }}
+            style={{ background: ACCENT }}
           >
             <MessageCircle className="h-4 w-4" /> Confirmar pedido por WhatsApp
           </button>
@@ -963,18 +929,6 @@ function TiendaInner() {
           Ver {filtered.length} producto{filtered.length === 1 ? '' : 's'}
         </button>
       </div>
-
-      {/* WhatsApp fijo en mobile (el header ya lo muestra en escritorio) */}
-      <a
-        href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent('¡Hola! Quiero hacer una consulta.')}`}
-        target="_blank"
-        rel="noreferrer"
-        className={`fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl transition sm:hidden ${(showCart || showCheckout || showFilters) ? 'pointer-events-none scale-0 opacity-0' : 'scale-100 opacity-100'}`}
-        style={{ background: WHATSAPP }}
-        aria-label="Pedir por WhatsApp"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </a>
     </div>
   );
 }
