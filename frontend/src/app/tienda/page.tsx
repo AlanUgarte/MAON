@@ -22,7 +22,7 @@ const CAT_ICON: Record<string, string> = {
   Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕', Harinas: '🌾',
 };
 
-const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const PAGE_SIZE = 24;
 
 interface CartLine { productId: string; qty: number }
@@ -80,7 +80,7 @@ function TiendaInner() {
     const base = p.price * (1 + settings.margenVenta);
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
-    return Math.round(applies ? base * (1 - promo!.discountPct! / 100) : base);
+    return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
   // Resalta en azul la parte final del título ("de confianza") y "100% segura" del
@@ -634,7 +634,7 @@ function TiendaInner() {
             {visible.map((p) => {
               const inCart = qtyInCart(p.id);
               const promo = getPromo(p);
-              const original = Math.round(p.price * (1 + settings.margenVenta));
+              const original = Math.round(p.price * (1 + settings.margenVenta) * 100) / 100;
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>

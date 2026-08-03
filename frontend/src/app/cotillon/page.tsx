@@ -19,7 +19,7 @@ const BRAND_SOFT = '#F5EEFA';
 const ACCENT = '#EC4899';    // rosa, contraste sobre el violeta
 const WHATSAPP = '#25D366';
 
-const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const PAGE_SIZE = 24;
 
 interface CartLine { productId: string; qty: number }
@@ -70,7 +70,7 @@ function CotillonInner() {
     const base = p.price * (1 + settings.margenVenta);
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
-    return Math.round(applies ? base * (1 - promo!.discountPct! / 100) : base);
+    return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
   };
   // Solo cotillón — el resto del catálogo mayorista (golosinas, alimentos, etc.) queda en /tienda.
   const cotillonOnly = useMemo(() => fullCatalog.filter((p) => p.category === 'Cotillon'), [fullCatalog]);
@@ -529,7 +529,7 @@ function CotillonInner() {
             {visible.map((p) => {
               const inCart = qtyInCart(p.id);
               const promo = getPromo(p);
-              const original = Math.round(p.price * (1 + settings.margenVenta));
+              const original = Math.round(p.price * (1 + settings.margenVenta) * 100) / 100;
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
