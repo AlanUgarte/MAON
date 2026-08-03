@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight, Package, MapPin, Lock } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Sparkles, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -470,50 +470,6 @@ function TiendaInner() {
           </div>
         </div>
       )}
-
-      {/* Estadísticas de confianza: refuerzan escala y seriedad justo debajo del hero */}
-      <div className="mx-auto max-w-[1600px] px-4 pt-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { icon: Package, top: `+${catalog.length.toLocaleString('es-AR')}`, bottom: 'Productos' },
-            { icon: Truck, top: 'Envíos a', bottom: 'todo el país' },
-            { icon: ShieldCheck, top: 'Compra 100%', bottom: 'segura' },
-            { icon: MessageCircle, top: 'Atención por', bottom: 'WhatsApp' },
-          ].map(({ icon: Icon, top, bottom }) => (
-            <div key={bottom} className="flex items-center gap-2.5 rounded-2xl border border-black/5 bg-white px-3.5 py-3 shadow-sm sm:px-4 sm:py-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: BRAND_SOFT, color: BRAND }}>
-                <Icon className="h-4.5 w-4.5" />
-              </div>
-              <div className="min-w-0 leading-tight">
-                <div className="truncate text-[13px] font-extrabold text-neutral-800 sm:text-[14px]">{top}</div>
-                <div className="truncate text-[11.5px] text-neutral-400">{bottom}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Franja de confianza: refuerza los mismos beneficios del hero con más detalle */}
-      <div className="mx-auto max-w-[1600px] px-4 pt-4">
-        <div className="grid grid-cols-2 gap-3 rounded-2xl p-4 sm:grid-cols-4 sm:p-5" style={{ background: BRAND_DARK }}>
-          {[
-            { icon: PackageCheck, title: 'BULTO CERRADO', desc: 'Venta exclusiva por bulto cerrado' },
-            { icon: MapPin, title: 'EN TODO EL PAÍS', desc: 'Llegamos a donde estés' },
-            { icon: Lock, title: 'COMPRA SEGURA', desc: 'Tus datos y compras protegidos' },
-            { icon: MessageCircle, title: 'ATENCIÓN RÁPIDA', desc: 'Respondemos por WhatsApp' },
-          ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
-                <Icon className="h-4.5 w-4.5" />
-              </div>
-              <div className="min-w-0 leading-tight">
-                <div className="truncate text-[11px] font-extrabold uppercase tracking-wide text-white">{title}</div>
-                <div className="truncate text-[11px] text-white/55">{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Tarjetas promocionales chicas debajo del carrusel/banner */}
       {activeCards.length > 0 && (
