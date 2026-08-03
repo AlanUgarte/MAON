@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight, Award, MapPin, Lock } from 'lucide-react';
+import { Search, ShoppingCart, X, Plus, Minus, Trash2, MessageCircle, Zap, Truck, ShieldCheck, PackageCheck, SlidersHorizontal, Clock, ChevronLeft, ChevronRight, ChevronDown, Award, MapPin, Lock } from 'lucide-react';
 import { type ProductRow } from '@/lib/mock';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useClients } from '@/lib/clients-store';
@@ -115,6 +115,8 @@ function TiendaInner() {
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [line, setLine] = useState('');
+  const [openCatMenu, setOpenCatMenu] = useState('');
   const [view, setView] = useState<'' | 'OFERTAS' | 'NOVEDADES'>('');
   const [brand, setBrand] = useState('');
   const [brandQuery, setBrandQuery] = useState('');
@@ -131,6 +133,19 @@ function TiendaInner() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
+  // Líneas (sub-rubros) que tiene cada categoría, para el desplegable estilo Coto —
+  // se arma solo, a partir del catálogo real, sin tocar la lista de categorías.
+  const categoryLines = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const p of catalog) {
+      if (!p.line) continue;
+      if (!map.has(p.category)) map.set(p.category, new Set());
+      map.get(p.category)!.add(p.line);
+    }
+    const sorted = new Map<string, string[]>();
+    for (const [cat, lines] of map) sorted.set(cat, [...lines].sort());
+    return sorted;
+  }, [catalog]);
   const brands = useMemo(() => [...new Set(catalog.map((p) => p.brand))].sort(), [catalog]);
   const brandsShown = useMemo(() => {
     const q = brandQuery.trim().toLowerCase();
@@ -148,6 +163,7 @@ function TiendaInner() {
       const promo = getPromo(p);
       const haystack = `${p.name} ${p.brand}`.toLowerCase();
       return (!category || p.category === category) &&
+        (!line || p.line === line) &&
         (!brand || p.brand === brand) &&
         (min === null || venta >= min) &&
         (max === null || venta <= max) &&
@@ -158,15 +174,15 @@ function TiendaInner() {
       // Con foto primero, sin foto al final — un producto sin imagen se ve peor
       // (el ícono de caja genérico) y conviene que no sea lo primero que aparezca.
       .sort((a, b) => (a.img ? 0 : 1) - (b.img ? 0 : 1));
-  }, [catalog, searchTokens, category, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
+  }, [catalog, searchTokens, category, line, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.
-  useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, brand, priceMin, priceMax, view]);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [search, category, line, brand, priceMin, priceMax, view]);
   const visible = filtered.slice(0, visibleCount);
 
   // Tocar el logo vuelve a como se ve la tienda apenas se entra: sin filtros ni búsqueda.
   const goHome = () => {
-    setSearch(''); setCategory(''); setView(''); setBrand(''); setBrandQuery('');
+    setSearch(''); setCategory(''); setLine(''); setView(''); setBrand(''); setBrandQuery('');
     setPriceMin(''); setPriceMax('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -360,25 +376,56 @@ function TiendaInner() {
           </button>
         </div>
 
-        {/* Categorías */}
-        <div className="mx-auto mt-1.5 flex max-w-[1600px] gap-1.5 overflow-x-auto pb-0.5">
-          <button
-            onClick={() => setCategory('')}
-            className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
-            style={!category ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
-          >
-            Todas
-          </button>
-          {categories.map((c) => (
+        {/* Categorías: al pasar el mouse (o tocar la flechita en mobile) se despliegan
+            las líneas de esa categoría, estilo Coto — la barra en sí queda intacta. */}
+        <div className="relative" onMouseLeave={() => setOpenCatMenu('')}>
+          <div className="mx-auto mt-1.5 flex max-w-[1600px] gap-1.5 overflow-x-auto pb-0.5">
             <button
-              key={c}
-              onClick={() => setCategory(c!)}
+              onClick={() => { setCategory(''); setLine(''); setOpenCatMenu(''); }}
               className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
-              style={category === c ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
+              style={!category ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
             >
-              {CAT_ICON[c!] ?? ''} {c}
+              Todas
             </button>
-          ))}
+            {categories.map((c) => {
+              const lines = categoryLines.get(c!) ?? [];
+              return (
+                <div key={c} className="relative shrink-0" onMouseEnter={() => lines.length && setOpenCatMenu(c!)}>
+                  <button
+                    onClick={() => { setCategory(c!); setLine(''); setOpenCatMenu(''); }}
+                    className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition"
+                    style={category === c ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
+                  >
+                    {CAT_ICON[c!] ?? ''} {c}
+                    {lines.length > 0 && (
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${openCatMenu === c ? 'rotate-180' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); setOpenCatMenu(openCatMenu === c ? '' : c!); }}
+                      />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Panel de líneas de la categoría en hover/tap */}
+          {openCatMenu && (categoryLines.get(openCatMenu)?.length ?? 0) > 0 && (
+            <div className="absolute left-0 right-0 top-full z-30 mx-auto max-w-[1600px] rounded-b-2xl border border-t-0 border-black/[0.06] bg-white p-4 shadow-xl">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                {categoryLines.get(openCatMenu)!.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => { setCategory(openCatMenu); setLine(l); setOpenCatMenu(''); }}
+                    className="truncate rounded-lg px-2 py-1.5 text-left text-[12.5px] text-neutral-600 transition hover:bg-neutral-50"
+                    style={category === openCatMenu && line === l ? { color: BRAND, fontWeight: 700 } : undefined}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -572,8 +619,8 @@ function TiendaInner() {
               <button onClick={() => setShowFilters(true)} className="flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-700 md:hidden">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
               </button>
-              {(category || brand || search || priceMin || priceMax) && (
-                <button onClick={() => { setCategory(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
+              {(category || line || brand || search || priceMin || priceMax) && (
+                <button onClick={() => { setCategory(''); setLine(''); setBrand(''); setSearch(''); setPriceMin(''); setPriceMax(''); setBrandQuery(''); }} className="text-[12px] font-semibold" style={{ color: ACCENT }}>
                   Limpiar filtros
                 </button>
               )}
