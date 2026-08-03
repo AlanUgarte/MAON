@@ -309,23 +309,23 @@ function FacturacionInner() {
   const totFac = libRows.filter((e) => e.sign > 0).reduce((a, e) => a + e.total, 0);
   const totNC = libRows.filter((e) => e.sign < 0).reduce((a, e) => a + e.total, 0);
 
-  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: 18 };
-  const inp: React.CSSProperties = { height: 38, border: '1px solid var(--line2)', background: 'var(--surface)', borderRadius: 10, padding: '0 12px', color: 'var(--text)', fontSize: 13, width: '100%' };
-  const btn: React.CSSProperties = { height: 38, padding: '0 16px', borderRadius: 10, background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-  const btnOut: React.CSSProperties = { ...btn, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line2)' };
+  const card: React.CSSProperties = { background: 'rgb(var(--surface))', border: '1px solid rgb(var(--line) / 0.12)', borderRadius: 16, padding: 18 };
+  const inp: React.CSSProperties = { height: 38, border: '1px solid rgb(var(--line) / 0.2)', background: 'rgb(var(--surface))', borderRadius: 10, padding: '0 12px', color: 'rgb(var(--content))', fontSize: 13, width: '100%' };
+  const btn: React.CSSProperties = { height: 38, padding: '0 16px', borderRadius: 10, background: 'rgb(var(--primary))', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+  const btnOut: React.CSSProperties = { ...btn, background: 'rgb(var(--surface))', color: 'rgb(var(--content))', border: '1px solid rgb(var(--line) / 0.2)' };
   const btnSm: React.CSSProperties = { height: 26, padding: '0 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer' };
 
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: 20 }}>
       <h1 style={{ fontSize: 23, fontWeight: 800 }}>Facturación</h1>
-      <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>
+      <p style={{ color: 'rgb(var(--muted))', fontSize: 13, marginBottom: 16 }}>
         Emití facturas, remitos y notas de crédito. Todo queda en el libro contable por cliente.
       </p>
 
-      <div style={{ display: 'inline-flex', background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: 10, padding: 3, marginBottom: 16 }}>
+      <div style={{ display: 'inline-flex', background: 'rgb(var(--surface-2))', border: '1px solid rgb(var(--line) / 0.12)', borderRadius: 10, padding: 3, marginBottom: 16 }}>
         {(['emitir', 'libro'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            style={{ border: 'none', background: tab === t ? 'var(--lime-bg)' : 'transparent', color: tab === t ? 'var(--primary-dark)' : 'var(--muted)', fontWeight: 600, fontSize: 13, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
+            style={{ border: 'none', background: tab === t ? 'rgb(var(--primary) / 0.12)' : 'transparent', color: tab === t ? 'rgb(var(--primary))' : 'rgb(var(--muted))', fontWeight: 600, fontSize: 13, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
             {t === 'emitir' ? 'Emitir comprobante' : 'Libro contable'}
           </button>
         ))}
@@ -337,7 +337,7 @@ function FacturacionInner() {
             <div style={{ fontWeight: 700, marginBottom: 12 }}>Nuevo comprobante</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
               <label style={{ flex: 2, minWidth: 160, position: 'relative' }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Cliente</div>
+                <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Cliente</div>
                 <input
                   style={inp}
                   value={clientQuery}
@@ -347,18 +347,18 @@ function FacturacionInner() {
                   placeholder="Buscá por nombre, razón social o CUIT..."
                 />
                 {clientDropdownOpen && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, marginTop: 4, maxHeight: 260, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--line2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, marginTop: 4, maxHeight: 260, overflowY: 'auto', background: 'rgb(var(--surface))', border: '1px solid rgb(var(--line) / 0.2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
                     {clientMatches.length === 0 && (
-                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>Sin resultados.</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'rgb(var(--muted))' }}>Sin resultados.</div>
                     )}
                     {clientMatches.map((c) => (
                       <div
                         key={c.id}
                         onMouseDown={() => selectClient(c)}
-                        style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                        style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}
                       >
                         <div style={{ fontWeight: 600 }}>{c.businessName || `${c.firstName} ${c.lastName}`}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        <div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>
                           {IVA_CONDITION_LABEL[c.ivaCondition]}{c.cuit ? ` · ${c.cuit}` : ''}
                         </div>
                       </div>
@@ -367,13 +367,13 @@ function FacturacionInner() {
                 )}
               </label>
               <label style={{ flex: 1, minWidth: 150 }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Tipo de comprobante</div>
+                <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Tipo de comprobante</div>
                 <select style={inp} value={tipo} onChange={(e) => changeTipo(e.target.value as Tipo)}>
                   {(Object.keys(TIPO_LABEL) as Tipo[]).map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
                 </select>
               </label>
               <label style={{ width: 90 }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Letra</div>
+                <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Letra</div>
                 <select style={inp} value={letra} onChange={(e) => setLetra(e.target.value as Letra)}>
                   {LETRAS_POR_TIPO[tipo].map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
@@ -381,24 +381,24 @@ function FacturacionInner() {
             </div>
 
             {selectedClient && (
-              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: -4, marginBottom: 10 }}>
-                Razón social: <b style={{ color: 'var(--text)' }}>{selectedClient.businessName || `${selectedClient.firstName} ${selectedClient.lastName}`}</b>
-                {' · '}IVA: <b style={{ color: 'var(--text)' }}>{IVA_CONDITION_LABEL[selectedClient.ivaCondition]}</b>
-                {' · '}Letra sugerida: <b style={{ color: 'var(--text)' }}>{IVA_TO_LETRA[selectedClient.ivaCondition] ?? 'B'}</b>
+              <div style={{ fontSize: 11.5, color: 'rgb(var(--muted))', marginTop: -4, marginBottom: 10 }}>
+                Razón social: <b style={{ color: 'rgb(var(--content))' }}>{selectedClient.businessName || `${selectedClient.firstName} ${selectedClient.lastName}`}</b>
+                {' · '}IVA: <b style={{ color: 'rgb(var(--content))' }}>{IVA_CONDITION_LABEL[selectedClient.ivaCondition]}</b>
+                {' · '}Letra sugerida: <b style={{ color: 'rgb(var(--content))' }}>{IVA_TO_LETRA[selectedClient.ivaCondition] ?? 'B'}</b>
               </div>
             )}
 
             {requiereCae && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10, background: 'var(--surface2)', padding: 10, borderRadius: 10 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10, background: 'rgb(var(--surface-2))', padding: 10, borderRadius: 10 }}>
                 <label style={{ flex: 1, minWidth: 180 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>CAE (ARCA) *</div>
+                  <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>CAE (ARCA) *</div>
                   <input style={inp} value={cae} onChange={(e) => setCae(e.target.value)} placeholder="Nº de CAE otorgado por ARCA" />
                 </label>
                 <label style={{ width: 170 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Vto. CAE *</div>
+                  <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Vto. CAE *</div>
                   <input style={inp} type="date" value={caeVto} onChange={(e) => setCaeVto(e.target.value)} />
                 </label>
-                <div style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>
+                <div style={{ fontSize: 11, color: 'rgb(var(--muted))', alignSelf: 'center' }}>
                   Obligatorio en letra A: certifica que el comprobante impactó en ARCA.
                 </div>
               </div>
@@ -415,17 +415,17 @@ function FacturacionInner() {
               <>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 10 }}>
                   <label style={{ flex: 2, minWidth: 160 }}>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Producto</div>
+                    <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Producto</div>
                     <select style={inp} value={prodId} onChange={(e) => setProdId(e.target.value)}>
                       {catalogProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </label>
                   <label style={{ width: 88 }}>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Bultos</div>
+                    <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Bultos</div>
                     <input style={inp} type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
                   </label>
                   <label style={{ width: 150 }}>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Alícuota</div>
+                    <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Alícuota</div>
                     <select style={inp} value={itemIvaRate} onChange={(e) => setItemIvaRate(Number(e.target.value))}>
                       {IVA_RATES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
@@ -436,19 +436,19 @@ function FacturacionInner() {
                   <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead><tr>
                       {['Detalle', 'Cant.', 'P. unit', 'Subtotal', 'IVA', ''].map((h) => (
-                        <th key={h} style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', borderBottom: '1px solid var(--line)', padding: 8 }}>{h}</th>
+                        <th key={h} style={{ textAlign: 'left', color: 'rgb(var(--muted))', fontSize: 11, textTransform: 'uppercase', borderBottom: '1px solid rgb(var(--line) / 0.12)', padding: 8 }}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
-                      {draft.length === 0 && <tr><td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 14 }}>Sin items. Agregá productos.</td></tr>}
+                      {draft.length === 0 && <tr><td colSpan={6} style={{ color: 'rgb(var(--muted))', textAlign: 'center', padding: 14 }}>Sin items. Agregá productos.</td></tr>}
                       {draft.map((it, i) => (
                         <tr key={i}>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>{it.detalle}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>{it.cantidad}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>{money(it.unitPrice)}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>{money(it.subtotal)}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>{it.ivaRate > 0 ? pct(it.ivaRate) : '-'}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{it.detalle}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{it.cantidad}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{money(it.unitPrice)}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{money(it.subtotal)}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{it.ivaRate > 0 ? pct(it.ivaRate) : '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>
                             <button style={{ ...btnOut, height: 28, padding: '0 8px' }} onClick={() => setDraft((d) => d.filter((_, k) => k !== i))}>✕</button>
                           </td>
                         </tr>
@@ -462,55 +462,55 @@ function FacturacionInner() {
             {enBlanco && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                 <label style={{ flex: 2, minWidth: 160 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Descripción</div>
+                  <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Descripción</div>
                   <input style={inp} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Detalle de la nota" />
                 </label>
                 <label style={{ width: 150 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Importe ($)</div>
+                  <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Importe ($)</div>
                   <input style={inp} type="number" value={importe} onChange={(e) => setImporte(e.target.value)} />
                 </label>
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', marginTop: 12, paddingTop: 12, gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgb(var(--line) / 0.12)', marginTop: 12, paddingTop: 12, gap: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 {enBlanco && isNC ? (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgb(var(--muted))', cursor: 'pointer' }}>
                     <input type="checkbox" checked={ivaBlanco} onChange={(e) => setIvaBlanco(e.target.checked)} /> Discriminar IVA 21%
                   </label>
                 ) : (
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>La alícuota de IVA se elige por producto al agregarlo.</div>
+                  <div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>La alícuota de IVA se elige por producto al agregarlo.</div>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgb(var(--muted))' }}>
                   Margen % <input style={{ ...inp, width: 64, height: 30 }} type="number" value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
                 </label>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Total</div>
+                <div style={{ fontSize: 12, color: 'rgb(var(--muted))' }}>Total</div>
                 <div style={{ fontSize: 24, fontWeight: 800 }}>{money(total)}</div>
               </div>
             </div>
-            {formError && <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid var(--red)', background: 'rgba(203,74,51,0.1)', padding: '8px 12px', fontSize: 12, color: 'var(--red)' }}>{formError}</div>}
+            {formError && <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgb(var(--rose))', background: 'rgba(203,74,51,0.1)', padding: '8px 12px', fontSize: 12, color: 'rgb(var(--rose))' }}>{formError}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button style={{ ...btn, flex: 1 }} onClick={emitir}>Emitir y generar PDF</button>
               <button style={{ ...btnOut }} onClick={emitirPrueba} title="Genera un remito de prueba (letra R, sin CAE) para probar PDF y envío al chat">Generar boleta de prueba</button>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: 'rgb(var(--muted))', marginTop: 8 }}>
               {requiereCae ? 'Letra A: el comprobante requiere CAE de ARCA para ser válido como factura.' : 'Sin letra A no se solicita CAE (documento no válido como factura fiscal).'}
             </div>
           </div>
 
           <div style={card}>
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Últimos comprobantes</div>
-            {ledger.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13 }}>Todavía no emitiste comprobantes.</div>}
+            {ledger.length === 0 && <div style={{ color: 'rgb(var(--muted))', fontSize: 13 }}>Todavía no emitiste comprobantes.</div>}
             {ledger.slice(0, 10).map((e, i) => (
-              <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+              <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{TIPO_LABEL[e.tipo]} {e.letra}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{e.numero} · {e.client.businessName || `${e.client.firstName} ${e.client.lastName}`}</div>
+                    <div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>{e.numero} · {e.client.businessName || `${e.client.firstName} ${e.client.lastName}`}</div>
                   </div>
-                  <b style={{ color: e.sign < 0 ? 'var(--red)' : 'var(--green)' }}>{e.sign < 0 ? '-' : ''}{money(e.total)}</b>
+                  <b style={{ color: e.sign < 0 ? 'rgb(var(--rose))' : 'rgb(var(--emerald))' }}>{e.sign < 0 ? '-' : ''}{money(e.total)}</b>
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                   <button style={{ ...btnOut, ...btnSm }} onClick={() => printComprobante(e)}>PDF</button>
@@ -528,7 +528,7 @@ function FacturacionInner() {
         <>
           <div style={{ ...card, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
             <label>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Filtrar por cliente</div>
+              <div style={{ fontSize: 12, color: 'rgb(var(--muted))', marginBottom: 5 }}>Filtrar por cliente</div>
               <select style={{ ...inp, minWidth: 200 }} value={libFilter} onChange={(e) => setLibFilter(e.target.value)}>
                 <option value="">Todos los clientes</option>
                 {CLIENTS.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
@@ -536,9 +536,9 @@ function FacturacionInner() {
             </label>
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <div><div style={{ fontSize: 11, color: 'var(--muted)' }}>Facturado</div><div style={{ fontWeight: 800, color: 'var(--green)' }}>{money(totFac)}</div></div>
-              <div><div style={{ fontSize: 11, color: 'var(--muted)' }}>Notas de crédito</div><div style={{ fontWeight: 800, color: 'var(--red)' }}>{money(totNC)}</div></div>
-              <div><div style={{ fontSize: 11, color: 'var(--muted)' }}>Saldo</div><div style={{ fontWeight: 800 }}>{money(totFac - totNC)}</div></div>
+              <div><div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>Facturado</div><div style={{ fontWeight: 800, color: 'rgb(var(--emerald))' }}>{money(totFac)}</div></div>
+              <div><div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>Notas de crédito</div><div style={{ fontWeight: 800, color: 'rgb(var(--rose))' }}>{money(totNC)}</div></div>
+              <div><div style={{ fontSize: 11, color: 'rgb(var(--muted))' }}>Saldo</div><div style={{ fontWeight: 800 }}>{money(totFac - totNC)}</div></div>
             </div>
           </div>
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
@@ -546,20 +546,20 @@ function FacturacionInner() {
               <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr>
                   {['Fecha', 'Cliente', 'Comprobante', 'Tipo', 'Debe', 'Haber', 'Saldo'].map((h, k) => (
-                    <th key={h} style={{ textAlign: k > 3 ? 'right' : 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', padding: '11px 13px', borderBottom: '1px solid var(--line)' }}>{h}</th>
+                    <th key={h} style={{ textAlign: k > 3 ? 'right' : 'left', color: 'rgb(var(--muted))', fontSize: 11, textTransform: 'uppercase', padding: '11px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
-                  {withSaldo.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', padding: 16 }}>Sin movimientos. Emití un comprobante.</td></tr>}
+                  {withSaldo.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'rgb(var(--muted))', padding: 16 }}>Sin movimientos. Emití un comprobante.</td></tr>}
                   {withSaldo.map((e, i) => (
                     <tr key={i}>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)', color: 'var(--muted)' }}>{fechaAR(e.fecha)}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)' }}>{e.client.businessName || `${e.client.firstName} ${e.client.lastName}`}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)' }}>{e.numero}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)' }}>{TIPO_LABEL[e.tipo]} {e.letra}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)', textAlign: 'right' }}>{e.debe ? money(e.debe) : '-'}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)', textAlign: 'right', color: 'var(--red)' }}>{e.haber ? money(e.haber) : '-'}</td>
-                      <td style={{ padding: '12px 13px', borderBottom: '1px solid var(--line)', textAlign: 'right', fontWeight: 700 }}>{money(e.saldo)}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)', color: 'rgb(var(--muted))' }}>{fechaAR(e.fecha)}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{e.client.businessName || `${e.client.firstName} ${e.client.lastName}`}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{e.numero}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)' }}>{TIPO_LABEL[e.tipo]} {e.letra}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)', textAlign: 'right' }}>{e.debe ? money(e.debe) : '-'}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)', textAlign: 'right', color: 'rgb(var(--rose))' }}>{e.haber ? money(e.haber) : '-'}</td>
+                      <td style={{ padding: '12px 13px', borderBottom: '1px solid rgb(var(--line) / 0.12)', textAlign: 'right', fontWeight: 700 }}>{money(e.saldo)}</td>
                     </tr>
                   ))}
                 </tbody>

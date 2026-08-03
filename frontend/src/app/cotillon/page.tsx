@@ -20,6 +20,8 @@ const ACCENT = '#EC4899';    // rosa, contraste sobre el violeta
 const WHATSAPP = '#25D366';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// El reparto solo sale entre las 17 y las 21 hs — el cliente elige la franja, no escribe cualquier horario.
+const DELIVERY_SLOTS = ['17:00 a 18:00', '18:00 a 19:00', '19:00 a 20:00', '20:00 a 21:00'];
 const PAGE_SIZE = 24;
 
 interface CartLine { productId: string; qty: number }
@@ -750,13 +752,15 @@ function CotillonInner() {
                       className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
                       style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
                     />
-                    <input
+                    <select
                       value={form.schedule}
                       onChange={(e) => setForm((f) => ({ ...f, schedule: e.target.value }))}
-                      placeholder="Horario disponible para recibirlo*"
                       className="h-11 w-full rounded-xl border border-black/[0.08] bg-neutral-50 px-3.5 text-sm outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
-                      style={{ ['--tw-ring-color' as any]: `${BRAND}55` }}
-                    />
+                      style={{ ['--tw-ring-color' as any]: `${BRAND}55`, color: form.schedule ? undefined : '#8A8A85' }}
+                    >
+                      <option value="" disabled>Horario disponible para recibirlo* (17 a 21 hs)</option>
+                      {DELIVERY_SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </>
                 )}
                 <div className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-3 py-2 text-[11.5px] text-neutral-500">
