@@ -30,19 +30,21 @@ const OBJECTION_LABEL: Record<string, string> = {
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
-// Agrupa por categoría y muestra el precio de VENTA (costo + margen), nunca el costo interno.
+// Agrupa por marca/proveedor (el catálogo no distingue proveedor de marca — cada marca
+// es en la práctica el proveedor de esa línea) y muestra el precio de VENTA (costo +
+// margen), nunca el costo interno.
 function buildPriceListHtml(products: ProductRow[], margenVenta: number) {
   const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + margenVenta));
-  const byCat = new Map<string, ProductRow[]>();
+  const byBrand = new Map<string, ProductRow[]>();
   [...products].sort((a, b) => a.name.localeCompare(b.name)).forEach((p) => {
-    const cat = p.category || 'Otros';
-    (byCat.get(cat) ?? byCat.set(cat, []).get(cat)!).push(p);
+    const brand = p.brand || 'Sin marca';
+    (byBrand.get(brand) ?? byBrand.set(brand, []).get(brand)!).push(p);
   });
-  const sections = [...byCat.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([cat, items]) => `
-    <h2>${cat} <span class="count">${items.length} artículos</span></h2>
+  const sections = [...byBrand.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([brand, items]) => `
+    <h2>${brand} <span class="count">${items.length} artículos</span></h2>
     <table>
-      <thead><tr><th>Descripción del artículo</th><th>Marca</th><th style="text-align:right">Precio en bulto</th></tr></thead>
-      <tbody>${items.map((p) => `<tr><td>${p.name}</td><td>${p.brand}</td><td style="text-align:right">${money(ventaBulto(p))}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Descripción del artículo</th><th>Categoría</th><th style="text-align:right">Precio en bulto</th></tr></thead>
+      <tbody>${items.map((p) => `<tr><td>${p.name}</td><td>${p.category || '-'}</td><td style="text-align:right">${money(ventaBulto(p))}</td></tr>`).join('')}</tbody>
     </table>`).join('');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista de precios · MAON</title>
