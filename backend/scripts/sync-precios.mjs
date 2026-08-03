@@ -1,7 +1,7 @@
-// Script puntual: sincroniza precios de costo desde el Excel del proveedor directo
-// contra la base de Railway, replicando la misma lógica de
-// products.service.ts#importPricesFromExcel (fallback BRUTO UNIDAD, no pisar
-// nombre/categoría/marca/unidades cuando el archivo no las trae).
+// Script puntual: sincroniza precios de costo (y stock, si el archivo trae columna
+// "Stock") desde el Excel del proveedor directo contra la base de Railway, replicando
+// la misma lógica de products.service.ts#importPricesFromExcel (fallback BRUTO UNIDAD,
+// no pisar nombre/categoría/marca/unidades/stock cuando el archivo no las trae).
 // Uso: DATABASE_URL=<DATABASE_PUBLIC_URL de Railway> node scripts/sync-precios.mjs <archivo.xlsx> [--apply]
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as XLSX from 'xlsx';
@@ -31,7 +31,8 @@ async function main() {
   const header = rows[headerIdx].map((c) => String(c).trim());
   const col = (name) => header.indexOf(name);
   const skuCol = col('Código'), nameCol = col('Nombre del Artículo'), catCol = col('Categoría'),
-    brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), bultoCol = col('BRUTO BULTO'), unidadCol = col('BRUTO UNIDAD');
+    brandCol = col('Marca'), unitsCol = col('Cant. Bulto'), bultoCol = col('BRUTO BULTO'), unidadCol = col('BRUTO UNIDAD'),
+    stockCol = col('Stock');
   if (skuCol === -1 || (bultoCol === -1 && unidadCol === -1)) {
     throw new Error('Faltan las columnas "Código" y/o "BRUTO BULTO"/"BRUTO UNIDAD"');
   }
@@ -55,6 +56,7 @@ async function main() {
       brand: brandCol !== -1 ? (String(row[brandCol] ?? '').trim() || null) : null,
       units: unitsCol !== -1 ? (Number(row[unitsCol]) || null) : null,
       price: Math.round(price * 100) / 100,
+      stock: stockCol !== -1 ? Math.max(0, Math.round(Number(row[stockCol]) || 0)) : null,
     });
   }
   if (!items.length) throw new Error('No se encontró ningún artículo con código y precio válidos');
@@ -64,7 +66,7 @@ async function main() {
   const CHUNK_LOOKUP = 5000;
   for (let i = 0; i < skus.length; i += CHUNK_LOOKUP) {
     const chunk = skus.slice(i, i + CHUNK_LOOKUP);
-    existing.push(...await prisma.product.findMany({ where: { sku: { in: chunk } }, select: { sku: true, name: true, price: true } }));
+    existing.push(...await prisma.product.findMany({ where: { sku: { in: chunk } }, select: { sku: true, name: true, price: true, stock: true } }));
   }
   const existingBySku = new Map(existing.map((p) => [p.sku, p]));
   const toCreate = items.filter((i) => !existingBySku.has(i.sku) && i.name);
@@ -72,9 +74,10 @@ async function main() {
   const skippedUnknownSku = items.filter((i) => !existingBySku.has(i.sku) && !i.name).length;
 
   const changed = toUpdate.filter((it) => Number(existingBySku.get(it.sku).price) !== it.price);
+  const stockChanged = stockCol !== -1 ? toUpdate.filter((it) => existingBySku.get(it.sku).stock !== it.stock) : [];
   console.log(`Filas con código+precio válido: ${items.length}`);
   console.log(`  a crear (nuevos, con nombre en el archivo): ${toCreate.length}`);
-  console.log(`  a actualizar (ya existen): ${toUpdate.length} (de los cuales cambian de precio: ${changed.length})`);
+  console.log(`  a actualizar (ya existen): ${toUpdate.length} (de los cuales cambian de precio: ${changed.length}${stockCol !== -1 ? `, cambian de stock: ${stockChanged.length}` : ''})`);
   console.log(`  sin código / duplicados: ${skippedNoSku}`);
   console.log(`  sin precio válido: ${skippedBadPrice}`);
   console.log(`  código nuevo sin nombre en el archivo (no se puede crear): ${skippedUnknownSku}`);
@@ -93,20 +96,20 @@ async function main() {
   for (let i = 0; i < toCreate.length; i += CHUNK) {
     const chunk = toCreate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric)`),
+      chunk.map((it) => Prisma.sql`(${`prod_${it.sku}`}, ${it.name}::text, ${it.sku}, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock ?? 0}::int)`),
       ',',
     );
     await prisma.$executeRaw`
       INSERT INTO "Product" (id, name, sku, category, brand, "unitsPerBulk", price, stock, "isActive", "createdAt", "updatedAt")
-      SELECT id, name, sku, category, brand, "unitsPerBulk", price, 0, true, now(), now()
-      FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price)
+      SELECT id, name, sku, category, brand, "unitsPerBulk", price, stock, true, now(), now()
+      FROM (VALUES ${values}) AS v(id, name, sku, category, brand, "unitsPerBulk", price, stock)
     `;
     console.log(`Creados ${Math.min(i + CHUNK, toCreate.length)}/${toCreate.length}`);
   }
   for (let i = 0; i < toUpdate.length; i += CHUNK) {
     const chunk = toUpdate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.name}::text, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric)`),
+      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.name}::text, ${it.category}::text, ${it.brand}::text, ${it.units}::int, ${it.price}::numeric, ${it.stock}::int)`),
       ',',
     );
     await prisma.$executeRaw`
@@ -116,8 +119,9 @@ async function main() {
         category = COALESCE(v.category, p.category),
         brand = COALESCE(v.brand, p.brand),
         "unitsPerBulk" = COALESCE(v.units, p."unitsPerBulk"),
+        stock = COALESCE(v.stock, p.stock),
         "updatedAt" = now()
-      FROM (VALUES ${values}) AS v(sku, name, category, brand, units, price)
+      FROM (VALUES ${values}) AS v(sku, name, category, brand, units, price, stock)
       WHERE p.sku = v.sku
     `;
     console.log(`Actualizados ${Math.min(i + CHUNK, toUpdate.length)}/${toUpdate.length}`);

@@ -171,9 +171,13 @@ function TiendaInner() {
         (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
         (view !== 'NOVEDADES' || !!promo?.isNew);
     })
-      // Con foto primero, sin foto al final — un producto sin imagen se ve peor
+      // Con stock primero (no tiene sentido ofrecer arriba algo que no se puede comprar),
+      // y dentro de cada grupo, con foto primero — un producto sin imagen se ve peor
       // (el ícono de caja genérico) y conviene que no sea lo primero que aparezca.
-      .sort((a, b) => (a.img ? 0 : 1) - (b.img ? 0 : 1));
+      .sort((a, b) => {
+        const stockDiff = (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0);
+        return stockDiff || (a.img ? 0 : 1) - (b.img ? 0 : 1);
+      });
   }, [catalog, searchTokens, category, line, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   // Reinicia la paginación cada vez que cambia algún filtro, para no quedar "perdido" en la página 5 de otra búsqueda.
@@ -656,9 +660,19 @@ function TiendaInner() {
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>
                   )}
-                  <div className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</span>
+                    <span className="flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: p.stock > 0 ? '#22C55E' : '#E11D48' }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.stock > 0 ? '#22C55E' : '#E11D48' }} />
+                      {p.stock > 0 ? 'En stock' : 'Sin stock'}
+                    </span>
+                  </div>
                   <div className="mt-2.5">
-                    {inCart === 0 ? (
+                    {p.stock <= 0 ? (
+                      <button disabled className="w-full cursor-not-allowed rounded-lg bg-neutral-100 py-2 text-[12px] font-bold text-neutral-400">
+                        Sin stock
+                      </button>
+                    ) : inCart === 0 ? (
                       <button
                         onClick={() => addToCart(p.id)}
                         className="w-full rounded-lg py-2 text-[12px] font-bold text-white transition active:scale-95"

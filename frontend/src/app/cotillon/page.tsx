@@ -135,8 +135,11 @@ function CotillonInner() {
         (view !== 'OFERTAS' || !!(promo?.label || promo?.discountPct)) &&
         (view !== 'NOVEDADES' || !!promo?.isNew);
     })
-      // Con foto primero, sin foto al final.
-      .sort((a, b) => (a.img ? 0 : 1) - (b.img ? 0 : 1));
+      // Con stock primero, y dentro de cada grupo, con foto primero, sin foto al final.
+      .sort((a, b) => {
+        const stockDiff = (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0);
+        return stockDiff || (a.img ? 0 : 1) - (b.img ? 0 : 1);
+      });
   }, [catalog, searchTokens, linea, brand, priceMin, priceMax, view, settings.margenVenta, settings.productPromos]);
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, linea, brand, priceMin, priceMax, view]);
@@ -552,9 +555,19 @@ function CotillonInner() {
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>
                   )}
-                  {p.units > 1 && <div className="text-[10.5px] text-neutral-400">Trae {p.units} u.</div>}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10.5px] text-neutral-400">{p.units > 1 ? `Trae ${p.units} u.` : ''}</span>
+                    <span className="flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: p.stock > 0 ? '#22C55E' : '#E11D48' }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.stock > 0 ? '#22C55E' : '#E11D48' }} />
+                      {p.stock > 0 ? 'En stock' : 'Sin stock'}
+                    </span>
+                  </div>
                   <div className="mt-2.5">
-                    {inCart === 0 ? (
+                    {p.stock <= 0 ? (
+                      <button disabled className="w-full cursor-not-allowed rounded-lg bg-neutral-100 py-2 text-[12px] font-bold text-neutral-400">
+                        Sin stock
+                      </button>
+                    ) : inCart === 0 ? (
                       <button
                         onClick={() => addToCart(p.id)}
                         className="w-full rounded-lg py-2 text-[12px] font-bold text-white transition active:scale-95"
