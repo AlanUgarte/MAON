@@ -135,6 +135,14 @@ export default function ProductosPage() {
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, margin: v === '' ? null : Math.max(0, parseFloat(v) || 0) } : p)));
   const setPrice = (id: string, v: string) =>
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, price: Math.max(0, parseFloat(v) || 0) } : p)));
+  // Activar/desactivar stock a mano: sin stock -> 0 (sale como "Sin stock" en la tienda);
+  // volver a activar lo manda a 1 (no se pretende adivinar la cantidad real, solo habilita
+  // la venta de nuevo hasta el próximo sync real de stock del proveedor).
+  const toggleStock = (p: Prod) => {
+    const stock = p.stock > 0 ? 0 : 1;
+    setItems((arr) => arr.map((x) => (x.id === p.id ? { ...x, stock } : x)));
+    persistProduct(p.id, { stock });
+  };
   // El input solo cambia el estado local en cada tecla; recién en onBlur se guarda de
   // verdad, para no mandar un PATCH por cada tecla que se tipea.
   const persistProduct = (id: string, patch: Record<string, any>) => {
@@ -384,9 +392,17 @@ export default function ProductosPage() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold">{p.name}</div>
                     <div className="mt-0.5 text-[11px] text-muted">{p.brand}</div>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{p.category}</span>
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Bulto x {p.units || '-'} u.</span>
+                      <button
+                        onClick={() => toggleStock(p)}
+                        title="Tocá para activar/desactivar el stock a mano"
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${p.stock > 0 ? 'bg-emerald/10 text-emerald hover:bg-emerald/20' : 'bg-rose/10 text-rose hover:bg-rose/20'}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${p.stock > 0 ? 'bg-emerald' : 'bg-rose'}`} />
+                        {p.stock > 0 ? 'En stock' : 'Sin stock'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -411,7 +427,7 @@ export default function ProductosPage() {
               <thead>
                 <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wide text-muted">
                   <th className="p-3">Producto</th><th className="p-3">Marca</th><th className="p-3">Cat.</th><th className="p-3">Bulto</th>
-                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Venta unidad</th><th className="p-3"></th>
+                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Venta unidad</th><th className="p-3">Stock</th><th className="p-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -426,6 +442,16 @@ export default function ProductosPage() {
                     <td className="p-3"><input type="number" value={p.margin ?? ''} placeholder={String(gPct)} onChange={(e) => setMargin(p.id, e.target.value)} onBlur={() => persistProduct(p.id, { marginPct: p.margin })} className="h-[30px] w-[62px] rounded-lg border border-line/15 bg-surface px-2 text-center font-bold" /></td>
                     <td className="p-3 font-bold text-emerald">{money(ventaB(p))}</td>
                     <td className="p-3 text-emerald">{p.units ? money(ventaU(p)) : '-'}</td>
+                    <td className="p-3">
+                      <button
+                        onClick={() => toggleStock(p)}
+                        title="Tocá para activar/desactivar el stock a mano"
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${p.stock > 0 ? 'bg-emerald/10 text-emerald hover:bg-emerald/20' : 'bg-rose/10 text-rose hover:bg-rose/20'}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${p.stock > 0 ? 'bg-emerald' : 'bg-rose'}`} />
+                        {p.stock > 0 ? 'En stock' : 'Sin stock'}
+                      </button>
+                    </td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(p)} aria-label="Editar" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-content"><Pencil className="h-4 w-4" /></button>

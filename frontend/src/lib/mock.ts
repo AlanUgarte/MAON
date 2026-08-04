@@ -242,6 +242,9 @@ export interface ProductRow {
   id: string; name: string; sku: string; category: string;
   brand: string; units: number; img: string; price: number; stock: number; active: boolean; line?: string;
   marginPct?: number;
+  // Costo por unidad/display suelta — si están presentes, el artículo también se puede
+  // vender así además de por bulto cerrado (ej. Landy Oritas, Chocolates, Vinos).
+  unitPrice?: number; displayPrice?: number; unitsPerDisplay?: number;
 }
 export const PRODUCT_ROWS: ProductRow[] = [
   { id: 'p1', name: "FANTOCHE ALF.TRIPLE NEGRO 24*85 GR.", sku: "TOP1", category: "Alfajores", brand: "FANTOCHE", units: 24, img: "https://www.tyna.com.ar/archivos/imagenes_productos/1090240670.jpg", price: 16527.9, stock: 0, active: true },

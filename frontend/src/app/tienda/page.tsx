@@ -27,7 +27,33 @@ const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDi
 const DELIVERY_SLOTS = ['17:00 a 18:00', '18:00 a 19:00', '19:00 a 20:00', '20:00 a 21:00'];
 const PAGE_SIZE = 24;
 
-interface CartLine { productId: string; qty: number }
+type SellMode = 'BULTO' | 'UNIDAD' | 'DISPLAY';
+const MODE_LABEL: Record<SellMode, string> = { BULTO: 'bulto', UNIDAD: 'unidad', DISPLAY: 'display' };
+interface CartLine { productId: string; mode: SellMode; qty: number }
+
+// Artículos que además del bulto cerrado se pueden vender sueltos: Landy Oritas y
+// cualquier Vino, aunque no tengan cargado un costo real por unidad — se calcula
+// dividiendo el precio del bulto por la cantidad de bultos que trae (ej. "10*1 KG" = 10
+// unidades), que ya sabemos por el campo "units" de cada artículo.
+function isUnitSellable(p: ProductRow): boolean {
+  const n = p.name.toUpperCase();
+  return n.includes('LANDY ORITAS') || p.category === 'Chocolates' || n.includes('VINO');
+}
+/** Modos de venta disponibles para un artículo: bulto cerrado siempre, unidad/display
+ * solo si el artículo trae ese costo (real o calculado) — Landy Oritas, Chocolates, Vinos. */
+function sellModes(p: ProductRow): SellMode[] {
+  const modes: SellMode[] = ['BULTO'];
+  if (p.unitPrice || (isUnitSellable(p) && p.units > 0)) modes.push('UNIDAD');
+  if (p.displayPrice) modes.push('DISPLAY');
+  return modes;
+}
+/** Costo de un artículo según el modo de venta elegido. Si no hay costo real por unidad
+ * cargado, se calcula como precio del bulto / cantidad de unidades que trae. */
+function costoDe(p: ProductRow, mode: SellMode): number {
+  if (mode === 'UNIDAD') return p.unitPrice ?? (p.units > 0 ? p.price / p.units : p.price);
+  if (mode === 'DISPLAY') return p.displayPrice ?? p.price;
+  return p.price;
+}
 
 function ProdImg({ src, size, className = '' }: { src: string; size: number; className?: string }) {
   const [err, setErr] = useState(false);
@@ -81,9 +107,11 @@ function TiendaInner() {
   // El artículo puede traer su propio margen (puesto desde Productos > "Aplicar a la
   // marca/categoría filtrada"); si no tiene, se usa el margen general de la tienda.
   const margenDe = (p: ProductRow) => (p.marginPct != null ? p.marginPct / 100 : settings.margenVenta);
-  const ventaBulto = (p: ProductRow, qty: number = 1) => {
-    const base = p.price * (1 + margenDe(p));
-    const promo = getPromo(p);
+  // Las promos "Lleva N paga M" son un beneficio por bulto cerrado — no aplican si el
+  // cliente eligió comprar por unidad o display suelta.
+  const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
+    const base = costoDe(p, mode) * (1 + margenDe(p));
+    const promo = mode === 'BULTO' ? getPromo(p) : undefined;
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
   };
@@ -136,6 +164,10 @@ function TiendaInner() {
   const [bump, setBump] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Modo elegido en cada tarjeta (bulto/unidad/display) — por producto, no global, así
+  // cada artículo se puede estar mirando/agregando en un modo distinto a la vez.
+  const [cardMode, setCardMode] = useState<Record<string, SellMode>>({});
+  const modeOf = (productId: string) => cardMode[productId] ?? 'BULTO';
 
   const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
   // Líneas (sub-rubros) que tiene cada categoría, para el desplegable estilo Coto —
@@ -164,7 +196,7 @@ function TiendaInner() {
     const min = priceMin ? Number(priceMin) : null;
     const max = priceMax ? Number(priceMax) : null;
     return catalog.filter((p) => {
-      const venta = ventaBulto(p, cart.find((c) => c.productId === p.id)?.qty ?? 0);
+      const venta = ventaBulto(p, cart.find((c) => c.productId === p.id && c.mode === 'BULTO')?.qty ?? 0);
       const promo = getPromo(p);
       const haystack = `${p.name} ${p.brand}`.toLowerCase();
       return (!category || p.category === category) &&
@@ -198,7 +230,7 @@ function TiendaInner() {
 
   const cartLines = cart.map((c) => {
     const p = catalog.find((x) => x.id === c.productId)!;
-    const unitPrice = ventaBulto(p, c.qty);
+    const unitPrice = ventaBulto(p, c.qty, c.mode);
     return { ...c, product: p, unitPrice, subtotal: unitPrice * c.qty };
   });
   const cartCount = cart.reduce((a, c) => a + c.qty, 0);
@@ -214,32 +246,38 @@ function TiendaInner() {
     return () => clearTimeout(t);
   }, [bump]);
 
-  const addToCart = (productId: string) => {
+  // Cada producto puede estar en el carrito por más de un modo a la vez (ej. 2 bultos +
+  // 3 unidades sueltas del mismo artículo), así que las líneas se identifican por el par
+  // (productId, mode), no solo por productId.
+  const addToCart = (productId: string, mode: SellMode = 'BULTO') => {
     setCart((prev) => {
-      const existing = prev.find((c) => c.productId === productId);
-      if (existing) return prev.map((c) => (c.productId === productId ? { ...c, qty: c.qty + 1 } : c));
-      return [...prev, { productId, qty: 1 }];
+      const existing = prev.find((c) => c.productId === productId && c.mode === mode);
+      if (existing) return prev.map((c) => (c === existing ? { ...c, qty: c.qty + 1 } : c));
+      return [...prev, { productId, mode, qty: 1 }];
     });
     setBump(true);
   };
-  const changeQty = (productId: string, delta: number) => {
+  const changeQty = (productId: string, mode: SellMode, delta: number) => {
     setCart((prev) => prev
-      .map((c) => (c.productId === productId ? { ...c, qty: c.qty + delta } : c))
+      .map((c) => (c.productId === productId && c.mode === mode ? { ...c, qty: c.qty + delta } : c))
       .filter((c) => c.qty > 0));
   };
   // Permite tipear la cantidad directamente en vez de solo +/-.
-  const setQty = (productId: string, qty: number) => {
+  const setQty = (productId: string, mode: SellMode, qty: number) => {
     setCart((prev) => prev
-      .map((c) => (c.productId === productId ? { ...c, qty: Math.max(1, Math.floor(qty) || 1) } : c)));
+      .map((c) => (c.productId === productId && c.mode === mode ? { ...c, qty: Math.max(1, Math.floor(qty) || 1) } : c)));
   };
-  const removeLine = (productId: string) => setCart((prev) => prev.filter((c) => c.productId !== productId));
+  const removeLine = (productId: string, mode: SellMode) =>
+    setCart((prev) => prev.filter((c) => !(c.productId === productId && c.mode === mode)));
 
-  const qtyInCart = (productId: string) => cart.find((c) => c.productId === productId)?.qty ?? 0;
+  const qtyInCart = (productId: string, mode: SellMode = 'BULTO') =>
+    cart.find((c) => c.productId === productId && c.mode === mode)?.qty ?? 0;
 
   const buildOrderText = () => {
-    const lines = cartLines.map((l, i) =>
-      `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} bulto${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`,
-    ).join('\n\n');
+    const lines = cartLines.map((l, i) => {
+      const unit = MODE_LABEL[l.mode];
+      return `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} ${unit}${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`;
+    }).join('\n\n');
     const envio = form.wantsShipping
       ? `Envío: ${envioGratis ? 'gratis' : 'a coordinar'}\nDirección: ${form.address}\nHorario disponible: ${form.schedule}`
       : 'Envío: no quiere, retira en el local';
@@ -263,7 +301,14 @@ function TiendaInner() {
     try {
       await addOrder({
         customerName: form.name.trim(), customerPhone: form.phone.trim(),
-        items: cartLines.map((l) => ({ productId: l.productId, sku: l.product.sku, name: l.product.name, qty: l.qty, unitPrice: l.unitPrice })),
+        // ponytail: el pedido/stock del backend todavía piensa en bultos — para líneas por
+        // unidad/display se aclara el modo en el nombre para que no se pierda al facturar/
+        // revisar el pedido a mano; ajustar stock automáticamente por unidad queda pendiente.
+        items: cartLines.map((l) => ({
+          productId: l.productId, sku: l.product.sku,
+          name: l.mode === 'BULTO' ? l.product.name : `${l.product.name} (por ${MODE_LABEL[l.mode]})`,
+          qty: l.qty, unitPrice: l.unitPrice,
+        })),
         subtotal, envioGratis, sellerName: vendedor || undefined,
         wantsShipping: form.wantsShipping,
         shippingAddress: form.wantsShipping ? form.address.trim() : undefined,
@@ -637,17 +682,21 @@ function TiendaInner() {
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visible.map((p) => {
-              const inCart = qtyInCart(p.id);
+              const modes = sellModes(p);
+              const mode = modes.includes(modeOf(p.id)) ? modeOf(p.id) : 'BULTO';
+              const inCart = qtyInCart(p.id, mode);
               const promo = getPromo(p);
-              const original = Math.round(p.price * (1 + margenDe(p)) * 100) / 100;
+              const original = Math.round(costoDe(p, mode) * (1 + margenDe(p)) * 100) / 100;
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
-                    <span className="absolute left-2 top-2 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>Bulto cerrado</span>
+                    <span className="absolute left-2 top-2 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>
+                      {mode === 'BULTO' ? 'Bulto cerrado' : mode === 'UNIDAD' ? 'Por unidad' : 'Por display'}
+                    </span>
                     {promo?.isNew && (
                       <span className="absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
                     )}
-                    {(promo?.label || promo?.discountPct) && (
+                    {(promo?.label || promo?.discountPct) && mode === 'BULTO' && (
                       <span className="absolute bottom-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: ACCENT }}>
                         {promo.label || `${promo.discountPct}% OFF`}
                       </span>
@@ -656,17 +705,35 @@ function TiendaInner() {
                   </div>
                   <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400">{p.brand}</div>
                   <div className="line-clamp-3 min-h-[52px] text-[13px] font-medium leading-tight text-neutral-800" title={p.name}>{p.name}</div>
+
+                  {modes.length > 1 && (
+                    <div className="mt-2 flex gap-1">
+                      {modes.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setCardMode((c) => ({ ...c, [p.id]: m }))}
+                          className="flex-1 rounded-md py-1 text-[10.5px] font-bold capitalize transition"
+                          style={mode === m ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
+                        >
+                          {MODE_LABEL[m]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p, inCart))}</span>
-                    {!!promo?.discountPct && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
+                    <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p, inCart, mode))}</span>
+                    {!!promo?.discountPct && mode === 'BULTO' && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
-                  {!!promo?.discountPct && inCart > 0 && inCart < promoMinQty(promo.label) && (
+                  {!!promo?.discountPct && mode === 'BULTO' && inCart > 0 && inCart < promoMinQty(promo.label) && (
                     <div className="text-[10px] font-semibold" style={{ color: ACCENT }}>
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10.5px] text-neutral-400">bulto x {p.units || '-'} u.</span>
+                    <span className="text-[10.5px] text-neutral-400">
+                      {mode === 'BULTO' ? `bulto x ${p.units || '-'} u.` : mode === 'DISPLAY' ? `display${p.unitsPerDisplay ? ` x ${p.unitsPerDisplay} u.` : ''}` : 'unidad suelta'}
+                    </span>
                     <span className="flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: p.stock > 0 ? '#22C55E' : '#E11D48' }}>
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.stock > 0 ? '#22C55E' : '#E11D48' }} />
                       {p.stock > 0 ? 'En stock' : 'Sin stock'}
@@ -679,7 +746,7 @@ function TiendaInner() {
                       </button>
                     ) : inCart === 0 ? (
                       <button
-                        onClick={() => addToCart(p.id)}
+                        onClick={() => addToCart(p.id, mode)}
                         className="w-full rounded-lg py-2 text-[12px] font-bold text-white transition active:scale-95"
                         style={{ background: ACCENT }}
                       >
@@ -687,16 +754,16 @@ function TiendaInner() {
                       </button>
                     ) : (
                       <div className="flex items-center justify-between rounded-lg border px-1 py-1" style={{ borderColor: `${ACCENT}55`, background: `${ACCENT}12` }}>
-                        <button onClick={() => changeQty(p.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Minus className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => changeQty(p.id, mode, -1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Minus className="h-3.5 w-3.5" /></button>
                         <input
                           type="number"
                           min={1}
                           value={inCart}
-                          onChange={(e) => setQty(p.id, Number(e.target.value))}
+                          onChange={(e) => setQty(p.id, mode, Number(e.target.value))}
                           onClick={(e) => e.stopPropagation()}
                           className="w-10 border-0 bg-transparent text-center text-[13px] font-bold text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
-                        <button onClick={() => changeQty(p.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => changeQty(p.id, mode, 1)} className="flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white" style={{ color: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                     )}
                   </div>
@@ -773,24 +840,27 @@ function TiendaInner() {
             </div>
           )}
           {cartLines.map((l) => (
-            <div key={l.productId} className="flex items-center gap-3 rounded-xl border border-black/5 p-2.5">
+            <div key={`${l.productId}:${l.mode}`} className="flex items-center gap-3 rounded-xl border border-black/5 p-2.5">
               <ProdImg src={l.product.img} size={54} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-medium text-neutral-800">{l.product.name}</div>
-                <div className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</span>
+                  {l.mode !== 'BULTO' && <span className="rounded bg-neutral-100 px-1 py-0.5 text-[9px] font-bold uppercase text-neutral-500">por {MODE_LABEL[l.mode]}</span>}
+                </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <button onClick={() => changeQty(l.productId, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => changeQty(l.productId, l.mode, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
                   <input
                     type="number"
                     min={1}
                     value={l.qty}
-                    onChange={(e) => setQty(l.productId, Number(e.target.value))}
+                    onChange={(e) => setQty(l.productId, l.mode, Number(e.target.value))}
                     className="w-8 border-0 bg-transparent text-center text-[12px] font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
-                  <button onClick={() => changeQty(l.productId, 1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Plus className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => changeQty(l.productId, l.mode, 1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Plus className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
-              <button onClick={() => removeLine(l.productId)} className="text-neutral-300 transition hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => removeLine(l.productId, l.mode)} className="text-neutral-300 transition hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
         </div>
@@ -881,10 +951,10 @@ function TiendaInner() {
               </div>
               <div className="mt-3 max-h-[180px] space-y-1.5 overflow-y-auto rounded-xl bg-neutral-50 p-3.5 text-[12.5px] text-neutral-600">
                 {cartLines.map((l) => (
-                  <div key={l.productId} className="flex items-start justify-between gap-2 border-b border-black/5 pb-1.5 last:border-0 last:pb-0">
+                  <div key={`${l.productId}:${l.mode}`} className="flex items-start justify-between gap-2 border-b border-black/5 pb-1.5 last:border-0 last:pb-0">
                     <div className="min-w-0">
                       <div className="truncate font-medium text-neutral-800">{l.product.name}</div>
-                      <div className="text-[11px] text-neutral-400">{l.qty} bulto{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
+                      <div className="text-[11px] text-neutral-400">{l.qty} {MODE_LABEL[l.mode]}{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
                     </div>
                     <span className="shrink-0 font-semibold text-neutral-800">{money(l.subtotal)}</span>
                   </div>

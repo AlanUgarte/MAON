@@ -31,7 +31,10 @@ export class ProductsService {
     const products = await this.prisma.product.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
-      select: { sku: true, name: true, category: true, line: true, brand: true, unitsPerBulk: true, images: true, price: true, stock: true, marginPct: true },
+      select: {
+        sku: true, name: true, category: true, line: true, brand: true, unitsPerBulk: true, images: true,
+        price: true, stock: true, marginPct: true, unitPrice: true, displayPrice: true, unitsPerDisplay: true,
+      },
     });
     return products.map((p) => ({
       id: `t${p.sku}`,
@@ -48,6 +51,11 @@ export class ProductsService {
       // Margen propio del artículo (puesto desde Productos > "Aplicar a la marca/categoría
       // filtrada") — si no tiene, la tienda usa el margen general de sus settings.
       marginPct: p.marginPct ?? undefined,
+      // Costo por unidad/display suelta, si el artículo también se vende así (además de
+      // por bulto cerrado) — ej. Landy Oritas, Chocolates, Vinos.
+      unitPrice: p.unitPrice != null ? Number(p.unitPrice) : undefined,
+      displayPrice: p.displayPrice != null ? Number(p.displayPrice) : undefined,
+      unitsPerDisplay: p.unitsPerDisplay ?? undefined,
     }));
   }
 
