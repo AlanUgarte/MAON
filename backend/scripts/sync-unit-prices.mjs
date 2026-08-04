@@ -1,12 +1,18 @@
-// Habilita venta por unidad y/o display además de por bulto cerrado, para TODO el
-// catálogo — usa la columna real "Nombre de grupo de unidad de medida" del maestro del
-// proveedor, formato "Bulto AxBxC": A = displays por bulto, B = unidades sueltas que trae
-// cada display, C = factor interno (se ignora). La regla, tal cual la usa el proveedor:
-//   - B = 0  -> el artículo NO se vende suelto por unidad (aunque el maestro repita el
-//               mismo precio en la fila "UNIDAD" que en "DISPLAY", es un dato duplicado/
-//               placeholder de SAP, no una oferta real) — solo bulto y display.
-//   - B > 0  -> el precio de la fila "UNIDAD" es real y distinto, se vende también suelto.
-//   - A = 0  -> no hay empaque de display, solo bulto (y unidad si B > 0 en ese caso raro).
+// Habilita venta por unidad, zuncho y/o display además de por bulto cerrado, para TODO
+// el catálogo — usa la columna real "Nombre de grupo de unidad de medida" del maestro del
+// proveedor, formato "Bulto AxBxC":
+//   A = displays por bulto.
+//   B = unidades sueltas que trae cada display (0 = no se vende suelto, solo bulto/display).
+//   C = tamaño del "zuncho" (paquete chico) en el que vienen empaquetadas esas B unidades
+//       sueltas dentro del display. C=1 (o ausente) = las B unidades se venden una por una
+//       ("Unidad"). C>1 = se venden en paquetitos de C unidades ("Zuncho"), no sueltas.
+// Las filas "UNIDAD"/"ZUNCHO" del maestro solo se usan como señal de que el proveedor
+// realmente ofrece esa modalidad (existe la fila con precio > 0) — el precio que se
+// guarda NO es ese valor crudo, se recalcula por proporción pura a partir del precio de
+// display (displayPrice / B, o ese mismo valor * C para el caso zuncho), porque el precio
+// crudo del maestro ya trae incorporado el recargo del 8.5% que el proveedor aplica en su
+// propia UI ("Reducido por %: -8,5") — y la tienda vuelve a aplicar ese mismo 8.5% en su
+// propia capa de margen, así que usar el crudo lo duplicaría.
 // Solo actualiza artículos que YA existen en la base — no crea ni toca nada más (precio de
 // bulto, stock, nombre, etc. quedan igual).
 // Uso: DATABASE_URL=<DATABASE_PUBLIC_URL> node sync-unit-prices.mjs <maestro.xlsx> [--apply]
@@ -42,32 +48,51 @@ async function main() {
     if (!sku) continue;
     const m = String(row[groupCol] ?? '').match(/(\d+)x(\d+)x(\d+)/i);
     if (!m) continue; // "Manual" u otro formato sin la grilla AxBxC: no tocar
-    const [, aStr, bStr] = m;
-    const displaysPerBulto = Number(aStr), unitsPerDisplay = Number(bStr);
+    const [, aStr, bStr, cStr] = m;
+    const displaysPerBulto = Number(aStr), unitsPerDisplay = Number(bStr), zunchoSize = Number(cStr);
     if (!bySku.has(sku)) {
-      bySku.set(sku, { sku, name: String(row[nameCol] ?? '').trim(), displaysPerBulto, unitsPerDisplay, unitPrice: null, displayPrice: null });
+      bySku.set(sku, {
+        sku, name: String(row[nameCol] ?? '').trim(), displaysPerBulto, unitsPerDisplay, zunchoSize,
+        hasUnidadRow: false, hasZunchoRow: false, displayPrice: null,
+      });
     }
     const entry = bySku.get(sku);
     const uom = String(row[uomCol]).trim();
     const price = parseNum(row[priceCol]);
     if (uom === 'DISPLAY' && price && displaysPerBulto > 0) entry.displayPrice = Math.round(price * 100) / 100;
-    // La fila "UNIDAD" solo es una oferta real si el maestro dice que el display trae más
-    // de una unidad suelta (B > 0) — si no, es el mismo precio del display duplicado.
-    if (uom === 'UNIDAD' && price && unitsPerDisplay > 0) entry.unitPrice = Math.round(price * 100) / 100;
+    // Las filas UNIDAD/ZUNCHO solo marcan ELEGIBILIDAD (el proveedor realmente vende así) —
+    // el precio se recalcula abajo por proporción pura, no se usa el crudo de estas filas.
+    if (uom === 'UNIDAD' && price && unitsPerDisplay > 0) entry.hasUnidadRow = true;
+    if (uom === 'ZUNCHO' && price && unitsPerDisplay > 0) entry.hasZunchoRow = true;
+  }
+
+  for (const it of bySku.values()) {
+    it.unitPrice = null;
+    it.unitsPerZuncho = null;
+    if (!it.displayPrice || !it.unitsPerDisplay) continue;
+    const baseUnitCost = it.displayPrice / it.unitsPerDisplay;
+    if (it.zunchoSize > 1 && it.hasZunchoRow) {
+      it.unitPrice = Math.round(baseUnitCost * it.zunchoSize * 100) / 100;
+      it.unitsPerZuncho = it.zunchoSize;
+    } else if (it.zunchoSize <= 1 && it.hasUnidadRow) {
+      it.unitPrice = Math.round(baseUnitCost * 100) / 100;
+    }
   }
 
   const items = [...bySku.values()].filter((it) => it.unitPrice || it.displayPrice);
-  console.log(`Artículos del maestro con venta por unidad y/o display real: ${items.length}`);
-  console.log(`  solo unidad: ${items.filter((it) => it.unitPrice && !it.displayPrice).length}`);
+  console.log(`Artículos del maestro con venta por unidad/zuncho y/o display real: ${items.length}`);
+  console.log(`  solo unidad: ${items.filter((it) => it.unitPrice && !it.unitsPerZuncho && !it.displayPrice).length}`);
+  console.log(`  solo zuncho: ${items.filter((it) => it.unitPrice && it.unitsPerZuncho && !it.displayPrice).length}`);
   console.log(`  solo display: ${items.filter((it) => !it.unitPrice && it.displayPrice).length}`);
-  console.log(`  unidad y display: ${items.filter((it) => it.unitPrice && it.displayPrice).length}`);
+  console.log(`  unidad y display: ${items.filter((it) => it.unitPrice && !it.unitsPerZuncho && it.displayPrice).length}`);
+  console.log(`  zuncho y display: ${items.filter((it) => it.unitPrice && it.unitsPerZuncho && it.displayPrice).length}`);
 
   const skus = items.map((it) => it.sku);
   const existing = [];
   const CHUNK_LOOKUP = 5000;
   for (let i = 0; i < skus.length; i += CHUNK_LOOKUP) {
     const chunk = skus.slice(i, i + CHUNK_LOOKUP);
-    existing.push(...await prisma.product.findMany({ where: { sku: { in: chunk } }, select: { sku: true, name: true, price: true, unitPrice: true, displayPrice: true } }));
+    existing.push(...await prisma.product.findMany({ where: { sku: { in: chunk } }, select: { sku: true, name: true, price: true } }));
   }
   const existingBySku = new Map(existing.map((p) => [p.sku, p]));
   const toUpdate = items.filter((it) => existingBySku.has(it.sku));
@@ -78,7 +103,8 @@ async function main() {
   for (const it of toUpdate.slice(0, 15)) {
     const cur = existingBySku.get(it.sku);
     console.log(`  ${it.sku} ${cur.name}`);
-    console.log(`    bulto: $${Number(cur.price)} · unidad: ${it.unitPrice ? '$' + it.unitPrice : '-'} · display: ${it.displayPrice ? `$${it.displayPrice} (${it.unitsPerDisplay} u.)` : '-'}`);
+    const unidadTxt = it.unitPrice ? (it.unitsPerZuncho ? `$${it.unitPrice} (zuncho x${it.unitsPerZuncho})` : `$${it.unitPrice}`) : '-';
+    console.log(`    bulto: $${Number(cur.price)} · unidad/zuncho: ${unidadTxt} · display: ${it.displayPrice ? `$${it.displayPrice} (${it.unitsPerDisplay} u.)` : '-'}`);
   }
 
   if (!apply) {
@@ -87,12 +113,11 @@ async function main() {
     return;
   }
 
-  // Limpia lo que haya quedado de una corrida anterior con una regla más floja (ej. el
-  // primer intento, que habilitaba unidad por marca/categoría sin mirar el B de "AxBxC"),
-  // para no dejar datos viejos en artículos que la regla nueva no vuelve a tocar.
+  // Limpia lo que haya quedado de una corrida anterior (regla vieja sin zuncho, o precios
+  // crudos sin la corrección proporcional), para no dejar datos viejos pisados.
   const resetCount = await prisma.$executeRaw`
-    UPDATE "Product" SET "unitPrice" = NULL, "displayPrice" = NULL, "unitsPerDisplay" = NULL
-    WHERE "unitPrice" IS NOT NULL OR "displayPrice" IS NOT NULL
+    UPDATE "Product" SET "unitPrice" = NULL, "displayPrice" = NULL, "unitsPerDisplay" = NULL, "unitsPerZuncho" = NULL
+    WHERE "unitPrice" IS NOT NULL OR "displayPrice" IS NOT NULL OR "unitsPerZuncho" IS NOT NULL
   `;
   console.log(`Reseteados ${resetCount} artículos de una corrida anterior antes de aplicar la regla nueva.`);
 
@@ -100,7 +125,7 @@ async function main() {
   for (let i = 0; i < toUpdate.length; i += CHUNK) {
     const chunk = toUpdate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.unitPrice}::numeric, ${it.displayPrice}::numeric, ${it.displayPrice ? it.unitsPerDisplay : null}::int)`),
+      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.unitPrice}::numeric, ${it.displayPrice}::numeric, ${it.displayPrice ? it.unitsPerDisplay : null}::int, ${it.unitsPerZuncho}::int)`),
       ',',
     );
     await prisma.$executeRaw`
@@ -108,8 +133,9 @@ async function main() {
         "unitPrice" = v."unitPrice",
         "displayPrice" = v."displayPrice",
         "unitsPerDisplay" = v."unitsPerDisplay",
+        "unitsPerZuncho" = v."unitsPerZuncho",
         "updatedAt" = now()
-      FROM (VALUES ${values}) AS v(sku, "unitPrice", "displayPrice", "unitsPerDisplay")
+      FROM (VALUES ${values}) AS v(sku, "unitPrice", "displayPrice", "unitsPerDisplay", "unitsPerZuncho")
       WHERE p.sku = v.sku
     `;
     console.log(`Actualizados ${Math.min(i + CHUNK, toUpdate.length)}/${toUpdate.length}`);

@@ -40,8 +40,8 @@ interface CartLine { productId: string; mode: SellMode; qty: number }
  * suelto por más que el maestro repita el mismo precio en la fila "unidad"). */
 function sellModes(p: ProductRow): SellMode[] {
   const modes: SellMode[] = ['BULTO'];
-  if (p.unitPrice) modes.push('UNIDAD');
   if (p.displayPrice) modes.push('DISPLAY');
+  if (p.unitPrice) modes.push('UNIDAD');
   return modes;
 }
 /** Costo de un artículo según el modo de venta elegido. */
@@ -49,6 +49,17 @@ function costoDe(p: ProductRow, mode: SellMode): number {
   if (mode === 'UNIDAD') return p.unitPrice ?? p.price;
   if (mode === 'DISPLAY') return p.displayPrice ?? p.price;
   return p.price;
+}
+/** El modo "UNIDAD" a veces en realidad es un "zuncho" (paquete de N unidades, reutiliza
+ * el mismo campo unitPrice) — este helper devuelve el sustantivo correcto para mostrar. */
+function modeNoun(p: ProductRow, mode: SellMode): string {
+  if (mode === 'UNIDAD' && p.unitsPerZuncho && p.unitsPerZuncho > 1) return 'zuncho';
+  return MODE_LABEL[mode];
+}
+/** Etiqueta descriptiva con la cantidad del zuncho cuando aplica (ej. "zuncho x5"). */
+function modeLabel(p: ProductRow, mode: SellMode): string {
+  const noun = modeNoun(p, mode);
+  return mode === 'UNIDAD' && p.unitsPerZuncho && p.unitsPerZuncho > 1 ? `${noun} x${p.unitsPerZuncho}` : noun;
 }
 
 function ProdImg({ src, size, className = '' }: { src: string; size: number; className?: string }) {
@@ -275,7 +286,7 @@ function TiendaInner() {
 
   const buildOrderText = () => {
     const lines = cartLines.map((l, i) => {
-      const unit = MODE_LABEL[l.mode];
+      const unit = modeNoun(l.product, l.mode);
       return `${i + 1}. ${l.product.name}\n   Cantidad: ${l.qty} ${unit}${l.qty === 1 ? '' : 's'} x ${money(l.unitPrice)} = ${money(l.subtotal)}`;
     }).join('\n\n');
     const envio = form.wantsShipping
@@ -306,7 +317,7 @@ function TiendaInner() {
         // revisar el pedido a mano; ajustar stock automáticamente por unidad queda pendiente.
         items: cartLines.map((l) => ({
           productId: l.productId, sku: l.product.sku,
-          name: l.mode === 'BULTO' ? l.product.name : `${l.product.name} (por ${MODE_LABEL[l.mode]})`,
+          name: l.mode === 'BULTO' ? l.product.name : `${l.product.name} (por ${modeLabel(l.product, l.mode)})`,
           qty: l.qty, unitPrice: l.unitPrice,
         })),
         subtotal, envioGratis, sellerName: vendedor || undefined,
@@ -691,7 +702,7 @@ function TiendaInner() {
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
                     <span className="absolute left-2 top-2 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: BRAND }}>
-                      {mode === 'BULTO' ? 'Bulto cerrado' : mode === 'UNIDAD' ? 'Por unidad' : 'Por display'}
+                      {mode === 'BULTO' ? 'Bulto cerrado' : mode === 'DISPLAY' ? 'Por display' : `Por ${modeLabel(p, mode)}`}
                     </span>
                     {promo?.isNew && (
                       <span className="absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
@@ -715,7 +726,7 @@ function TiendaInner() {
                           className="flex-1 rounded-md py-1 text-[10.5px] font-bold capitalize transition"
                           style={mode === m ? { background: BRAND, color: '#fff' } : { background: '#F1F1EC', color: '#666' }}
                         >
-                          {MODE_LABEL[m]}
+                          {modeLabel(p, m)}
                         </button>
                       ))}
                     </div>
@@ -732,7 +743,7 @@ function TiendaInner() {
                   )}
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-[10.5px] text-neutral-400">
-                      {mode === 'BULTO' ? `bulto x ${p.units || '-'} u.` : mode === 'DISPLAY' ? `display${p.unitsPerDisplay ? ` x ${p.unitsPerDisplay} u.` : ''}` : 'unidad suelta'}
+                      {mode === 'BULTO' ? `bulto x ${p.units || '-'} u.` : mode === 'DISPLAY' ? `display${p.unitsPerDisplay ? ` x ${p.unitsPerDisplay} u.` : ''}` : p.unitsPerZuncho && p.unitsPerZuncho > 1 ? `paquete de ${p.unitsPerZuncho} u.` : 'unidad suelta'}
                     </span>
                     <span className="flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: p.stock > 0 ? '#22C55E' : '#E11D48' }}>
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.stock > 0 ? '#22C55E' : '#E11D48' }} />
@@ -846,7 +857,7 @@ function TiendaInner() {
                 <div className="truncate text-[13px] font-medium text-neutral-800">{l.product.name}</div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</span>
-                  {l.mode !== 'BULTO' && <span className="rounded bg-neutral-100 px-1 py-0.5 text-[9px] font-bold uppercase text-neutral-500">por {MODE_LABEL[l.mode]}</span>}
+                  {l.mode !== 'BULTO' && <span className="rounded bg-neutral-100 px-1 py-0.5 text-[9px] font-bold uppercase text-neutral-500">por {modeLabel(l.product, l.mode)}</span>}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <button onClick={() => changeQty(l.productId, l.mode, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
@@ -954,7 +965,7 @@ function TiendaInner() {
                   <div key={`${l.productId}:${l.mode}`} className="flex items-start justify-between gap-2 border-b border-black/5 pb-1.5 last:border-0 last:pb-0">
                     <div className="min-w-0">
                       <div className="truncate font-medium text-neutral-800">{l.product.name}</div>
-                      <div className="text-[11px] text-neutral-400">{l.qty} {MODE_LABEL[l.mode]}{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
+                      <div className="text-[11px] text-neutral-400">{l.qty} {modeNoun(l.product, l.mode)}{l.qty === 1 ? '' : 's'} × {money(l.unitPrice)}</div>
                     </div>
                     <span className="shrink-0 font-semibold text-neutral-800">{money(l.subtotal)}</span>
                   </div>

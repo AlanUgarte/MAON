@@ -245,6 +245,9 @@ export interface ProductRow {
   // Costo por unidad/display suelta — si están presentes, el artículo también se puede
   // vender así además de por bulto cerrado (ej. Landy Oritas, Chocolates, Vinos).
   unitPrice?: number; displayPrice?: number; unitsPerDisplay?: number;
+  // Si unitPrice es en realidad un "zuncho" (paquete de N unidades, no una unidad suelta),
+  // acá va el N — ej. Arcor Cofler 20*38 GR (zunchos de 5).
+  unitsPerZuncho?: number;
 }
 export const PRODUCT_ROWS: ProductRow[] = [
   { id: 'p1', name: "FANTOCHE ALF.TRIPLE NEGRO 24*85 GR.", sku: "TOP1", category: "Alfajores", brand: "FANTOCHE", units: 24, img: "https://www.tyna.com.ar/archivos/imagenes_productos/1090240670.jpg", price: 16527.9, stock: 0, active: true },

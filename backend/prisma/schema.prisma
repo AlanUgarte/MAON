@@ -473,6 +473,9 @@ model Product {
   unitPrice       Decimal? @db.Decimal(12, 2)
   /// Precio de costo por display (no null = también se vende por display, ej. Chocolates).
   displayPrice    Decimal? @db.Decimal(12, 2)
+  /// Cantidad de unidades que trae un "zuncho" (paquete chico) cuando el artículo se
+  /// vende así en vez de por unidad suelta — reutiliza unitPrice para el costo.
+  unitsPerZuncho  Int?
   /// Unidades sueltas que trae un display (solo informativo).
   unitsPerDisplay Int?
   stock        Int      @default(0)

@@ -34,6 +34,7 @@ export class ProductsService {
       select: {
         sku: true, name: true, category: true, line: true, brand: true, unitsPerBulk: true, images: true,
         price: true, stock: true, marginPct: true, unitPrice: true, displayPrice: true, unitsPerDisplay: true,
+        unitsPerZuncho: true,
       },
     });
     return products.map((p) => ({
@@ -56,6 +57,9 @@ export class ProductsService {
       unitPrice: p.unitPrice != null ? Number(p.unitPrice) : undefined,
       displayPrice: p.displayPrice != null ? Number(p.displayPrice) : undefined,
       unitsPerDisplay: p.unitsPerDisplay ?? undefined,
+      // Si el "unitPrice" de arriba es en realidad un "zuncho" (paquete de N unidades,
+      // no una unidad suelta), acá va el N — ej. Arcor Cofler 8*20*38GR (zunchos de 5).
+      unitsPerZuncho: p.unitsPerZuncho ?? undefined,
     }));
   }
 
