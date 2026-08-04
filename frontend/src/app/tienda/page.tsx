@@ -78,8 +78,11 @@ function TiendaInner() {
     }
     return 1;
   };
+  // El artículo puede traer su propio margen (puesto desde Productos > "Aplicar a la
+  // marca/categoría filtrada"); si no tiene, se usa el margen general de la tienda.
+  const margenDe = (p: ProductRow) => (p.marginPct != null ? p.marginPct / 100 : settings.margenVenta);
   const ventaBulto = (p: ProductRow, qty: number = 1) => {
-    const base = p.price * (1 + settings.margenVenta);
+    const base = p.price * (1 + margenDe(p));
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
@@ -636,7 +639,7 @@ function TiendaInner() {
             {visible.map((p) => {
               const inCart = qtyInCart(p.id);
               const promo = getPromo(p);
-              const original = Math.round(p.price * (1 + settings.margenVenta) * 100) / 100;
+              const original = Math.round(p.price * (1 + margenDe(p)) * 100) / 100;
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>

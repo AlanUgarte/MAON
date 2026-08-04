@@ -34,7 +34,9 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 // es en la práctica el proveedor de esa línea) y muestra el precio de VENTA (costo +
 // margen), nunca el costo interno.
 function buildPriceListHtml(products: ProductRow[], margenVenta: number) {
-  const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + margenVenta));
+  // Respeta el margen propio del artículo (Productos > "Aplicar a la marca/categoría
+  // filtrada") si lo tiene; si no, usa el margen general de la tienda.
+  const ventaBulto = (p: ProductRow) => Math.round(p.price * (1 + (p.marginPct != null ? p.marginPct / 100 : margenVenta)));
   const byBrand = new Map<string, ProductRow[]>();
   [...products].sort((a, b) => a.name.localeCompare(b.name)).forEach((p) => {
     const brand = p.brand || 'Sin marca';
