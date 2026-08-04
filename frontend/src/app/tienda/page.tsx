@@ -25,6 +25,9 @@ const CAT_ICON: Record<string, string> = {
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // El reparto solo sale entre las 17 y las 21 hs — el cliente elige la franja, no escribe cualquier horario.
 const DELIVERY_SLOTS = ['17:00 a 18:00', '18:00 a 19:00', '19:00 a 20:00', '20:00 a 21:00'];
+// Vender suelto por unidad rompe el bulto cerrado — se le suma un 8.5% extra al precio
+// de venta (no al display, ese sigue siendo un pack cerrado como el bulto).
+const UNIT_SURCHARGE = 0.085;
 const PAGE_SIZE = 24;
 
 type SellMode = 'BULTO' | 'UNIDAD' | 'DISPLAY';
@@ -110,7 +113,7 @@ function TiendaInner() {
   // Las promos "Lleva N paga M" son un beneficio por bulto cerrado — no aplican si el
   // cliente eligió comprar por unidad o display suelta.
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
-    const base = costoDe(p, mode) * (1 + margenDe(p));
+    const base = costoDe(p, mode) * (1 + margenDe(p)) * (mode === 'UNIDAD' ? 1 + UNIT_SURCHARGE : 1);
     const promo = mode === 'BULTO' ? getPromo(p) : undefined;
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
