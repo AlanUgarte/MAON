@@ -34,26 +34,19 @@ type SellMode = 'BULTO' | 'UNIDAD' | 'DISPLAY';
 const MODE_LABEL: Record<SellMode, string> = { BULTO: 'bulto', UNIDAD: 'unidad', DISPLAY: 'display' };
 interface CartLine { productId: string; mode: SellMode; qty: number }
 
-// Artículos que además del bulto cerrado se pueden vender sueltos: Landy Oritas y
-// cualquier Vino, aunque no tengan cargado un costo real por unidad — se calcula
-// dividiendo el precio del bulto por la cantidad de bultos que trae (ej. "10*1 KG" = 10
-// unidades), que ya sabemos por el campo "units" de cada artículo.
-function isUnitSellable(p: ProductRow): boolean {
-  const n = p.name.toUpperCase();
-  return n.includes('LANDY ORITAS') || p.category === 'Chocolates' || n.includes('VINO');
-}
-/** Modos de venta disponibles para un artículo: bulto cerrado siempre, unidad/display
- * solo si el artículo trae ese costo (real o calculado) — Landy Oritas, Chocolates, Vinos. */
+/** Modos de venta disponibles para un artículo: bulto cerrado siempre, unidad/display solo
+ * si el maestro del proveedor trae ese costo real (columna "Grupo de unidad de medida"
+ * AxBxC: A = displays por bulto, B = unidades sueltas por display — si B es 0 no se vende
+ * suelto por más que el maestro repita el mismo precio en la fila "unidad"). */
 function sellModes(p: ProductRow): SellMode[] {
   const modes: SellMode[] = ['BULTO'];
-  if (p.unitPrice || (isUnitSellable(p) && p.units > 0)) modes.push('UNIDAD');
+  if (p.unitPrice) modes.push('UNIDAD');
   if (p.displayPrice) modes.push('DISPLAY');
   return modes;
 }
-/** Costo de un artículo según el modo de venta elegido. Si no hay costo real por unidad
- * cargado, se calcula como precio del bulto / cantidad de unidades que trae. */
+/** Costo de un artículo según el modo de venta elegido. */
 function costoDe(p: ProductRow, mode: SellMode): number {
-  if (mode === 'UNIDAD') return p.unitPrice ?? (p.units > 0 ? p.price / p.units : p.price);
+  if (mode === 'UNIDAD') return p.unitPrice ?? p.price;
   if (mode === 'DISPLAY') return p.displayPrice ?? p.price;
   return p.price;
 }
@@ -112,8 +105,12 @@ function TiendaInner() {
   const margenDe = (p: ProductRow) => (p.marginPct != null ? p.marginPct / 100 : settings.margenVenta);
   // Las promos "Lleva N paga M" son un beneficio por bulto cerrado — no aplican si el
   // cliente eligió comprar por unidad o display suelta.
+  // El recargo va al modo más suelto que tenga el artículo: unidad si se vende por unidad,
+  // si no display (ej. FEL-FORT PARAGUITAS no se vende por unidad, así que el recargo cae
+  // en el display, que es ahí el modo más suelto disponible).
+  const surchargeMode = (p: ProductRow): SellMode | null => (p.unitPrice ? 'UNIDAD' : p.displayPrice ? 'DISPLAY' : null);
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
-    const base = costoDe(p, mode) * (1 + margenDe(p)) * (mode === 'UNIDAD' ? 1 + UNIT_SURCHARGE : 1);
+    const base = costoDe(p, mode) * (1 + margenDe(p)) * (mode === surchargeMode(p) ? 1 + UNIT_SURCHARGE : 1);
     const promo = mode === 'BULTO' ? getPromo(p) : undefined;
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;

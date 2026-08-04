@@ -1,8 +1,14 @@
-// Habilita venta por unidad (y display, para Chocolates) en artículos que hoy solo se
-// venden por bulto cerrado: Landy Oritas, Chocolates y Vinos — usa el precio real de costo
-// por unidad/display que trae el maestro del proveedor (no se inventa dividiendo el precio
-// de bulto). Solo actualiza artículos que YA existen en la base, no crea ni toca nada más
-// (precio de bulto, stock, nombre, etc. quedan igual).
+// Habilita venta por unidad y/o display además de por bulto cerrado, para TODO el
+// catálogo — usa la columna real "Nombre de grupo de unidad de medida" del maestro del
+// proveedor, formato "Bulto AxBxC": A = displays por bulto, B = unidades sueltas que trae
+// cada display, C = factor interno (se ignora). La regla, tal cual la usa el proveedor:
+//   - B = 0  -> el artículo NO se vende suelto por unidad (aunque el maestro repita el
+//               mismo precio en la fila "UNIDAD" que en "DISPLAY", es un dato duplicado/
+//               placeholder de SAP, no una oferta real) — solo bulto y display.
+//   - B > 0  -> el precio de la fila "UNIDAD" es real y distinto, se vende también suelto.
+//   - A = 0  -> no hay empaque de display, solo bulto (y unidad si B > 0 en ese caso raro).
+// Solo actualiza artículos que YA existen en la base — no crea ni toca nada más (precio de
+// bulto, stock, nombre, etc. quedan igual).
 // Uso: DATABASE_URL=<DATABASE_PUBLIC_URL> node sync-unit-prices.mjs <maestro.xlsx> [--apply]
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as XLSX from 'xlsx';
@@ -18,15 +24,6 @@ const parseNum = (v) => {
   return isFinite(n) && n > 0 ? n : null;
 };
 
-// A qué grupo pertenece un artículo, a partir de nombre/categoría/línea del maestro.
-function groupOf({ name, category, line }) {
-  const n = name.toUpperCase();
-  if (n.includes('LANDY ORITAS')) return 'landy';
-  if (category === 'Chocolates') return 'chocolates';
-  if (n.startsWith('VINO ') || line === 'VINOS') return 'vinos';
-  return null;
-}
-
 async function main() {
   const buffer = readFileSync(filePath);
   const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -34,51 +31,54 @@ async function main() {
   const header = rows[0].map((c) => String(c).trim());
   const col = (name) => header.indexOf(name);
   const skuCol = col('Número de artículo'), nameCol = col('Descripción del artículo'),
-    catCol = col('Nombre de grupo'), lineCol = col('Linea'), uomCol = col('Código de unidad de medida'),
-    priceCol = col('PriceBruto'), qtyDisplayCol = col('QtyDisplay');
+    groupCol = col('Nombre de grupo de unidad de medida'), uomCol = col('Código de unidad de medida'),
+    priceCol = col('PriceBruto');
+  if (skuCol === -1 || groupCol === -1 || uomCol === -1) throw new Error('Faltan columnas esperadas en el maestro');
 
-  // Una entrada por SKU con sus 3 precios (BULTO/UNIDAD/DISPLAY) juntos.
   const bySku = new Map();
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const sku = String(row[skuCol] ?? '').trim();
     if (!sku) continue;
-    const name = String(row[nameCol] ?? '').trim();
-    const category = String(row[catCol] ?? '').trim();
-    const line = String(row[lineCol] ?? '').trim();
-    const group = groupOf({ name, category, line });
-    if (!group) continue;
-    if (!bySku.has(sku)) bySku.set(sku, { sku, name, group, unitPrice: null, displayPrice: null, unitsPerDisplay: null });
+    const m = String(row[groupCol] ?? '').match(/(\d+)x(\d+)x(\d+)/i);
+    if (!m) continue; // "Manual" u otro formato sin la grilla AxBxC: no tocar
+    const [, aStr, bStr] = m;
+    const displaysPerBulto = Number(aStr), unitsPerDisplay = Number(bStr);
+    if (!bySku.has(sku)) {
+      bySku.set(sku, { sku, name: String(row[nameCol] ?? '').trim(), displaysPerBulto, unitsPerDisplay, unitPrice: null, displayPrice: null });
+    }
     const entry = bySku.get(sku);
     const uom = String(row[uomCol]).trim();
     const price = parseNum(row[priceCol]);
-    if (uom === 'UNIDAD' && price) entry.unitPrice = Math.round(price * 100) / 100;
-    if (uom === 'DISPLAY' && price) {
-      entry.displayPrice = Math.round(price * 100) / 100;
-      entry.unitsPerDisplay = qtyDisplayCol !== -1 ? (Number(row[qtyDisplayCol]) || null) : null;
-    }
+    if (uom === 'DISPLAY' && price && displaysPerBulto > 0) entry.displayPrice = Math.round(price * 100) / 100;
+    // La fila "UNIDAD" solo es una oferta real si el maestro dice que el display trae más
+    // de una unidad suelta (B > 0) — si no, es el mismo precio del display duplicado.
+    if (uom === 'UNIDAD' && price && unitsPerDisplay > 0) entry.unitPrice = Math.round(price * 100) / 100;
   }
 
-  // Solo importa lo que trae al menos un precio por unidad o display real.
   const items = [...bySku.values()].filter((it) => it.unitPrice || it.displayPrice);
-  console.log(`Artículos de Landy/Chocolates/Vinos con precio por unidad o display en el archivo: ${items.length}`);
-  for (const g of ['landy', 'chocolates', 'vinos']) {
-    console.log(`  ${g}: ${items.filter((it) => it.group === g).length}`);
-  }
+  console.log(`Artículos del maestro con venta por unidad y/o display real: ${items.length}`);
+  console.log(`  solo unidad: ${items.filter((it) => it.unitPrice && !it.displayPrice).length}`);
+  console.log(`  solo display: ${items.filter((it) => !it.unitPrice && it.displayPrice).length}`);
+  console.log(`  unidad y display: ${items.filter((it) => it.unitPrice && it.displayPrice).length}`);
 
   const skus = items.map((it) => it.sku);
-  const existing = await prisma.product.findMany({ where: { sku: { in: skus } }, select: { sku: true, name: true, unitPrice: true, displayPrice: true, unitsPerBulk: true, price: true } });
+  const existing = [];
+  const CHUNK_LOOKUP = 5000;
+  for (let i = 0; i < skus.length; i += CHUNK_LOOKUP) {
+    const chunk = skus.slice(i, i + CHUNK_LOOKUP);
+    existing.push(...await prisma.product.findMany({ where: { sku: { in: chunk } }, select: { sku: true, name: true, price: true, unitPrice: true, displayPrice: true } }));
+  }
   const existingBySku = new Map(existing.map((p) => [p.sku, p]));
   const toUpdate = items.filter((it) => existingBySku.has(it.sku));
-  const notInCatalog = items.length - toUpdate.length;
+  console.log(`  existen en el catálogo (se actualizan): ${toUpdate.length}`);
+  console.log(`  no están en el catálogo (se ignoran): ${items.length - toUpdate.length}`);
 
-  console.log(`  ya existen en el catálogo (se actualizan): ${toUpdate.length}`);
-  console.log(`  no están en el catálogo (se ignoran, no se crean artículos nuevos acá): ${notInCatalog}`);
-  console.log('\nMuestra (primeros 15):');
+  console.log('\nMuestra (primeras 15):');
   for (const it of toUpdate.slice(0, 15)) {
     const cur = existingBySku.get(it.sku);
-    console.log(`  [${it.group}] ${it.sku} ${cur.name}`);
-    console.log(`    bulto (${cur.unitsPerBulk ?? '?'} u.): $${Number(cur.price)} · unidad: ${it.unitPrice ? '$' + it.unitPrice : '-'} · display: ${it.displayPrice ? `$${it.displayPrice} (${it.unitsPerDisplay ?? '?'} u.)` : '-'}`);
+    console.log(`  ${it.sku} ${cur.name}`);
+    console.log(`    bulto: $${Number(cur.price)} · unidad: ${it.unitPrice ? '$' + it.unitPrice : '-'} · display: ${it.displayPrice ? `$${it.displayPrice} (${it.unitsPerDisplay} u.)` : '-'}`);
   }
 
   if (!apply) {
@@ -87,11 +87,20 @@ async function main() {
     return;
   }
 
+  // Limpia lo que haya quedado de una corrida anterior con una regla más floja (ej. el
+  // primer intento, que habilitaba unidad por marca/categoría sin mirar el B de "AxBxC"),
+  // para no dejar datos viejos en artículos que la regla nueva no vuelve a tocar.
+  const resetCount = await prisma.$executeRaw`
+    UPDATE "Product" SET "unitPrice" = NULL, "displayPrice" = NULL, "unitsPerDisplay" = NULL
+    WHERE "unitPrice" IS NOT NULL OR "displayPrice" IS NOT NULL
+  `;
+  console.log(`Reseteados ${resetCount} artículos de una corrida anterior antes de aplicar la regla nueva.`);
+
   const CHUNK = 500;
   for (let i = 0; i < toUpdate.length; i += CHUNK) {
     const chunk = toUpdate.slice(i, i + CHUNK);
     const values = Prisma.join(
-      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.unitPrice}::numeric, ${it.displayPrice}::numeric, ${it.unitsPerDisplay}::int)`),
+      chunk.map((it) => Prisma.sql`(${it.sku}, ${it.unitPrice}::numeric, ${it.displayPrice}::numeric, ${it.displayPrice ? it.unitsPerDisplay : null}::int)`),
       ',',
     );
     await prisma.$executeRaw`
