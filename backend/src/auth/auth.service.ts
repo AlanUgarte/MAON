@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
@@ -18,6 +19,7 @@ const OWNER_EMAIL = 'ugartealan776@gmail.com';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly googleClient = process.env.GOOGLE_CLIENT_ID
     ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
     : null;
@@ -44,6 +46,7 @@ export class AuthService {
         role: 'VENDEDOR',
       },
     });
+    this.logger.log(`Cuenta nueva por auto-registro: ${dto.email}`);
     return this.sign(user);
   }
 
@@ -147,9 +150,13 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+      this.logger.warn(`Login fallido: ${dto.email}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    if (!user.isActive) throw new UnauthorizedException('Usuario inactivo');
+    if (!user.isActive) {
+      this.logger.warn(`Login de usuario inactivo: ${dto.email}`);
+      throw new UnauthorizedException('Usuario inactivo');
+    }
     return this.sign(user);
   }
 

@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,6 +12,11 @@ async function bootstrap() {
   // "confiando" en un hop distinto y el rate-limit por IP nunca ve la misma IP dos veces.
   // 'true' confía en toda la cadena y toma el primer valor de X-Forwarded-For (el cliente real).
   app.getHttpAdapter().getInstance().set('trust proxy', true);
+
+  // Cabeceras de seguridad estándar (X-Frame-Options, X-Content-Type-Options, HSTS, etc.).
+  // CSP apagada: es una API JSON, no sirve HTML propio, y su política por defecto rompe
+  // los scripts inline que carga Swagger UI en /docs.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   app.setGlobalPrefix('api');
   app.enableCors({

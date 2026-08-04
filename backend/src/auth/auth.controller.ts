@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -15,16 +16,22 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  // Login/registro/Google son las únicas puertas de entrada sin sesión — límite propio y
+  // más estricto que el resto (que ni tiene, per app.module.ts) para frenar fuerza bruta
+  // de contraseñas y alta masiva de cuentas, sin afectar el uso normal ya autenticado.
+  @UseGuards(ThrottlerGuard) @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
   }
 
+  @UseGuards(ThrottlerGuard) @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }
 
+  @UseGuards(ThrottlerGuard) @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('google')
   loginWithGoogle(@Body() dto: GoogleLoginDto) {
     return this.auth.loginWithGoogle(dto.idToken);
