@@ -57,7 +57,7 @@ export const DEFAULT_TIENDA_SETTINGS: TiendaSettings = {
   minCompra: 50000,
   envioGratisDesde: 85000,
   whatsappNumber: '5493413807110',
-  margenVenta: 0.12,
+  margenVenta: 0.06,
   hiddenProductIds: [],
   productPromos: {},
 };

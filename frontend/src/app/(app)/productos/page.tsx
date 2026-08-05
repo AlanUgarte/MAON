@@ -119,7 +119,7 @@ export default function ProductosPage() {
   const ventaB = (p: Prod) => Math.round(p.price * (1 + effMargin(p) / 100));
   const ventaU = (p: Prod) =>
     p.unitPrice != null
-      ? Math.round(p.unitPrice * (1 + effMargin(p) / 100) * 1.085)
+      ? Math.round(p.unitPrice * (1 + effMargin(p) / 100 + 0.085))
       : p.units
         ? Math.round(ventaB(p) / p.units)
         : 0;

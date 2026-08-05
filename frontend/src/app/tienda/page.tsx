@@ -124,7 +124,7 @@ function TiendaInner() {
   // en el display, que es ahí el modo más suelto disponible).
   const surchargeMode = (p: ProductRow): SellMode | null => (p.unitPrice ? 'UNIDAD' : p.displayPrice ? 'DISPLAY' : null);
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
-    const base = costoDe(p, mode) * (1 + margenDe(p)) * (mode === surchargeMode(p) ? 1 + UNIT_SURCHARGE : 1);
+    const base = costoDe(p, mode) * (1 + margenDe(p) + (mode === surchargeMode(p) ? UNIT_SURCHARGE : 0));
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
@@ -704,7 +704,7 @@ function TiendaInner() {
               const mode = modes.includes(modeOf(p.id)) ? modeOf(p.id) : 'BULTO';
               const inCart = qtyInCart(p.id, mode);
               const promo = getPromo(p);
-              const original = Math.round(costoDe(p, mode) * (1 + margenDe(p)) * (mode === surchargeMode(p) ? 1 + UNIT_SURCHARGE : 1) * 100) / 100;
+              const original = Math.round(costoDe(p, mode) * (1 + margenDe(p) + (mode === surchargeMode(p) ? UNIT_SURCHARGE : 0)) * 100) / 100;
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
