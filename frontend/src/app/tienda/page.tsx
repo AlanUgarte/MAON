@@ -21,6 +21,8 @@ const CAT_ICON: Record<string, string> = {
   Galletitas: '🍪', Golosinas: '🍬', Alfajores: '🍫', Kiosco: '🛒',
   Alimentos: '🥫', Bebidas: '🥤', Chocolates: '🍫', 'Cotillón': '🎉', 'Desayuno y Merienda': '☕', Harinas: '🌾',
 };
+// Orden pedido para las categorías más vendidas — el resto queda alfabético después de estas.
+const CATEGORY_PRIORITY = ['Alimentos', 'Galletitas', 'Chocolates', 'Golosinas', 'Harinas', 'Bebidas'];
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // El reparto solo sale entre las 17 y las 21 hs — el cliente elige la franja, no escribe cualquier horario.
@@ -114,15 +116,16 @@ function TiendaInner() {
   // El artículo puede traer su propio margen (puesto desde Productos > "Aplicar a la
   // marca/categoría filtrada"); si no tiene, se usa el margen general de la tienda.
   const margenDe = (p: ProductRow) => (p.marginPct != null ? p.marginPct / 100 : settings.margenVenta);
-  // Las promos "Lleva N paga M" son un beneficio por bulto cerrado — no aplican si el
-  // cliente eligió comprar por unidad o display suelta.
+  // Las promos "Lleva N paga M" valen para cualquier modo de venta (bulto, unidad o
+  // display) — la cantidad mínima se evalúa sobre lo que el cliente tenga cargado en
+  // ESE modo puntual.
   // El recargo va al modo más suelto que tenga el artículo: unidad si se vende por unidad,
   // si no display (ej. FEL-FORT PARAGUITAS no se vende por unidad, así que el recargo cae
   // en el display, que es ahí el modo más suelto disponible).
   const surchargeMode = (p: ProductRow): SellMode | null => (p.unitPrice ? 'UNIDAD' : p.displayPrice ? 'DISPLAY' : null);
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
     const base = costoDe(p, mode) * (1 + margenDe(p)) * (mode === surchargeMode(p) ? 1 + UNIT_SURCHARGE : 1);
-    const promo = mode === 'BULTO' ? getPromo(p) : undefined;
+    const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
   };
@@ -180,7 +183,11 @@ function TiendaInner() {
   const [cardMode, setCardMode] = useState<Record<string, SellMode>>({});
   const modeOf = (productId: string) => cardMode[productId] ?? 'BULTO';
 
-  const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort(), [catalog]);
+  const categories = useMemo(() => [...new Set(catalog.map((p) => p.category))].sort((a, b) => {
+    const ia = CATEGORY_PRIORITY.indexOf(a), ib = CATEGORY_PRIORITY.indexOf(b);
+    if (ia !== -1 || ib !== -1) return (ia === -1 ? CATEGORY_PRIORITY.length : ia) - (ib === -1 ? CATEGORY_PRIORITY.length : ib);
+    return a.localeCompare(b);
+  }), [catalog]);
   // Líneas (sub-rubros) que tiene cada categoría, para el desplegable estilo Coto —
   // se arma solo, a partir del catálogo real, sin tocar la lista de categorías.
   const categoryLines = useMemo(() => {
@@ -707,7 +714,7 @@ function TiendaInner() {
                     {promo?.isNew && (
                       <span className="absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND }}>Nuevo</span>
                     )}
-                    {(promo?.label || promo?.discountPct) && mode === 'BULTO' && (
+                    {(promo?.label || promo?.discountPct) && (
                       <span className="absolute bottom-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: ACCENT }}>
                         {promo.label || `${promo.discountPct}% OFF`}
                       </span>
@@ -734,9 +741,9 @@ function TiendaInner() {
 
                   <div className="mt-2 flex items-baseline gap-1.5">
                     <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p, inCart, mode))}</span>
-                    {!!promo?.discountPct && mode === 'BULTO' && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
+                    {!!promo?.discountPct && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
-                  {!!promo?.discountPct && mode === 'BULTO' && inCart > 0 && inCart < promoMinQty(promo.label) && (
+                  {!!promo?.discountPct && inCart > 0 && inCart < promoMinQty(promo.label) && (
                     <div className="text-[10px] font-semibold" style={{ color: ACCENT }}>
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
                     </div>

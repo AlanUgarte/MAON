@@ -6,9 +6,11 @@
 //   C = tamaño del "zuncho" (paquete chico) en el que vienen empaquetadas esas B unidades
 //       sueltas dentro del display. C=1 (o ausente) = las B unidades se venden una por una
 //       ("Unidad"). C>1 = se venden en paquetitos de C unidades ("Zuncho"), no sueltas.
-// Las filas "UNIDAD"/"ZUNCHO" del maestro solo se usan como señal de que el proveedor
-// realmente ofrece esa modalidad (existe la fila con precio > 0) — el precio que se
-// guarda NO es ese valor crudo, se recalcula por proporción pura a partir del precio de
+// Las filas "DISPLAY"/"UNIDAD"/"ZUNCHO" del maestro solo se usan como señal de que el
+// proveedor realmente ofrece esa modalidad — y esa señal es que la fila tenga SU PROPIO
+// código de barras cargado (no que el precio sea > 0: eso solo dice cuánto costaría,
+// no si de verdad se vende suelto). El precio que se guarda NO es el valor crudo de esas
+// filas, se recalcula por proporción pura a partir del precio de
 // display (displayPrice / B, o ese mismo valor * C para el caso zuncho), porque el precio
 // crudo del maestro ya trae incorporado el recargo del 8.5% que el proveedor aplica en su
 // propia UI ("Reducido por %: -8,5") — y la tienda vuelve a aplicar ese mismo 8.5% en su
@@ -36,10 +38,21 @@ async function main() {
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
   const header = rows[0].map((c) => String(c).trim());
   const col = (name) => header.indexOf(name);
+  // Nombre de columna de código de barras: el maestro real puede traerla con distintos
+  // encabezados según la exportación — se prueban las variantes más comunes. Si el archivo
+  // trae otro nombre, agregalo a esta lista (o avisá para que se ajuste).
+  const BARCODE_HEADERS = ['Código de barras', 'Codigo de barras', 'Cod. Barras', 'EAN', 'Código EAN', 'Barcode'];
   const skuCol = col('Número de artículo'), nameCol = col('Descripción del artículo'),
     groupCol = col('Nombre de grupo de unidad de medida'), uomCol = col('Código de unidad de medida'),
     priceCol = col('PriceBruto');
+  const barcodeCol = BARCODE_HEADERS.map(col).find((c) => c !== -1) ?? -1;
   if (skuCol === -1 || groupCol === -1 || uomCol === -1) throw new Error('Faltan columnas esperadas en el maestro');
+  if (barcodeCol === -1) {
+    throw new Error(
+      `No se encontró la columna de código de barras (probé: ${BARCODE_HEADERS.join(', ')}). ` +
+      `Encabezados reales del archivo: ${header.filter(Boolean).join(' | ')}`,
+    );
+  }
 
   const bySku = new Map();
   for (let i = 1; i < rows.length; i++) {
@@ -59,11 +72,17 @@ async function main() {
     const entry = bySku.get(sku);
     const uom = String(row[uomCol]).trim();
     const price = parseNum(row[priceCol]);
-    if (uom === 'DISPLAY' && price && displaysPerBulto > 0) entry.displayPrice = Math.round(price * 100) / 100;
-    // Las filas UNIDAD/ZUNCHO solo marcan ELEGIBILIDAD (el proveedor realmente vende así) —
-    // el precio se recalcula abajo por proporción pura, no se usa el crudo de estas filas.
-    if (uom === 'UNIDAD' && price && unitsPerDisplay > 0) entry.hasUnidadRow = true;
-    if (uom === 'ZUNCHO' && price && unitsPerDisplay > 0) entry.hasZunchoRow = true;
+    const tieneCodigoBarras = String(row[barcodeCol] ?? '').trim().length > 0;
+    // La señal de "esto se vende de verdad en esta unidad" es que el maestro le haya
+    // asignado su PROPIO código de barras a esa fila (Bulto/Display/Unidad/Zuncho) — no que
+    // el precio sea > 0 (eso solo dice cuánto costaría, no si el proveedor realmente lo
+    // vende suelto).
+    if (uom === 'DISPLAY' && price && tieneCodigoBarras && displaysPerBulto > 0) entry.displayPrice = Math.round(price * 100) / 100;
+    // Las filas UNIDAD/ZUNCHO solo marcan ELEGIBILIDAD (el proveedor realmente vende así,
+    // porque tienen su propio código de barras) — el precio se recalcula abajo por
+    // proporción pura, no se usa el crudo de estas filas.
+    if (uom === 'UNIDAD' && tieneCodigoBarras && unitsPerDisplay > 0) entry.hasUnidadRow = true;
+    if (uom === 'ZUNCHO' && tieneCodigoBarras && unitsPerDisplay > 0) entry.hasZunchoRow = true;
   }
 
   for (const it of bySku.values()) {
