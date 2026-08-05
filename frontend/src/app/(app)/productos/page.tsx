@@ -411,12 +411,11 @@ export default function ProductosPage() {
                     <div className="text-[10px] text-muted">Costo bulto / unidad</div>
                     <div className="text-[15px] font-bold tnum">{money(p.price)} <span className="text-[11px] font-medium text-muted">/ {p.units ? moneyD(Math.round(punit(p))) : '-'}</span></div>
                   </div>
-                  {effMargin(p) > 0 && (
-                    <div className="text-right">
-                      <div className="text-[10px] text-emerald">Venta +{effMargin(p)}%</div>
-                      <div className="text-[15px] font-extrabold tnum text-emerald">{money(ventaB(p))} <span className="text-[11px] font-medium">/ {p.units ? money(ventaU(p)) : '-'}</span></div>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <div className="text-[10px] text-emerald">Venta +{effMargin(p)}%</div>
+                    <div className="text-[15px] font-extrabold tnum text-emerald">{money(ventaB(p))} <span className="text-[11px] font-medium">/ {p.units ? money(ventaU(p)) : '-'}</span></div>
+                    <div className="text-[10px] text-muted">Ganancia {money(ventaB(p) - p.price)} <span className="font-medium">/ {p.units ? money(ventaU(p) - punit(p)) : '-'}</span></div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -427,7 +426,7 @@ export default function ProductosPage() {
               <thead>
                 <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wide text-muted">
                   <th className="p-3">Producto</th><th className="p-3">Marca</th><th className="p-3">Cat.</th><th className="p-3">Bulto</th>
-                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Venta unidad</th><th className="p-3">Stock</th><th className="p-3"></th>
+                  <th className="p-3">Precio bulto</th><th className="p-3">Costo unidad</th><th className="p-3">Margen %</th><th className="p-3">Venta bulto</th><th className="p-3">Ganancia bulto</th><th className="p-3">Venta unidad</th><th className="p-3">Ganancia unidad</th><th className="p-3">Stock</th><th className="p-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -441,7 +440,9 @@ export default function ProductosPage() {
                     <td className="p-3 text-muted">{p.units ? moneyD(Math.round(punit(p))) : '-'}</td>
                     <td className="p-3"><input type="number" value={p.margin ?? ''} placeholder={String(gPct)} onChange={(e) => setMargin(p.id, e.target.value)} onBlur={() => persistProduct(p.id, { marginPct: p.margin })} className="h-[30px] w-[62px] rounded-lg border border-line/15 bg-surface px-2 text-center font-bold" /></td>
                     <td className="p-3 font-bold text-emerald">{money(ventaB(p))}</td>
+                    <td className="p-3 text-emerald">{money(ventaB(p) - p.price)}</td>
                     <td className="p-3 text-emerald">{p.units ? money(ventaU(p)) : '-'}</td>
+                    <td className="p-3 text-emerald">{p.units ? money(ventaU(p) - punit(p)) : '-'}</td>
                     <td className="p-3">
                       <button
                         onClick={() => toggleStock(p)}
