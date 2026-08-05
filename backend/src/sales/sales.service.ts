@@ -4,6 +4,9 @@ import { MessageAuthor, MessageDirection, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 import { getTransferInstructions } from '../ai/business-config';
+import { ComprobantesService } from '../comprobantes/comprobantes.service';
+import { ComprobanteTipo, ComprobanteLetra } from '../comprobantes/dto/create-comprobante.dto';
+import { DarkStoreVapesService } from '../dark-store-vapes/dark-store-vapes.service';
 import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
 
 @Injectable()
@@ -14,6 +17,8 @@ export class SalesService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly sender: WhatsAppSender,
+    private readonly comprobantes: ComprobantesService,
+    private readonly vapes: DarkStoreVapesService,
   ) {}
 
   /** Control de stock opcional: si está apagado, no descuenta ni valida stock. */
@@ -81,16 +86,16 @@ export class SalesService {
    * (el caller no tiene sesión ni conoce ids reales del backend).
    */
   async createFromStorefront(dto: CreateStorefrontSaleDto) {
-    if (!dto.items?.length) return { ok: false, reason: 'sin ítems' };
+    if (!dto.items?.length && !dto.vapeItems?.length) return { ok: false, reason: 'sin ítems' };
 
     // Un mismo SKU puede venir repetido en varias líneas (carrito real o abuso):
     // se suman las cantidades en vez de crear un SaleItem por línea.
     const qtyBySku = new Map<string, number>();
-    for (const it of dto.items) qtyBySku.set(it.sku, (qtyBySku.get(it.sku) ?? 0) + it.quantity);
+    for (const it of dto.items ?? []) qtyBySku.set(it.sku, (qtyBySku.get(it.sku) ?? 0) + it.quantity);
 
-    const products = await this.prisma.product.findMany({
-      where: { sku: { in: [...qtyBySku.keys()] } },
-    });
+    const products = qtyBySku.size
+      ? await this.prisma.product.findMany({ where: { sku: { in: [...qtyBySku.keys()] } } })
+      : [];
     const bySku = new Map(products.map((p) => [p.sku, p]));
 
     const items: Prisma.SaleItemCreateManySaleInput[] = [];
@@ -100,11 +105,35 @@ export class SalesService {
     for (const [sku, quantity] of qtyBySku) {
       const prod = bySku.get(sku);
       if (!prod) { skipped++; continue; }
+      if (dto.enforceStock && prod.stock < quantity) {
+        throw new BadRequestException(`Sin stock suficiente de ${prod.name} (hay ${prod.stock})`);
+      }
       items.push({ productId: prod.id, quantity, unitPrice: prod.price });
       confirmationItems.push({ name: prod.name, quantity, unitPrice: Number(prod.price) });
       total = total.add(prod.price.mul(quantity));
     }
-    if (!items.length) return { ok: false, reason: 'ningún SKU reconocido' };
+
+    // Vapeadores (Dark Store): no son Product, se resuelven aparte y quedan como snapshot
+    // Json en Sale.vapeItems — no hay SaleItem porque esa tabla exige un productId real.
+    const qtyByVapeId = new Map<string, number>();
+    for (const it of dto.vapeItems ?? []) qtyByVapeId.set(it.vapeId, (qtyByVapeId.get(it.vapeId) ?? 0) + it.quantity);
+    const vapeSnapshot: { vapeId: string; name: string; quantity: number; unitPrice: number }[] = [];
+    if (qtyByVapeId.size) {
+      const vapes = await this.prisma.darkStoreVape.findMany({ where: { id: { in: [...qtyByVapeId.keys()] }, isActive: true } });
+      const byId = new Map(vapes.map((v) => [v.id, v]));
+      for (const [vapeId, quantity] of qtyByVapeId) {
+        const vape = byId.get(vapeId);
+        if (!vape) { skipped++; continue; }
+        if (dto.enforceStock && vape.stock < quantity) {
+          throw new BadRequestException(`Sin stock suficiente de ${vape.name} (hay ${vape.stock})`);
+        }
+        vapeSnapshot.push({ vapeId: vape.id, name: vape.name, quantity, unitPrice: Number(vape.price) });
+        confirmationItems.push({ name: vape.name, quantity, unitPrice: Number(vape.price) });
+        total = total.add(vape.price.mul(quantity));
+      }
+    }
+
+    if (!items.length && !vapeSnapshot.length) return { ok: false, reason: 'ningún artículo reconocido' };
 
     const client = (await this.prisma.client.findUnique({ where: { phone: dto.customerPhone } }))
       ?? (await this.prisma.client.create({
@@ -131,6 +160,8 @@ export class SalesService {
         shippingAddress: dto.wantsShipping ? dto.shippingAddress : undefined,
         availableSchedule: dto.wantsShipping ? dto.availableSchedule : undefined,
         envioGratis: dto.envioGratis ?? false,
+        barrio: dto.barrio,
+        vapeItems: vapeSnapshot,
       },
     });
 
@@ -140,9 +171,56 @@ export class SalesService {
     await this.prisma.payment.create({
       data: { saleId: sale.id, provider: 'transferencia', status: 'PENDIENTE', amount: total },
     });
-    await this.sendOrderConfirmation(client.id, client.phone, confirmationItems, Number(total));
 
-    return { ok: true, saleId: sale.id, matched: items.length, skipped };
+    let comprobanteNumero: string | undefined;
+    if (dto.issueTicket) {
+      // Dark Store no tiene pago online: en vez del texto de instrucciones de
+      // transferencia, se emite un remito (ticket, no válido como factura) y se manda
+      // por WhatsApp — ComprobantesService ya hace el PDF + el envío solo.
+      try {
+        const comprobante = await this.comprobantes.create({
+          tipo: ComprobanteTipo.REMITO,
+          letra: ComprobanteLetra.R,
+          clientId: client.id,
+          discriminarIva: false,
+          items: [
+            ...items.map((it, i) => ({
+              productId: it.productId,
+              detalle: confirmationItems[i]?.name ?? '',
+              cantidad: it.quantity ?? 1,
+              unitPrice: Number(it.unitPrice),
+              ivaRate: 0,
+            })),
+            ...vapeSnapshot.map((v) => ({
+              detalle: v.name,
+              cantidad: v.quantity,
+              unitPrice: v.unitPrice,
+              ivaRate: 0,
+            })),
+          ],
+        });
+        comprobanteNumero = comprobante.numero;
+        await this.prisma.sale.update({ where: { id: sale.id }, data: { invoiced: true, comprobanteNumero } });
+      } catch (err) {
+        this.logger.error(`No se pudo emitir el ticket de Dark Store para la venta ${sale.id}: ${err}`);
+      }
+    } else {
+      await this.sendOrderConfirmation(client.id, client.phone, confirmationItems, Number(total));
+    }
+
+    // Descuento de stock: solo cuando el caller pidió enforceStock (hoy, únicamente
+    // Dark Store) — los demás storefronts nunca lo activan, se comportan igual que antes.
+    if (dto.enforceStock) {
+      for (const [sku, quantity] of qtyBySku) {
+        const prod = bySku.get(sku);
+        if (prod) await this.prisma.product.update({ where: { id: prod.id }, data: { stock: { decrement: quantity } } });
+      }
+      for (const v of vapeSnapshot) {
+        await this.prisma.darkStoreVape.update({ where: { id: v.vapeId }, data: { stock: { decrement: v.quantity } } });
+      }
+    }
+
+    return { ok: true, saleId: sale.id, comprobanteNumero, matched: items.length + vapeSnapshot.length, skipped };
   }
 
   /** Confirma el pedido al cliente por WhatsApp: resumen + datos de transferencia. */

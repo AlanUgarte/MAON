@@ -516,6 +516,10 @@ model Sale {
   // podía mostrar un pedido como facturado o no de forma distinta al resto.
   invoiced          Boolean       @default(false)
   comprobanteNumero String?
+  // Dark Store: barrio elegido en el checkout (valida contra DarkStoreSettings.deliveryBarrios)
+  // y snapshot de líneas de vapeadores (no son Product, no entran en SaleItem).
+  barrio            String?
+  vapeItems         Json?         @default("[]")
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -775,4 +779,51 @@ model CotillonSettings {
   heroCarousel     Json     @default("[]")
   promoCards       Json     @default("[]")
   updatedAt        DateTime @updatedAt
+}
+
+/// Fila única (singleton): configuración de /dark-store, la cuarta tienda — dark mode,
+/// delivery express (Bebidas/Snacks/Chocolates del catálogo mayorista + Vapeadores propio),
+/// horario acotado y validación de zona por barrio (sin geocoding real todavía).
+model DarkStoreSettings {
+  id                 String   @id @default("singleton")
+  storeOpen          Boolean  @default(true)
+  storeName          String   @default("MAON Dark Store")
+  tagline            String   @default("Tu pedido en hasta 20 minutos.")
+  logoUrl            String?
+  heroCarousel       Json     @default("[]")
+  promoCards         Json     @default("[]")
+  /// Formato "HH:mm", zona horaria America/Argentina/Buenos_Aires.
+  scheduleStart      String   @default("18:00")
+  scheduleEnd        String   @default("23:00")
+  deliveryEtaMinutes Int      @default(20)
+  /// Lista de barrios cubiertos — el checkout valida contra esto (sin geocoding real,
+  /// ver notas del plan de implementación).
+  deliveryBarrios    String[] @default(["Las Malvinas", "Refinería", "Luis Agote", "Alberto Olmedo", "Azcuénaga", "Barrio Parque", "Centro", "Bella Vista", "Latinoamérica", "Puerto Norte"])
+  /// Porcentaje (25 = 25%), no fracción — misma convención que Product.marginPct.
+  margenPct          Float    @default(25)
+  lowStockThreshold  Int      @default(5)
+  minOrderAmount     Int      @default(0)
+  maxOrderAmount     Int?
+  whatsappNumber     String   @default("5493413807110")
+  whatsappTemplate   String?
+  hiddenProductIds   String[] @default([])
+  updatedAt          DateTime @updatedAt
+}
+
+/// Vapeadores de Dark Store: categoría administrada a mano, fuera del maestro del
+/// proveedor (que pisaría estos datos en cada sync) — precio de venta final, sin margen.
+model DarkStoreVape {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  brand       String?
+  price       Decimal  @db.Decimal(12, 2)
+  stock       Int      @default(0)
+  images      String[] @default([])
+  featured    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
 }

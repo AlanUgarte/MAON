@@ -18,6 +18,8 @@ import { TiendaSettingsModule } from './tienda-settings/tienda-settings.module';
 import { EstufaSettingsModule } from './estufa-settings/estufa-settings.module';
 import { CotillonSettingsModule } from './cotillon-settings/cotillon-settings.module';
 import { CartsModule } from './carts/carts.module';
+import { DarkStoreSettingsModule } from './dark-store-settings/dark-store-settings.module';
+import { DarkStoreVapesModule } from './dark-store-vapes/dark-store-vapes.module';
 
 @Module({
   imports: [
@@ -43,6 +45,8 @@ import { CartsModule } from './carts/carts.module';
     EstufaSettingsModule,
     CotillonSettingsModule,
     CartsModule,
+    DarkStoreSettingsModule,
+    DarkStoreVapesModule,
   ],
 })
 export class AppModule {}

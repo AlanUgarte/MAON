@@ -178,7 +178,10 @@ export const api = {
     customerName: string; customerPhone: string; sellerName?: string;
     items: { sku: string; quantity: number }[];
     wantsShipping?: boolean; shippingAddress?: string; availableSchedule?: string; envioGratis?: boolean;
-  }) => request<{ ok: boolean; saleId?: string; reason?: string }>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
+    // Dark Store
+    barrio?: string; vapeItems?: { vapeId: string; quantity: number }[];
+    enforceStock?: boolean; issueTicket?: boolean;
+  }) => request<{ ok: boolean; saleId?: string; comprobanteNumero?: string; reason?: string }>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
   markSaleInvoiced: (id: string, comprobanteNumero: string) =>
     request<any>(`/sales/${id}/invoice`, { method: 'PATCH', body: JSON.stringify({ comprobanteNumero }) }),
 
@@ -193,6 +196,17 @@ export const api = {
   // Config de /cotillon (FastCotillón, ex FastCombos, unificada acá) — GET es público.
   cotillonSettings: () => request<any>('/cotillon-settings'),
   updateCotillonSettings: (dto: any) => request<any>('/cotillon-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
+  // Config de /dark-store (cuarta tienda, dark mode + delivery express) — GET es público.
+  darkStoreSettings: () => request<any>('/dark-store-settings'),
+  updateDarkStoreSettings: (dto: any) => request<any>('/dark-store-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
+  // Vapeadores de Dark Store: catálogo manual (no viene del maestro del proveedor).
+  darkStoreVapesPublic: () => request<any[]>('/dark-store-vapes/public'),
+  darkStoreVapes: () => request<any[]>('/dark-store-vapes'),
+  createDarkStoreVape: (dto: any) => request<any>('/dark-store-vapes', { method: 'POST', body: JSON.stringify(dto) }),
+  updateDarkStoreVape: (id: string, dto: any) => request<any>(`/dark-store-vapes/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  deleteDarkStoreVape: (id: string) => request<any>(`/dark-store-vapes/${id}`, { method: 'DELETE' }),
 
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),

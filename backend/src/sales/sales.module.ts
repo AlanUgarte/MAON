@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { WhatsAppSenderModule } from '../whatsapp/whatsapp-sender.module';
+import { ComprobantesModule } from '../comprobantes/comprobantes.module';
+import { DarkStoreVapesModule } from '../dark-store-vapes/dark-store-vapes.module';
 import { SalesService } from './sales.service';
 import { SalesController } from './sales.controller';
 
 @Module({
-  imports: [WhatsAppSenderModule],
+  imports: [WhatsAppSenderModule, ComprobantesModule, DarkStoreVapesModule],
   providers: [SalesService],
   controllers: [SalesController],
 })

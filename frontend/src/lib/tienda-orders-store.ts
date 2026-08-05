@@ -25,6 +25,9 @@ export interface TiendaOrder {
   wantsShipping: boolean;
   shippingAddress?: string;
   availableSchedule?: string;
+  // Dark Store
+  barrio?: string;
+  vapeItems?: { vapeId: string; name: string; quantity: number; unitPrice: number }[];
 }
 
 export interface NewTiendaOrder {
@@ -61,6 +64,8 @@ function fromBackend(s: any): TiendaOrder {
     wantsShipping: !!s.wantsShipping,
     shippingAddress: s.shippingAddress ?? undefined,
     availableSchedule: s.availableSchedule ?? undefined,
+    barrio: s.barrio ?? undefined,
+    vapeItems: Array.isArray(s.vapeItems) && s.vapeItems.length ? s.vapeItems : undefined,
   };
 }
 

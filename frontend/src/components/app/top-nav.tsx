@@ -20,6 +20,7 @@ const FULL_NAV: NavItem[] = [
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/cotillon-config', label: 'FastCotillón', icon: PartyPopper },
+  { href: '/dark-store-config', label: 'Dark Store', icon: Zap },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
