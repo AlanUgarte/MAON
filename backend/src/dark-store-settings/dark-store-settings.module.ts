@@ -5,5 +5,6 @@ import { DarkStoreSettingsController } from './dark-store-settings.controller';
 @Module({
   providers: [DarkStoreSettingsService],
   controllers: [DarkStoreSettingsController],
+  exports: [DarkStoreSettingsService],
 })
 export class DarkStoreSettingsModule {}

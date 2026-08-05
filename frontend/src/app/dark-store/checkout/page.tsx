@@ -157,8 +157,12 @@ export default function DarkStoreCheckoutPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex justify-between border-t pt-2 text-[14px] font-extrabold" style={{ borderColor: CARD_BORDER, color: TEXT }}>
-              <span>Total</span><span>{money(cartTotal)}</span>
+            <div className="mt-2 space-y-1 border-t pt-2 text-[12px]" style={{ borderColor: CARD_BORDER, color: MUTED }}>
+              <div className="flex justify-between"><span>Subtotal</span><span>{money(cartTotal)}</span></div>
+              <div className="flex justify-between"><span>Envío</span><span>{money(settings.deliveryFee)}</span></div>
+            </div>
+            <div className="mt-1.5 flex justify-between text-[14px] font-extrabold" style={{ color: TEXT }}>
+              <span>Total</span><span>{money(cartTotal + settings.deliveryFee)}</span>
             </div>
           </div>
 

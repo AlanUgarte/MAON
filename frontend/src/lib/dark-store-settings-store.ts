@@ -22,6 +22,8 @@ export interface DarkStoreSettings {
   scheduleStart: string;
   scheduleEnd: string;
   deliveryEtaMinutes: number;
+  /** Costo de envío fijo (no varía por distancia ni por monto del pedido). */
+  deliveryFee: number;
   deliveryBarrios: string[];
   /** Porcentaje (25 = 25%), no fracción. */
   margenPct: number;
@@ -42,6 +44,7 @@ export const DEFAULT_DARK_STORE_SETTINGS: DarkStoreSettings = {
   scheduleStart: '18:00',
   scheduleEnd: '23:00',
   deliveryEtaMinutes: 20,
+  deliveryFee: 2000,
   deliveryBarrios: ['Las Malvinas', 'Refinería', 'Luis Agote', 'Alberto Olmedo', 'Azcuénaga', 'Barrio Parque', 'Centro', 'Bella Vista', 'Latinoamérica', 'Puerto Norte'],
   margenPct: 25,
   lowStockThreshold: 5,
@@ -62,6 +65,7 @@ function sanitize(raw: any): DarkStoreSettings {
     scheduleStart: raw?.scheduleStart ?? DEFAULT_DARK_STORE_SETTINGS.scheduleStart,
     scheduleEnd: raw?.scheduleEnd ?? DEFAULT_DARK_STORE_SETTINGS.scheduleEnd,
     deliveryEtaMinutes: raw?.deliveryEtaMinutes ?? DEFAULT_DARK_STORE_SETTINGS.deliveryEtaMinutes,
+    deliveryFee: raw?.deliveryFee ?? DEFAULT_DARK_STORE_SETTINGS.deliveryFee,
     deliveryBarrios: raw?.deliveryBarrios?.length ? raw.deliveryBarrios : DEFAULT_DARK_STORE_SETTINGS.deliveryBarrios,
     margenPct: raw?.margenPct ?? DEFAULT_DARK_STORE_SETTINGS.margenPct,
     lowStockThreshold: raw?.lowStockThreshold ?? DEFAULT_DARK_STORE_SETTINGS.lowStockThreshold,

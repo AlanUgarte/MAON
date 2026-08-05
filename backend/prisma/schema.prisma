@@ -796,6 +796,8 @@ model DarkStoreSettings {
   scheduleStart      String   @default("18:00")
   scheduleEnd        String   @default("23:00")
   deliveryEtaMinutes Int      @default(20)
+  /// Costo de envío fijo (no varía por distancia ni por monto del pedido).
+  deliveryFee        Int      @default(2000)
   /// Lista de barrios cubiertos — el checkout valida contra esto (sin geocoding real,
   /// ver notas del plan de implementación).
   deliveryBarrios    String[] @default(["Las Malvinas", "Refinería", "Luis Agote", "Alberto Olmedo", "Azcuénaga", "Barrio Parque", "Centro", "Bella Vista", "Latinoamérica", "Puerto Norte"])

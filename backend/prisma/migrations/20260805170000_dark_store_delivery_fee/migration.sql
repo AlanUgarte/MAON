@@ -1,0 +1,1 @@
+ALTER TABLE "DarkStoreSettings" ADD COLUMN "deliveryFee" INTEGER NOT NULL DEFAULT 2000;

@@ -84,9 +84,13 @@ export default function DarkStoreCartPage() {
               </div>
             )}
 
-            <div className="mt-5 flex items-center justify-between text-lg font-extrabold">
+            <div className="mt-5 space-y-1.5 text-[13px]" style={{ color: MUTED }}>
+              <div className="flex items-center justify-between"><span>Subtotal</span><span>{money(cartTotal)}</span></div>
+              <div className="flex items-center justify-between"><span>Envío</span><span>{money(settings.deliveryFee)}</span></div>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-lg font-extrabold" style={{ color: TEXT }}>
               <span>Total</span>
-              <span>{money(cartTotal)}</span>
+              <span>{money(cartTotal + settings.deliveryFee)}</span>
             </div>
 
             <button

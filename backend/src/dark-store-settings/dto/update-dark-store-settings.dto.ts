@@ -11,6 +11,7 @@ export class UpdateDarkStoreSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsString() scheduleStart?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() scheduleEnd?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsInt() deliveryEtaMinutes?: number;
+  @ApiProperty({ required: false }) @IsOptional() @IsInt() deliveryFee?: number;
   @ApiProperty({ required: false, type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) deliveryBarrios?: string[];
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() margenPct?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsInt() lowStockThreshold?: number;

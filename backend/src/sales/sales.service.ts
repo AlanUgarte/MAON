@@ -7,6 +7,7 @@ import { getTransferInstructions } from '../ai/business-config';
 import { ComprobantesService } from '../comprobantes/comprobantes.service';
 import { ComprobanteTipo, ComprobanteLetra } from '../comprobantes/dto/create-comprobante.dto';
 import { DarkStoreVapesService } from '../dark-store-vapes/dark-store-vapes.service';
+import { DarkStoreSettingsService } from '../dark-store-settings/dark-store-settings.service';
 import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class SalesService {
     private readonly sender: WhatsAppSender,
     private readonly comprobantes: ComprobantesService,
     private readonly vapes: DarkStoreVapesService,
+    private readonly darkStoreSettings: DarkStoreSettingsService,
   ) {}
 
   /** Control de stock opcional: si está apagado, no descuenta ni valida stock. */
@@ -135,6 +137,16 @@ export class SalesService {
 
     if (!items.length && !vapeSnapshot.length) return { ok: false, reason: 'ningún artículo reconocido' };
 
+    // Costo de envío: se lee del lado del servidor (nunca del cliente, que podría mandar
+    // cualquier valor) — solo aplica en el flujo con issueTicket, que hoy es exclusivo de
+    // Dark Store (los demás storefronts no tienen costo de envío fijo).
+    let deliveryFee = 0;
+    if (dto.issueTicket) {
+      const dsSettings = await this.darkStoreSettings.get();
+      deliveryFee = dsSettings.deliveryFee ?? 0;
+      if (deliveryFee > 0) total = total.add(deliveryFee);
+    }
+
     const client = (await this.prisma.client.findUnique({ where: { phone: dto.customerPhone } }))
       ?? (await this.prisma.client.create({
         data: {
@@ -197,6 +209,7 @@ export class SalesService {
               unitPrice: v.unitPrice,
               ivaRate: 0,
             })),
+            ...(deliveryFee > 0 ? [{ detalle: 'Envío a domicilio', cantidad: 1, unitPrice: deliveryFee, ivaRate: 0 }] : []),
           ],
         });
         comprobanteNumero = comprobante.numero;

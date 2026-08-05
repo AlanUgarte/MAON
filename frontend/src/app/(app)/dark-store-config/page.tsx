@@ -18,7 +18,7 @@ import { useDarkStoreVapes, type DarkStoreVape } from '@/lib/dark-store-vapes-st
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
-import { api } from '@/lib/api';
+import { api, uploadImage } from '@/lib/api';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -271,6 +271,10 @@ export default function DarkStoreConfigPage() {
                 <p className="text-[12.5px] text-muted">
                   Sin geocoding todavía: el checkout valida contra esta lista de barrios, no contra un mapa real.
                 </p>
+                <div>
+                  <label className={labelClass}>Costo de envío ($, fijo para todos los pedidos)</label>
+                  <input type="number" className={`${inputClass} max-w-[180px]`} value={form.deliveryFee} onChange={(e) => set('deliveryFee', Number(e.target.value))} />
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {form.deliveryBarrios.map((b) => (
                     <span key={b} className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-[12.5px] font-medium text-primary">
@@ -330,7 +334,23 @@ const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '
 function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => void }) {
   const [editing, setEditing] = useState<VapeForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  const onPickFile = async (file: File | undefined) => {
+    if (!file || !editing) return;
+    setUploading(true);
+    setError('');
+    try {
+      const url = await uploadImage(file);
+      const current = editing.images.split(',').map((s) => s.trim()).filter(Boolean);
+      setEditing({ ...editing, images: [...current, url].join(', ') });
+    } catch (e: any) {
+      setError(e?.message || 'No se pudo subir la imagen');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const openNew = () => setEditing({ ...emptyVapeForm });
   const openEdit = (v: DarkStoreVape) => setEditing({
@@ -391,7 +411,24 @@ function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => v
               <div><label className={labelClass}>Stock</label><input type="number" className={inputClass} value={editing.stock} onChange={(e) => setEditing({ ...editing, stock: e.target.value })} /></div>
             </div>
             <div><label className={labelClass}>Descripción</label><input className={inputClass} value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
-            <div><label className={labelClass}>Imágenes (URLs separadas por coma)</label><input className={inputClass} value={editing.images} onChange={(e) => setEditing({ ...editing, images: e.target.value })} /></div>
+            <div>
+              <label className={labelClass}>Imágenes (URLs separadas por coma)</label>
+              <div className="flex gap-2">
+                <input className={inputClass} value={editing.images} onChange={(e) => setEditing({ ...editing, images: e.target.value })} />
+                <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-line/15 bg-surface-2/60 px-3 text-[12.5px] font-semibold text-content hover:bg-surface-2">
+                  {uploading ? 'Subiendo…' : 'Subir foto'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => onPickFile(e.target.files?.[0])} />
+                </label>
+              </div>
+              {editing.images && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {editing.images.split(',').map((s) => s.trim()).filter(Boolean).map((url, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={url} alt="" className="h-14 w-14 rounded-lg border border-line/15 object-cover" />
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 text-[12.5px] text-content"><input type="checkbox" checked={editing.featured} onChange={(e) => setEditing({ ...editing, featured: e.target.checked })} /> Destacado</label>
               <label className="flex items-center gap-1.5 text-[12.5px] text-content"><input type="checkbox" checked={editing.isActive} onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} /> Activo</label>
