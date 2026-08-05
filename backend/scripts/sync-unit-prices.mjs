@@ -1,20 +1,22 @@
 // Habilita venta por unidad, zuncho y/o display además de por bulto cerrado, para TODO
 // el catálogo — usa la columna real "Nombre de grupo de unidad de medida" del maestro del
 // proveedor, formato "Bulto AxBxC":
-//   A = displays por bulto.
-//   B = unidades sueltas que trae cada display (0 = no se vende suelto, solo bulto/display).
-//   C = tamaño del "zuncho" (paquete chico) en el que vienen empaquetadas esas B unidades
-//       sueltas dentro del display. C=1 (o ausente) = las B unidades se venden una por una
-//       ("Unidad"). C>1 = se venden en paquetitos de C unidades ("Zuncho"), no sueltas.
-// Las filas "DISPLAY"/"UNIDAD"/"ZUNCHO" del maestro solo se usan como señal de que el
-// proveedor realmente ofrece esa modalidad — y esa señal es que la fila tenga SU PROPIO
-// código de barras cargado (no que el precio sea > 0: eso solo dice cuánto costaría,
-// no si de verdad se vende suelto). El precio que se guarda NO es el valor crudo de esas
-// filas, se recalcula por proporción pura a partir del precio de
-// display (displayPrice / B, o ese mismo valor * C para el caso zuncho), porque el precio
-// crudo del maestro ya trae incorporado el recargo del 8.5% que el proveedor aplica en su
-// propia UI ("Reducido por %: -8,5") — y la tienda vuelve a aplicar ese mismo 8.5% en su
-// propia capa de margen, así que usar el crudo lo duplicaría.
+//   B > 0 -> el bulto se arma en "displays": A = displays por bulto, B = unidades sueltas
+//            que trae cada display. El costo de la unidad suelta sale de ahí: displayPrice/B.
+//   B = 0 -> no hay display intermedio, el bulto contiene A unidades sueltas directamente.
+//            El costo de la unidad suelta sale de: precio del bulto / A.
+//   C     -> tamaño del "zuncho" (paquete chico) en el que vienen empaquetadas esas unidades
+//            sueltas. C=1 (o ausente) = se venden una por una ("Unidad"). C>1 = se venden en
+//            paquetitos de C unidades ("Zuncho"), no sueltas.
+// La señal de que el proveedor REALMENTE vende un artículo en una modalidad (Bulto/Display/
+// Unidad/Zuncho) es que esa fila tenga su PROPIO código de barras cargado en el maestro — no
+// que el precio sea > 0 (eso solo dice cuánto costaría si se vendiera así, no si de verdad se
+// vende suelto: SAP repite/calcula el precio de todas las filas aunque no haya código real).
+// El precio que se guarda para unidad/zuncho NO es el valor crudo de esas filas: se recalcula
+// por proporción pura (ver arriba), porque el precio crudo del maestro ya trae incorporado el
+// recargo del 8.5% que el proveedor aplica en su propia UI ("Reducido por %: -8,5") — y la
+// tienda vuelve a aplicar ese mismo 8.5% en su propia capa de margen, así que usar el crudo
+// lo duplicaría.
 // Solo actualiza artículos que YA existen en la base — no crea ni toca nada más (precio de
 // bulto, stock, nombre, etc. quedan igual).
 // Uso: DATABASE_URL=<DATABASE_PUBLIC_URL> node sync-unit-prices.mjs <maestro.xlsx> [--apply]
@@ -38,10 +40,9 @@ async function main() {
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
   const header = rows[0].map((c) => String(c).trim());
   const col = (name) => header.indexOf(name);
-  // Nombre de columna de código de barras: el maestro real puede traerla con distintos
-  // encabezados según la exportación — se prueban las variantes más comunes. Si el archivo
-  // trae otro nombre, agregalo a esta lista (o avisá para que se ajuste).
-  const BARCODE_HEADERS = ['Código de barras', 'Codigo de barras', 'Cod. Barras', 'EAN', 'Código EAN', 'Barcode'];
+  // El maestro puede traer la columna de código de barras con distintos encabezados según
+  // la exportación — se prueban las variantes más comunes.
+  const BARCODE_HEADERS = ['Código de barras: Código', 'Código de barras', 'Codigo de barras', 'Cod. Barras', 'EAN', 'Código EAN', 'Barcode'];
   const skuCol = col('Número de artículo'), nameCol = col('Descripción del artículo'),
     groupCol = col('Nombre de grupo de unidad de medida'), uomCol = col('Código de unidad de medida'),
     priceCol = col('PriceBruto');
@@ -62,34 +63,35 @@ async function main() {
     const m = String(row[groupCol] ?? '').match(/(\d+)x(\d+)x(\d+)/i);
     if (!m) continue; // "Manual" u otro formato sin la grilla AxBxC: no tocar
     const [, aStr, bStr, cStr] = m;
-    const displaysPerBulto = Number(aStr), unitsPerDisplay = Number(bStr), zunchoSize = Number(cStr);
+    const a = Number(aStr), unitsPerDisplay = Number(bStr), zunchoSize = Number(cStr);
     if (!bySku.has(sku)) {
       bySku.set(sku, {
-        sku, name: String(row[nameCol] ?? '').trim(), displaysPerBulto, unitsPerDisplay, zunchoSize,
-        hasUnidadRow: false, hasZunchoRow: false, displayPrice: null,
+        sku, name: String(row[nameCol] ?? '').trim(), a, unitsPerDisplay, zunchoSize,
+        bultoPrice: null, displayPrice: null, hasUnidadRow: false, hasZunchoRow: false,
       });
     }
     const entry = bySku.get(sku);
     const uom = String(row[uomCol]).trim();
     const price = parseNum(row[priceCol]);
     const tieneCodigoBarras = String(row[barcodeCol] ?? '').trim().length > 0;
-    // La señal de "esto se vende de verdad en esta unidad" es que el maestro le haya
-    // asignado su PROPIO código de barras a esa fila (Bulto/Display/Unidad/Zuncho) — no que
-    // el precio sea > 0 (eso solo dice cuánto costaría, no si el proveedor realmente lo
-    // vende suelto).
-    if (uom === 'DISPLAY' && price && tieneCodigoBarras && displaysPerBulto > 0) entry.displayPrice = Math.round(price * 100) / 100;
+    if (uom === 'BULTO' && price && tieneCodigoBarras) entry.bultoPrice = price;
+    if (uom === 'DISPLAY' && price && tieneCodigoBarras) entry.displayPrice = Math.round(price * 100) / 100;
     // Las filas UNIDAD/ZUNCHO solo marcan ELEGIBILIDAD (el proveedor realmente vende así,
     // porque tienen su propio código de barras) — el precio se recalcula abajo por
     // proporción pura, no se usa el crudo de estas filas.
-    if (uom === 'UNIDAD' && tieneCodigoBarras && unitsPerDisplay > 0) entry.hasUnidadRow = true;
-    if (uom === 'ZUNCHO' && tieneCodigoBarras && unitsPerDisplay > 0) entry.hasZunchoRow = true;
+    if (uom === 'UNIDAD' && tieneCodigoBarras) entry.hasUnidadRow = true;
+    if (uom === 'ZUNCHO' && tieneCodigoBarras) entry.hasZunchoRow = true;
   }
 
   for (const it of bySku.values()) {
     it.unitPrice = null;
     it.unitsPerZuncho = null;
-    if (!it.displayPrice || !it.unitsPerDisplay) continue;
-    const baseUnitCost = it.displayPrice / it.unitsPerDisplay;
+    // Costo de UNA unidad suelta: si hay display, sale de ahí (displayPrice/B); si no hay
+    // display (B=0), el bulto trae las unidades sueltas directamente (bultoPrice/A).
+    let baseUnitCost = null;
+    if (it.unitsPerDisplay > 0 && it.displayPrice) baseUnitCost = it.displayPrice / it.unitsPerDisplay;
+    else if (it.unitsPerDisplay === 0 && it.bultoPrice && it.a > 0) baseUnitCost = it.bultoPrice / it.a;
+    if (baseUnitCost == null) continue;
     if (it.zunchoSize > 1 && it.hasZunchoRow) {
       it.unitPrice = Math.round(baseUnitCost * it.zunchoSize * 100) / 100;
       it.unitsPerZuncho = it.zunchoSize;
@@ -132,8 +134,8 @@ async function main() {
     return;
   }
 
-  // Limpia lo que haya quedado de una corrida anterior (regla vieja sin zuncho, o precios
-  // crudos sin la corrección proporcional), para no dejar datos viejos pisados.
+  // Limpia lo que haya quedado de una corrida anterior (regla vieja sin barcode/zuncho, o
+  // precios crudos sin la corrección proporcional), para no dejar datos viejos pisados.
   const resetCount = await prisma.$executeRaw`
     UPDATE "Product" SET "unitPrice" = NULL, "displayPrice" = NULL, "unitsPerDisplay" = NULL, "unitsPerZuncho" = NULL
     WHERE "unitPrice" IS NOT NULL OR "displayPrice" IS NOT NULL OR "unitsPerZuncho" IS NOT NULL
