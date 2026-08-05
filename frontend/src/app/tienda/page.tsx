@@ -743,6 +743,9 @@ function TiendaInner() {
                     <span className="text-[16px] font-extrabold" style={{ color: BRAND }}>{money(ventaBulto(p, inCart, mode))}</span>
                     {!!promo?.discountPct && inCart >= promoMinQty(promo.label) && <span className="text-[11px] text-neutral-400 line-through">{money(original)}</span>}
                   </div>
+                  {inCart > 1 && (
+                    <div className="text-[10.5px] text-neutral-400">Total: <span className="font-bold text-neutral-700">{money(ventaBulto(p, inCart, mode) * inCart)}</span></div>
+                  )}
                   {!!promo?.discountPct && inCart > 0 && inCart < promoMinQty(promo.label) && (
                     <div className="text-[10px] font-semibold" style={{ color: ACCENT }}>
                       Llevá {promoMinQty(promo.label)} para el precio de la promo (tenés {inCart})
