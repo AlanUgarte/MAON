@@ -866,6 +866,9 @@ function TiendaInner() {
                   <span className="text-[12px] font-bold" style={{ color: BRAND }}>{money(l.unitPrice)}</span>
                   {l.mode !== 'BULTO' && <span className="rounded bg-neutral-100 px-1 py-0.5 text-[9px] font-bold uppercase text-neutral-500">por {modeLabel(l.product, l.mode)}</span>}
                 </div>
+                {l.qty > 1 && (
+                  <div className="text-[11px] text-neutral-400">Total: <span className="font-bold text-neutral-700">{money(l.subtotal)}</span></div>
+                )}
                 <div className="mt-1 flex items-center gap-2">
                   <button onClick={() => changeQty(l.productId, l.mode, -1)} className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100"><Minus className="h-3.5 w-3.5" /></button>
                   <input
