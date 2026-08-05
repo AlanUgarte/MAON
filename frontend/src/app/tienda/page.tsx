@@ -421,7 +421,7 @@ function TiendaInner() {
             style={{ background: BRAND }}
           >
             <ShoppingCart className="h-4 w-4" />
-            <span className="hidden sm:inline">{money(subtotal)}</span>
+            <span>{money(subtotal)}</span>
             {cartCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold text-white" style={{ background: ACCENT }}>
                 {cartCount}
