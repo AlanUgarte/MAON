@@ -32,6 +32,10 @@ function fromBackendProduct(bp: any): Prod {
     id: bp.id, name: bp.name, sku: bp.sku, category: bp.category ?? '', brand: bp.brand ?? '-',
     units: bp.unitsPerBulk ?? 0, img: bp.images?.[0] ?? '', price: Number(bp.price), stock: bp.stock ?? 0,
     active: bp.isActive ?? true, margin: bp.marginPct ?? null,
+    unitPrice: bp.unitPrice != null ? Number(bp.unitPrice) : undefined,
+    displayPrice: bp.displayPrice != null ? Number(bp.displayPrice) : undefined,
+    unitsPerDisplay: bp.unitsPerDisplay ?? undefined,
+    unitsPerZuncho: bp.unitsPerZuncho ?? undefined,
   };
 }
 
@@ -107,9 +111,18 @@ export default function ProductosPage() {
   const cats = useMemo(() => [...new Set(items.map((p) => p.category))].sort(), [items]);
 
   const effMargin = (p: Prod) => (p.margin === null ? gPct : p.margin);
-  const punit = (p: Prod) => (p.units ? p.price / p.units : 0);
+  // Si el artículo se vende de verdad por unidad/zuncho suelto (mismo dato que usa la
+  // Tienda), el costo/venta real de esa unidad es el que carga el maestro (unitPrice) — no
+  // el promedio ingenuo bulto/cantidad, que no refleja el recargo del 8.5% que se le suma
+  // a la unidad de venta más chica.
+  const punit = (p: Prod) => (p.unitPrice != null ? p.unitPrice : p.units ? p.price / p.units : 0);
   const ventaB = (p: Prod) => Math.round(p.price * (1 + effMargin(p) / 100));
-  const ventaU = (p: Prod) => (p.units ? Math.round(ventaB(p) / p.units) : 0);
+  const ventaU = (p: Prod) =>
+    p.unitPrice != null
+      ? Math.round(p.unitPrice * (1 + effMargin(p) / 100) * 1.085)
+      : p.units
+        ? Math.round(ventaB(p) / p.units)
+        : 0;
 
   const filtered = useMemo(() => {
     let r = items.filter(
