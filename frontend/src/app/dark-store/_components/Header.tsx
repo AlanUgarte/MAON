@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Search, ShoppingCart, Zap, Clock, MapPin } from 'lucide-react';
 import { BG_SOFT, CARD_BORDER, ACCENT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
 import type { DarkStoreSettings } from '@/lib/dark-store-settings-store';
@@ -13,6 +13,7 @@ export function Header({
   settings: DarkStoreSettings; cartCount: number; cartTotal: number; defaultSearch?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState(defaultSearch);
   const open = settings.storeOpen && isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
 
@@ -66,17 +67,21 @@ export function Header({
         </button>
       </div>
 
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1.5 px-4 pb-3">
-        {DARK_STORE_CATEGORIES.map((c) => (
-          <button
-            key={c}
-            onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}
-            className="rounded-full px-3 py-1.5 text-[12px] font-semibold"
-            style={{ background: '#0D1017', border: `1px solid ${CARD_BORDER}`, color: TEXT }}
-          >
-            {c}
-          </button>
-        ))}
+      <div className="border-t" style={{ borderColor: CARD_BORDER }} />
+      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1 px-4">
+        {DARK_STORE_CATEGORIES.map((c) => {
+          const active = pathname === `/dark-store/categoria/${c.toLowerCase()}`;
+          return (
+            <button
+              key={c}
+              onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}
+              className="border-b-2 px-3 py-2.5 text-[12.5px] font-semibold transition"
+              style={{ borderColor: active ? ACCENT : 'transparent', color: active ? TEXT : MUTED }}
+            >
+              {c}
+            </button>
+          );
+        })}
         <span className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold" style={{ color: open ? NEON : MUTED }}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: open ? NEON : MUTED }} />
           {open ? 'Estamos abiertos' : 'Cerrado ahora'}
