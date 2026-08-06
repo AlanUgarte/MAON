@@ -115,14 +115,20 @@ export default function ProductosPage() {
   // Tienda), el costo/venta real de esa unidad es el que carga el maestro (unitPrice) — no
   // el promedio ingenuo bulto/cantidad, que no refleja el recargo del 8.5% que se le suma
   // a la unidad de venta más chica.
-  const punit = (p: Prod) => (p.unitPrice != null ? p.unitPrice : p.units ? p.price / p.units : 0);
+  // La unidad de venta más chica no siempre es "unitPrice" (Unidad/Zuncho) — si el
+  // artículo no tiene eso pero sí se vende por Display suelto (sin Unidad/Zuncho, ej.
+  // FEL-FORT Paraguitas), el Display pasa a ser la unidad mínima y es esa la que lleva
+  // el 8.5% — mismo criterio que surchargeMode() en /tienda. Solo si no hay ninguno de
+  // los dos datos reales se cae al promedio ingenuo bulto/cantidad (sin recargo, porque
+  // ahí no hay una venta suelta real que justifique el 8.5%).
+  const smallestUnitCost = (p: Prod) => p.unitPrice ?? p.displayPrice ?? null;
+  const punit = (p: Prod) => smallestUnitCost(p) ?? (p.units ? p.price / p.units : 0);
   const ventaB = (p: Prod) => Math.round(p.price * (1 + effMargin(p) / 100));
-  const ventaU = (p: Prod) =>
-    p.unitPrice != null
-      ? Math.round(p.unitPrice * (1 + effMargin(p) / 100 + 0.085))
-      : p.units
-        ? Math.round(ventaB(p) / p.units)
-        : 0;
+  const ventaU = (p: Prod) => {
+    const cost = smallestUnitCost(p);
+    if (cost != null) return Math.round(cost * (1 + effMargin(p) / 100 + 0.085));
+    return p.units ? Math.round(ventaB(p) / p.units) : 0;
+  };
 
   const filtered = useMemo(() => {
     let r = items.filter(
