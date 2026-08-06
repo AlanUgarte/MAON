@@ -10,11 +10,11 @@ import { Header } from './_components/Header';
 import { MobileNav } from './_components/MobileNav';
 import { ProductCard } from './_components/ProductCard';
 
-const CATEGORY_META: Record<string, { emoji: string; blurb: string }> = {
-  Bebidas: { emoji: '🥤', blurb: 'Gaseosas, aguas, energizantes' },
-  Snacks: { emoji: '🍟', blurb: 'Papas, palitos, maní' },
-  Chocolates: { emoji: '🍫', blurb: 'Tabletas, bombones, alfajores' },
-  Vapeadores: { emoji: '💨', blurb: 'Vapes y accesorios' },
+const CATEGORY_META: Record<string, { img: string; blurb: string }> = {
+  Bebidas: { img: '/dark-store/cat-bebidas.jpg', blurb: 'Gaseosas, aguas, energizantes' },
+  Snacks: { img: '/dark-store/cat-snacks.jpg', blurb: 'Papas, palitos, maní' },
+  Chocolates: { img: '/dark-store/cat-chocolates.jpg', blurb: 'Tabletas, bombones, alfajores' },
+  Vapeadores: { img: '/dark-store/cat-vapeadores.jpg', blurb: 'Vapes y accesorios' },
 };
 
 export default function DarkStoreHome() {
@@ -35,7 +35,7 @@ export default function DarkStoreHome() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: BG, color: TEXT }}>
-      <Header settings={settings} cartCount={cart.count} cartTotal={cartTotal} />
+      <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} />
 
       {!open && (
         <div className="px-4 py-2.5 text-center text-[12.5px] font-semibold" style={{ background: ACCENT_SOFT, color: NEON }}>
@@ -60,12 +60,20 @@ export default function DarkStoreHome() {
             <button
               key={c}
               onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}
-              className="group relative overflow-hidden rounded-2xl p-4 text-left"
+              className="group relative aspect-[16/10] overflow-hidden rounded-2xl text-left"
               style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
             >
-              <div className="text-3xl">{CATEGORY_META[c]?.emoji}</div>
-              <div className="mt-2 text-[14px] font-extrabold">{c}</div>
-              <div className="text-[11px]" style={{ color: MUTED }}>{counts.get(c) ?? 0} productos</div>
+              <img
+                src={CATEGORY_META[c]?.img}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+              {/* Scrim: sin esto el texto blanco se pierde sobre las zonas claras de la foto */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(8,10,15,0.92) 0%, rgba(8,10,15,0.55) 45%, rgba(8,10,15,0.15) 100%)' }} />
+              <div className="absolute inset-x-0 bottom-0 p-4">
+                <div className="text-[15px] font-extrabold drop-shadow" style={{ color: '#FFFFFF' }}>{c}</div>
+                <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{counts.get(c) ?? 0} productos</div>
+              </div>
               <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 opacity-0 transition group-hover:opacity-100" style={{ color: ACCENT }} />
             </button>
           ))}

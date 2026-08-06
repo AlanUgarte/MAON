@@ -9,7 +9,7 @@ import { MobileNav } from '../_components/MobileNav';
 
 export default function DarkStoreCartPage() {
   const router = useRouter();
-  const { settings, cart, cartLines, cartTotal } = useDarkStoreShell();
+  const { settings, items, cart, cartLines, cartTotal } = useDarkStoreShell();
   const open = settings.storeOpen && isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
 
   const belowMin = settings.minOrderAmount > 0 && cartTotal < settings.minOrderAmount;
@@ -18,7 +18,7 @@ export default function DarkStoreCartPage() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: BG, color: TEXT }}>
-      <Header settings={settings} cartCount={cart.count} cartTotal={cartTotal} />
+      <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} />
 
       <div className="mx-auto max-w-[800px] px-4 py-5">
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: MUTED }}>

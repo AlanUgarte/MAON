@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useProductCatalog } from './product-catalog-store';
 import { useDarkStoreVapes } from './dark-store-vapes-store';
 import { darkStorePrice } from './dark-store-pricing';
+import { normalizeLine } from './dark-store-lines';
 import type { DarkStoreSettings } from './dark-store-settings-store';
 
 export const DARK_STORE_CATEGORIES = ['Bebidas', 'Snacks', 'Chocolates', 'Vapeadores'] as const;
@@ -19,6 +20,8 @@ export interface DarkStoreItem {
   name: string;
   brand: string;
   category: DarkStoreCategory;
+  /** Subcategoría normalizada (Vinos, Gaseosas, Tabletas...) — ver dark-store-lines. */
+  line: string;
   img: string;
   price: number;
   stock: number;
@@ -38,6 +41,7 @@ export function useDarkStoreCatalog(settings: DarkStoreSettings) {
         name: p.name,
         brand: p.brand,
         category: p.category as DarkStoreCategory,
+        line: normalizeLine(p.line),
         img: p.img,
         // Dark Store vende unidad suelta: si el artículo tiene costo real de unidad
         // (mismo dato que usa /tienda), se usa ese; si no, no hay forma de vender "uno
@@ -53,6 +57,8 @@ export function useDarkStoreCatalog(settings: DarkStoreSettings) {
       name: v.name,
       brand: v.brand ?? '-',
       category: 'Vapeadores',
+      // Los vapes no traen "línea" del proveedor: la marca es el corte natural para filtrarlos.
+      line: normalizeLine(v.brand),
       img: v.images[0] ?? '',
       // Los vapeadores no tienen costo/margen: el admin carga el precio final directo.
       price: v.price,

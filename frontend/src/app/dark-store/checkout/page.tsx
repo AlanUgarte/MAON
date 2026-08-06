@@ -25,7 +25,7 @@ function Field({ label, ...props }: { label: string } & React.InputHTMLAttribute
 
 export default function DarkStoreCheckoutPage() {
   const router = useRouter();
-  const { settings, cart, cartLines, cartTotal } = useDarkStoreShell();
+  const { settings, items, cart, cartLines, cartTotal } = useDarkStoreShell();
   const open = settings.storeOpen && isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
 
   const [form, setForm] = useState({
@@ -85,7 +85,7 @@ export default function DarkStoreCheckoutPage() {
 
   return (
     <div className="min-h-screen" style={{ background: BG, color: TEXT }}>
-      <Header settings={settings} cartCount={cart.count} cartTotal={cartTotal} />
+      <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} />
 
       <div className="mx-auto max-w-[700px] px-4 py-5">
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: MUTED }}>

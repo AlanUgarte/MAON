@@ -30,7 +30,7 @@ export default function DarkStoreSearchPage() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: BG, color: TEXT }}>
-      <Header settings={settings} cartCount={cart.count} cartTotal={cartTotal} defaultSearch={q} />
+      <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} defaultSearch={q} />
 
       <div className="mx-auto max-w-[1400px] px-4 py-5">
         {!q ? (

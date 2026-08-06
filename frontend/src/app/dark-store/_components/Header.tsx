@@ -1,21 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingCart, Zap, Clock, MapPin } from 'lucide-react';
-import { BG_SOFT, CARD_BORDER, ACCENT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
+import { Search, ShoppingCart, Zap, Clock, MapPin, ChevronDown } from 'lucide-react';
+import { BG_SOFT, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
 import type { DarkStoreSettings } from '@/lib/dark-store-settings-store';
-import { DARK_STORE_CATEGORIES } from '@/lib/dark-store-catalog';
+import { DARK_STORE_CATEGORIES, type DarkStoreItem } from '@/lib/dark-store-catalog';
+import { linesOf } from '@/lib/dark-store-lines';
 
 export function Header({
-  settings, cartCount, cartTotal, defaultSearch = '',
+  settings, cartCount, cartTotal, defaultSearch = '', items = [],
 }: {
   settings: DarkStoreSettings; cartCount: number; cartTotal: number; defaultSearch?: string;
+  /** Catálogo cargado: de acá salen las líneas de cada categoría para el desplegable. */
+  items?: DarkStoreItem[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(defaultSearch);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const open = settings.storeOpen && isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
+
+  // Una sola pasada por el catálogo para todas las categorías (son 12k productos).
+  const linesByCategory = useMemo(() => {
+    const m: Record<string, ReturnType<typeof linesOf>> = {};
+    for (const c of DARK_STORE_CATEGORIES) m[c] = linesOf(items, c);
+    return m;
+  }, [items]);
+
+  // Cerrar el desplegable al clickear afuera o con Escape.
+  useEffect(() => {
+    if (!openMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (!navRef.current?.contains(e.target as Node)) setOpenMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenMenu(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [openMenu]);
+
+  const goToLine = (category: string, slug?: string) => {
+    setOpenMenu(null);
+    const base = `/dark-store/categoria/${category.toLowerCase()}`;
+    router.push(slug ? `${base}?linea=${slug}` : base);
+  };
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,18 +98,62 @@ export function Header({
       </div>
 
       <div className="border-t" style={{ borderColor: CARD_BORDER }} />
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1 px-4">
-        {DARK_STORE_CATEGORIES.map((c) => {
+      <div ref={navRef} className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1 px-4">
+        {DARK_STORE_CATEGORIES.map((c, i) => {
           const active = pathname === `/dark-store/categoria/${c.toLowerCase()}`;
+          const lines = linesByCategory[c] ?? [];
+          const isOpen = openMenu === c;
+          // Las últimas categorías están cerca del borde derecho: si el panel se abre hacia
+          // la derecha se sale de la pantalla en mobile, así que esas se alinean al revés.
+          const alignRight = i >= DARK_STORE_CATEGORIES.length / 2;
           return (
-            <button
+            <div
               key={c}
-              onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}
-              className="border-b-2 px-3 py-2.5 text-[12.5px] font-semibold transition"
-              style={{ borderColor: active ? ACCENT : 'transparent', color: active ? TEXT : MUTED }}
+              className="relative"
+              onMouseEnter={() => lines.length > 0 && setOpenMenu(c)}
+              onMouseLeave={() => setOpenMenu(null)}
             >
-              {c}
-            </button>
+              <button
+                onClick={() => (lines.length > 0 ? setOpenMenu(isOpen ? null : c) : goToLine(c))}
+                className="flex items-center gap-1 border-b-2 px-3 py-2.5 text-[12.5px] font-semibold transition"
+                style={{ borderColor: active || isOpen ? ACCENT : 'transparent', color: active || isOpen ? TEXT : MUTED }}
+              >
+                {c}
+                {lines.length > 0 && (
+                  <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : undefined }} />
+                )}
+              </button>
+
+              {isOpen && lines.length > 0 && (
+                <div
+                  className={`absolute top-full z-50 max-h-[70vh] w-60 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl py-1.5 shadow-2xl ${alignRight ? 'right-0' : 'left-0'}`}
+                  style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
+                >
+                  <button
+                    onClick={() => goToLine(c)}
+                    className="flex w-full items-center justify-between px-3.5 py-2 text-left text-[12.5px] font-bold"
+                    style={{ color: NEON }}
+                  >
+                    Ver todo {c}
+                    <span style={{ color: MUTED }}>{lines.reduce((a, l) => a + l.count, 0)}</span>
+                  </button>
+                  <div className="my-1 h-px" style={{ background: CARD_BORDER }} />
+                  {lines.map((l) => (
+                    <button
+                      key={l.slug}
+                      onClick={() => goToLine(c, l.slug)}
+                      className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left text-[12.5px] transition hover:brightness-125"
+                      style={{ color: TEXT }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT_SOFT)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span className="truncate">{l.label}</span>
+                      <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{l.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
         <span className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold" style={{ color: open ? NEON : MUTED }}>

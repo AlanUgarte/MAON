@@ -10,7 +10,7 @@ import { Header } from '../../_components/Header';
 export default function DarkStoreConfirmationPage() {
   const params = useParams<{ saleId: string }>();
   const router = useRouter();
-  const { settings, cart, cartTotal } = useDarkStoreShell();
+  const { settings, items, cart, cartTotal } = useDarkStoreShell();
   const [numero, setNumero] = useState('');
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function DarkStoreConfirmationPage() {
 
   return (
     <div className="min-h-screen" style={{ background: BG, color: TEXT }}>
-      <Header settings={settings} cartCount={cart.count} cartTotal={cartTotal} />
+      <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} />
 
       <div className="mx-auto max-w-[560px] px-4 py-12 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(198,255,60,0.15)' }}>
