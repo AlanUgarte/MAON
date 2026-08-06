@@ -39,7 +39,7 @@ const TABS = [
 const isDarkStoreOrder = (o: TiendaOrder) => !!o.barrio || !!o.vapeItems?.length;
 
 export default function DarkStoreConfigPage() {
-  const { settings, save } = useDarkStoreSettings();
+  const { settings, save, saveError } = useDarkStoreSettings();
   const { orders: allOrders, status: ordersStatus } = useTiendaOrders();
   const { comprobantes } = useComprobantesStore();
   const { products: fullCatalog } = useProductCatalog();
@@ -104,6 +104,12 @@ export default function DarkStoreConfigPage() {
             </a>
           </div>
         </div>
+
+        {saveError && (
+          <div className="rounded-xl border border-rose/30 bg-rose/8 px-4 py-2.5 text-[12.5px] font-medium text-rose">
+            ⚠️ {saveError}
+          </div>
+        )}
 
         {tab === 'resumen' && (
           <div className="space-y-5">

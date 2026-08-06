@@ -86,6 +86,10 @@ function load(): DarkStoreSettings {
 
 export function useDarkStoreSettings() {
   const [settings, setSettings] = useState<DarkStoreSettings>(DEFAULT_DARK_STORE_SETTINGS);
+  // Antes el error del PATCH se tragaba en silencio (.catch(() => {})): si el guardado
+  // fallaba (ej. sesión vencida), el panel igual mostraba "Guardado" — no había forma de
+  // notarlo hasta que se perdía un cambio real, como pasó acá con el horario.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -103,9 +107,11 @@ export function useDarkStoreSettings() {
     if (!getToken()) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      api.updateDarkStoreSettings(sanitize(next)).catch(() => {});
+      api.updateDarkStoreSettings(sanitize(next))
+        .then(() => setSaveError(null))
+        .catch((err) => setSaveError(err?.message || 'No se pudo guardar — probá recargar la página e iniciar sesión de nuevo.'));
     }, SAVE_DEBOUNCE_MS);
   };
 
-  return { settings, save };
+  return { settings, save, saveError };
 }
