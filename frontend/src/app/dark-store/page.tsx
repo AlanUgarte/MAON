@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, MapPin, Truck } from 'lucide-react';
+import { ArrowRight, Truck } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from './_lib';
 import { useDarkStoreShell } from './_useShell';
 import { DARK_STORE_CATEGORIES } from '@/lib/dark-store-catalog';
@@ -108,22 +108,22 @@ export default function DarkStoreHome() {
 
       {/* Zona de entrega */}
       <div className="mx-auto max-w-[1400px] px-4 pb-10">
-        <div className="rounded-3xl p-6" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-[15px] font-extrabold">
-              <MapPin className="h-4 w-4" style={{ color: ACCENT }} /> Zona de entrega
-            </h2>
-            <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: ACCENT_SOFT, color: NEON }}>
-              <Truck className="h-3.5 w-3.5" /> Envío {money(settings.deliveryFee)} fijo
-            </span>
-          </div>
-          <p className="mt-2 text-[12.5px]" style={{ color: MUTED }}>Despachamos a estos barrios de Rosario:</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {settings.deliveryBarrios.map((b) => (
-              <span key={b} className="rounded-full px-3 py-1.5 text-[12px] font-medium" style={{ background: '#0D1017', border: `1px solid ${CARD_BORDER}`, color: TEXT }}>
-                {b}
+        <div className="overflow-hidden rounded-3xl" style={{ border: `1px solid ${CARD_BORDER}` }}>
+          <img src="/dark-store/zona-entrega.png" alt="Zona de entrega — hasta 20 minutos en moto" className="w-full" />
+          <div className="p-6" style={{ background: CARD }}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[12.5px]" style={{ color: MUTED }}>Despachamos a estos barrios de Rosario:</p>
+              <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: ACCENT_SOFT, color: NEON }}>
+                <Truck className="h-3.5 w-3.5" /> Envío {money(settings.deliveryFee)} fijo
               </span>
-            ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {settings.deliveryBarrios.map((b) => (
+                <span key={b} className="rounded-full px-3 py-1.5 text-[12px] font-medium" style={{ background: '#0D1017', border: `1px solid ${CARD_BORDER}`, color: TEXT }}>
+                  {b}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
