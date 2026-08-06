@@ -16,6 +16,7 @@ export interface TiendaOrder {
   customerName: string;
   customerPhone: string;
   clientId?: string;
+  status: string;
   items: TiendaOrderItem[];
   subtotal: number;
   envioGratis: boolean;
@@ -49,6 +50,7 @@ function fromBackend(s: any): TiendaOrder {
     customerName: `${s.client?.firstName ?? ''} ${s.client?.lastName ?? ''}`.trim(),
     customerPhone: s.client?.phone ?? '',
     clientId: s.clientId,
+    status: s.status ?? 'PENDIENTE',
     items: (s.items ?? []).map((it: any) => ({
       productId: it.productId,
       sku: it.product?.sku ?? '',
@@ -107,5 +109,14 @@ export function useTiendaOrders() {
     api.markSaleInvoiced(orderId, comprobanteNumero).catch(() => reload());
   };
 
-  return { orders, status, addOrder, markInvoiced, reload };
+  // Marca "en camino" y le avisa al cliente por WhatsApp (lo hace el backend) — acá
+  // devolvemos el teléfono para que la pantalla abra el chat y el admin comparta su
+  // ubicación en vivo a mano (WhatsApp no tiene forma de disparar eso desde un bot).
+  const markShipped = async (orderId: string) => {
+    const res = await api.markSaleShipped(orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'ENVIADA' } : o)));
+    return res.clientPhone;
+  };
+
+  return { orders, status, addOrder, markInvoiced, markShipped, reload };
 }

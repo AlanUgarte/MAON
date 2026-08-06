@@ -32,6 +32,8 @@ export interface DarkStoreSettings {
   maxOrderAmount?: number;
   whatsappNumber: string;
   whatsappTemplate?: string;
+  /** Alias bancario para transferencias — se adjunta al mensaje de WhatsApp del pedido. */
+  paymentAlias: string;
   hiddenProductIds: string[];
 }
 
@@ -50,6 +52,7 @@ export const DEFAULT_DARK_STORE_SETTINGS: DarkStoreSettings = {
   lowStockThreshold: 5,
   minOrderAmount: 0,
   whatsappNumber: '5493413807110',
+  paymentAlias: 'Alan.ugarte7',
   hiddenProductIds: [],
 };
 
@@ -73,6 +76,7 @@ function sanitize(raw: any): DarkStoreSettings {
     maxOrderAmount: raw?.maxOrderAmount ?? undefined,
     whatsappNumber: raw?.whatsappNumber ?? DEFAULT_DARK_STORE_SETTINGS.whatsappNumber,
     whatsappTemplate: raw?.whatsappTemplate ?? undefined,
+    paymentAlias: raw?.paymentAlias ?? DEFAULT_DARK_STORE_SETTINGS.paymentAlias,
     hiddenProductIds: raw?.hiddenProductIds ?? [],
   };
 }

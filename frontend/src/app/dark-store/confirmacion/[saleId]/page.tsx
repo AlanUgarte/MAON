@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle2, MessageCircle } from 'lucide-react';
-import { BG, CARD, CARD_BORDER, ACCENT, NEON, TEXT, MUTED, money } from '../../_lib';
+import { BG, CARD, CARD_BORDER, ACCENT, NEON, TEXT, MUTED, money, loadOrderSummary } from '../../_lib';
 import { useDarkStoreShell } from '../../_useShell';
 import { Header } from '../../_components/Header';
 
@@ -18,10 +18,32 @@ export default function DarkStoreConfirmationPage() {
   }, []);
 
   const sendWhatsapp = () => {
-    // Sin costos internos ni datos que no le sirven al cliente — solo el resumen del
-    // pedido ya confirmado y un link al pedido dentro del CRM para el equipo.
+    const order = loadOrderSummary();
     const staffLink = `${window.location.origin}/dark-store-config?pedido=${params.saleId}`;
-    const text = `Hola! Quiero confirmar mi pedido de MAON Dark Store.\n\nPedido: ${numero || params.saleId}\n\nYa quedó registrado — ¿me confirman disponibilidad y el tiempo de entrega?\n\n(Staff: ${staffLink})`;
+
+    // Con el detalle del pedido guardado en sessionStorage (el carrito ya se vació al
+    // confirmar) se arma el mensaje completo — así no hay que retipear nada a mano.
+    const text = order
+      ? [
+          `Hola! Quiero confirmar mi pedido de MAON Dark Store.`,
+          ``,
+          `Pedido: ${numero || order.numero}`,
+          `Cliente: ${order.customerName}`,
+          `Entrega: ${order.address}${order.barrio ? ` (${order.barrio})` : ''}`,
+          ``,
+          ...order.lines.map((l) => `${l.qty}x ${l.name} — ${money(l.unitPrice * l.qty)}`),
+          ``,
+          `Subtotal: ${money(order.subtotal)}`,
+          `Envío: ${money(order.deliveryFee)}`,
+          `Total: ${money(order.total)}`,
+          ``,
+          `Pago: Efectivo o Transferencia (alias ${settings.paymentAlias}).`,
+          `Si transfiero, mando el comprobante por acá.`,
+          ``,
+          `(Staff: ${staffLink})`,
+        ].join('\n')
+      : `Hola! Quiero confirmar mi pedido de MAON Dark Store.\n\nPedido: ${numero || params.saleId}\n\nYa quedó registrado — ¿me confirman disponibilidad y el tiempo de entrega?\n\nPago: Efectivo o Transferencia (alias ${settings.paymentAlias}). Si transfiero, mando el comprobante por acá.\n\n(Staff: ${staffLink})`;
+
     window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank');
   };
 

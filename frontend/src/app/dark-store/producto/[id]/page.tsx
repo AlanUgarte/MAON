@@ -19,7 +19,11 @@ export default function DarkStoreProductPage() {
   const rawId = params.id.slice(2);
   const item = items.find((i) => i.kind === kind && i.id === rawId);
 
-  const qty = item ? cart.qtyOf(item.kind, item.id) : 0;
+  const hasFlavors = !!item && item.flavors.length > 1;
+  const [flavor, setFlavor] = useState(item?.flavors[0]);
+  const selectedFlavor = hasFlavors ? (flavor ?? item?.flavors[0]) : undefined;
+
+  const qty = item ? cart.qtyOf(item.kind, item.id, selectedFlavor) : 0;
   const outOfStock = !item || item.stock <= 0;
   const lowStock = item && !outOfStock && item.stock <= settings.lowStockThreshold;
 
@@ -60,6 +64,20 @@ export default function DarkStoreProductPage() {
                 </div>
               )}
 
+              {hasFlavors && (
+                <label className="mt-4 block">
+                  <span className="mb-1 block text-[11.5px] font-semibold" style={{ color: MUTED }}>Sabor</span>
+                  <select
+                    value={selectedFlavor}
+                    onChange={(e) => setFlavor(e.target.value)}
+                    className="h-11 w-full rounded-xl border px-3 text-[13.5px] outline-none"
+                    style={{ background: '#0D1017', borderColor: CARD_BORDER, color: TEXT }}
+                  >
+                    {item.flavors.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </label>
+              )}
+
               <div className="mt-5 text-3xl font-extrabold">{money(item.price)}</div>
               <div className="mt-1 flex items-center gap-1.5 text-[12px]" style={{ color: outOfStock ? ROSE : NEON }}>
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: outOfStock ? ROSE : NEON }} />
@@ -73,16 +91,16 @@ export default function DarkStoreProductPage() {
                   </button>
                 ) : qty > 0 ? (
                   <div className="flex items-center justify-between gap-2 rounded-full p-1.5" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
-                    <button onClick={() => cart.add(item.kind, item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: '#0D1017', color: TEXT }}>
+                    <button onClick={() => cart.add(item.kind, item.id, -1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: '#0D1017', color: TEXT }}>
                       <Minus className="h-4 w-4" />
                     </button>
                     <span className="text-[16px] font-extrabold">{qty} en el carrito</span>
-                    <button onClick={() => cart.add(item.kind, item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT, color: TEXT }}>
+                    <button onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT, color: TEXT }}>
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => cart.add(item.kind, item.id, 1)} className="w-full rounded-full py-3.5 text-[14px] font-bold" style={{ background: ACCENT, color: TEXT }}>
+                  <button onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)} className="w-full rounded-full py-3.5 text-[14px] font-bold" style={{ background: ACCENT, color: TEXT }}>
                     Agregar al carrito
                   </button>
                 )}

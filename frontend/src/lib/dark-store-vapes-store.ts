@@ -14,6 +14,8 @@ export interface DarkStoreVape {
   price: number;
   stock: number;
   images: string[];
+  /** Sabores/variantes — si hay más de uno, el detalle muestra un desplegable. */
+  flavors: string[];
   featured: boolean;
   isActive: boolean;
 }
@@ -21,7 +23,7 @@ export interface DarkStoreVape {
 function fromBackend(v: any): DarkStoreVape {
   return {
     id: v.id, name: v.name, description: v.description ?? undefined, brand: v.brand ?? undefined,
-    price: Number(v.price), stock: v.stock ?? 0, images: v.images ?? [],
+    price: Number(v.price), stock: v.stock ?? 0, images: v.images ?? [], flavors: v.flavors ?? [],
     featured: !!v.featured, isActive: v.isActive ?? true,
   };
 }

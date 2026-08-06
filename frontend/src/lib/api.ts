@@ -184,6 +184,8 @@ export const api = {
   }) => request<{ ok: boolean; saleId?: string; comprobanteNumero?: string; reason?: string }>('/sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
   markSaleInvoiced: (id: string, comprobanteNumero: string) =>
     request<any>(`/sales/${id}/invoice`, { method: 'PATCH', body: JSON.stringify({ comprobanteNumero }) }),
+  markSaleShipped: (id: string) =>
+    request<{ ok: boolean; clientPhone?: string }>(`/sales/${id}/ship`, { method: 'PATCH' }),
 
   // Config de la tienda pública (banner, promos, productos ocultos, etc.) — GET es público.
   tiendaSettings: () => request<any>('/tienda-settings'),

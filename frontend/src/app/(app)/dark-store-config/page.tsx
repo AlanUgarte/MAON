@@ -5,14 +5,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Cigarette,
-  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X,
+  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X, Truck,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BannerManager } from '@/components/app/banner-manager';
-import { useProductCatalog } from '@/lib/product-catalog-store';
+import { darkStoreUnitCost, darkStoreEffMargin } from '@/lib/dark-store-catalog';
+import { darkStorePrice } from '@/lib/dark-store-pricing';
 import { useDarkStoreSettings, type DarkStoreSettings } from '@/lib/dark-store-settings-store';
 import { useDarkStoreVapes, type DarkStoreVape } from '@/lib/dark-store-vapes-store';
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
@@ -40,22 +41,30 @@ const isDarkStoreOrder = (o: TiendaOrder) => !!o.barrio || !!o.vapeItems?.length
 
 export default function DarkStoreConfigPage() {
   const { settings, save, saveError } = useDarkStoreSettings();
-  const { orders: allOrders, status: ordersStatus } = useTiendaOrders();
+  const { orders: allOrders, status: ordersStatus, markShipped } = useTiendaOrders();
+  const [shippingId, setShippingId] = useState<string | null>(null);
+
+  const handleShip = async (o: TiendaOrder) => {
+    setShippingId(o.id);
+    try {
+      const phone = await markShipped(o.id);
+      if (phone) window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
+    } catch {
+      // el aviso al cliente puede fallar del lado del servidor sin romper la UI —
+      // el estado se resincroniza solo la próxima vez que se recargue la lista
+    } finally {
+      setShippingId(null);
+    }
+  };
   const { comprobantes } = useComprobantesStore();
-  const { products: fullCatalog } = useProductCatalog();
   const { vapes, refresh: refreshVapes } = useDarkStoreVapes(true);
 
-  const darkStoreProducts = useMemo(
-    () => fullCatalog.filter((p) => p.category === 'Bebidas' || p.category === 'Snacks' || p.category === 'Chocolates'),
-    [fullCatalog],
-  );
   const orders = useMemo(() => allOrders.filter(isDarkStoreOrder), [allOrders]);
 
   const [form, setForm] = useState<DarkStoreSettings>(settings);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('resumen');
   const [bannerSub, setBannerSub] = useState<'carrusel' | 'tarjetas'>('carrusel');
-  const [q, setQ] = useState('');
 
   useEffect(() => setForm(settings), [settings]);
   const set = <K extends keyof DarkStoreSettings>(key: K, value: DarkStoreSettings[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -158,6 +167,7 @@ export default function DarkStoreConfigPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {o.barrio && <Badge tone="sky">{o.barrio}</Badge>}
+                    {o.status === 'ENVIADA' && <Badge tone="emerald">🚚 En camino</Badge>}
                     {o.comprobanteNumero && <Badge tone="emerald">Ticket {o.comprobanteNumero}</Badge>}
                     <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
                   </div>
@@ -174,38 +184,23 @@ export default function DarkStoreConfigPage() {
                   {o.comprobanteNumero && (
                     <Button size="sm" variant="outline" onClick={() => downloadInvoice(o)}><Download className="h-3.5 w-3.5" /> Descargar ticket</Button>
                   )}
+                  {o.barrio && o.status !== 'ENVIADA' && o.status !== 'ENTREGADA' && (
+                    <Button size="sm" onClick={() => handleShip(o)} disabled={shippingId === o.id}>
+                      <Truck className="h-3.5 w-3.5" /> {shippingId === o.id ? 'Enviando aviso...' : 'Marcar en camino'}
+                    </Button>
+                  )}
+                  {o.status === 'ENVIADA' && o.customerPhone && (
+                    <a href={`https://wa.me/${o.customerPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-primary hover:underline">
+                      📍 Compartir ubicación en vivo →
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {tab === 'productos' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Bebidas, Snacks y Chocolates</CardTitle>
-              <span className="text-xs text-muted">{darkStoreProducts.length} productos del catálogo mayorista</span>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-[12.5px] text-muted">
-                Vienen del mismo catálogo que Tienda/Cotillón — para editar precio, stock o margen de un artículo puntual, andá a{' '}
-                <a href="/productos" className="font-semibold text-primary hover:underline">Productos</a>.
-              </p>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className={inputClass} />
-              <div className="max-h-[480px] space-y-1.5 overflow-y-auto">
-                {darkStoreProducts.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 200).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-line/10 px-3 py-2 text-[12.5px]">
-                    <span className="truncate text-content">{p.name}</span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <Badge tone="muted">{p.category}</Badge>
-                      <span className={p.stock > 0 ? 'text-emerald' : 'text-rose'}>{p.stock > 0 ? 'En stock' : 'Sin stock'}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {tab === 'productos' && <ProductsTab margenPct={settings.margenPct} />}
 
         {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} />}
 
@@ -303,8 +298,9 @@ export default function DarkStoreConfigPage() {
 
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><MessageCircle className="h-4 w-4 text-primary" /> WhatsApp</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div><label className={labelClass}>Número (sin +, ej: 5493411234567)</label><input className={inputClass} value={form.whatsappNumber} onChange={(e) => set('whatsappNumber', e.target.value)} /></div>
+                <div><label className={labelClass}>Alias para transferencias</label><input className={inputClass} value={form.paymentAlias} onChange={(e) => set('paymentAlias', e.target.value)} /></div>
               </CardContent>
             </Card>
 
@@ -333,9 +329,117 @@ function BarrioAdder({ onAdd, existing }: { onAdd: (b: string) => void; existing
   );
 }
 
+// ---- Productos: costo/margen/venta/stock, mismo dato compartido con Tienda/Cotillón ----
+type DSProduct = {
+  id: string; sku: string; name: string; brand: string; category: string;
+  price: number; unitPrice?: number; displayPrice?: number; marginPct: number | null; stock: number;
+};
+
+function ProductsTab({ margenPct }: { margenPct: number }) {
+  const [items, setItems] = useState<DSProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    api.products()
+      .then((res) => {
+        if (cancelled) return;
+        const rows: DSProduct[] = (res.data ?? res)
+          .filter((p: any) => p.category === 'Bebidas' || p.category === 'Snacks' || p.category === 'Chocolates')
+          .map((p: any) => ({
+            id: p.id, sku: p.sku, name: p.name, brand: p.brand ?? '-', category: p.category,
+            price: Number(p.price),
+            unitPrice: p.unitPrice != null ? Number(p.unitPrice) : undefined,
+            displayPrice: p.displayPrice != null ? Number(p.displayPrice) : undefined,
+            marginPct: p.marginPct ?? null,
+            stock: p.stock ?? 0,
+          }));
+        setItems(rows);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const cost = (p: DSProduct) => darkStoreUnitCost(p);
+  const venta = (p: DSProduct) => darkStorePrice(cost(p), darkStoreEffMargin({ marginPct: p.marginPct ?? undefined }, { margenPct }));
+
+  const setLocal = (id: string, patch: Partial<DSProduct>) =>
+    setItems((arr) => arr.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const persist = (id: string, patch: Record<string, any>) => api.updateProduct(id, patch).catch(() => {});
+
+  const filtered = items.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()));
+  const visible = filtered.slice(0, 200);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Bebidas, Snacks y Chocolates</CardTitle>
+        <span className="text-xs text-muted">{items.length} productos · margen y stock compartidos con Tienda/Cotillón</span>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className={inputClass} />
+        {loading ? (
+          <div className="py-10 text-center text-[12.5px] text-muted">Cargando...</div>
+        ) : (
+          <div className="max-h-[560px] overflow-auto rounded-xl border border-line/10">
+            <table className="w-full text-[12.5px]">
+              <thead className="sticky top-0 bg-surface text-left text-muted">
+                <tr>
+                  <th className="p-2 font-medium">Producto</th>
+                  <th className="p-2 font-medium">Costo</th>
+                  <th className="p-2 font-medium">Margen %</th>
+                  <th className="p-2 font-medium">Venta</th>
+                  <th className="p-2 font-medium">Ganancia</th>
+                  <th className="p-2 font-medium">Stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((p) => (
+                  <tr key={p.id} className="border-t border-line/10">
+                    <td className="max-w-[280px] p-2">
+                      <div className="truncate font-medium text-content">{p.name}</div>
+                      <div className="truncate text-[10.5px] text-muted">{p.brand} · {p.category}</div>
+                    </td>
+                    <td className="p-2 tnum text-muted">{money(cost(p))}</td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        value={p.marginPct ?? ''}
+                        placeholder={String(margenPct)}
+                        onChange={(e) => setLocal(p.id, { marginPct: e.target.value === '' ? null : Number(e.target.value) })}
+                        onBlur={() => persist(p.id, { marginPct: p.marginPct })}
+                        className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
+                      />
+                    </td>
+                    <td className="p-2 tnum font-bold text-emerald">{money(venta(p))}</td>
+                    <td className="p-2 tnum text-emerald">{money(venta(p) - cost(p))}</td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        value={p.stock}
+                        onChange={(e) => setLocal(p.id, { stock: Number(e.target.value) || 0 })}
+                        onBlur={() => persist(p.id, { stock: p.stock })}
+                        className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && filtered.length > visible.length && (
+          <div className="text-center text-[11px] text-muted">Mostrando {visible.length} de {filtered.length} — buscá para filtrar.</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- Vapeadores: CRUD completo ----
-type VapeForm = { id?: string; name: string; description: string; brand: string; price: string; stock: string; images: string; featured: boolean; isActive: boolean };
-const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '', stock: '0', images: '', featured: false, isActive: true };
+type VapeForm = { id?: string; name: string; description: string; brand: string; price: string; stock: string; images: string; flavors: string; featured: boolean; isActive: boolean };
+const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '', stock: '0', images: '', flavors: '', featured: false, isActive: true };
 
 function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => void }) {
   const [editing, setEditing] = useState<VapeForm | null>(null);
@@ -361,7 +465,7 @@ function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => v
   const openNew = () => setEditing({ ...emptyVapeForm });
   const openEdit = (v: DarkStoreVape) => setEditing({
     id: v.id, name: v.name, description: v.description ?? '', brand: v.brand ?? '',
-    price: String(v.price), stock: String(v.stock), images: v.images.join(', '), featured: v.featured, isActive: v.isActive,
+    price: String(v.price), stock: String(v.stock), images: v.images.join(', '), flavors: v.flavors.join(', '), featured: v.featured, isActive: v.isActive,
   });
 
   const submit = async () => {
@@ -377,6 +481,7 @@ function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => v
         price: Number(editing.price),
         stock: Number(editing.stock) || 0,
         images: editing.images.split(',').map((s) => s.trim()).filter(Boolean),
+        flavors: editing.flavors.split(',').map((s) => s.trim()).filter(Boolean),
         featured: editing.featured,
         isActive: editing.isActive,
       };
@@ -435,6 +540,7 @@ function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => v
                 </div>
               )}
             </div>
+            <div><label className={labelClass}>Sabores (separados por coma — si hay más de uno, la tienda muestra un desplegable)</label><input className={inputClass} value={editing.flavors} onChange={(e) => setEditing({ ...editing, flavors: e.target.value })} placeholder="Cherry Watermelon, Strawberry Banana, Grape Ice" /></div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 text-[12.5px] text-content"><input type="checkbox" checked={editing.featured} onChange={(e) => setEditing({ ...editing, featured: e.target.checked })} /> Destacado</label>
               <label className="flex items-center gap-1.5 text-[12.5px] text-content"><input type="checkbox" checked={editing.isActive} onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} /> Activo</label>

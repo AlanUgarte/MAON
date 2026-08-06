@@ -100,6 +100,18 @@ export class SalesService {
       : [];
     const bySku = new Map(products.map((p) => [p.sku, p]));
 
+    // Dark Store (issueTicket) vende unidad suelta: el cliente ve y acepta el precio de
+    // costo-unidad + margen (mismo cálculo que dark-store-pricing.ts en el frontend), no
+    // el costo del bulto entero (Product.price) — usar ese acá cobraría/registraría el
+    // pedido a precio de costo mayorista, muy por debajo (o por encima, según el artículo)
+    // de lo que el cliente realmente vio y confirmó en el checkout.
+    const dsSettings = dto.issueTicket ? await this.darkStoreSettings.get() : null;
+    const darkStoreUnitPrice = (p: (typeof products)[number]): number => {
+      const cost = Number(p.unitPrice ?? p.displayPrice ?? p.price);
+      const marginPct = p.marginPct ?? dsSettings!.margenPct;
+      return Math.round(cost * (1 + marginPct / 100) * 100) / 100;
+    };
+
     const items: Prisma.SaleItemCreateManySaleInput[] = [];
     const confirmationItems: { name: string; quantity: number; unitPrice: number }[] = [];
     let total = new Prisma.Decimal(0);
@@ -110,27 +122,36 @@ export class SalesService {
       if (dto.enforceStock && prod.stock < quantity) {
         throw new BadRequestException(`Sin stock suficiente de ${prod.name} (hay ${prod.stock})`);
       }
-      items.push({ productId: prod.id, quantity, unitPrice: prod.price });
-      confirmationItems.push({ name: prod.name, quantity, unitPrice: Number(prod.price) });
-      total = total.add(prod.price.mul(quantity));
+      const unitPrice = dsSettings ? darkStoreUnitPrice(prod) : prod.price;
+      items.push({ productId: prod.id, quantity, unitPrice });
+      confirmationItems.push({ name: prod.name, quantity, unitPrice: Number(unitPrice) });
+      total = total.add(new Prisma.Decimal(unitPrice).mul(quantity));
     }
 
     // Vapeadores (Dark Store): no son Product, se resuelven aparte y quedan como snapshot
     // Json en Sale.vapeItems — no hay SaleItem porque esa tabla exige un productId real.
-    const qtyByVapeId = new Map<string, number>();
-    for (const it of dto.vapeItems ?? []) qtyByVapeId.set(it.vapeId, (qtyByVapeId.get(it.vapeId) ?? 0) + it.quantity);
-    const vapeSnapshot: { vapeId: string; name: string; quantity: number; unitPrice: number }[] = [];
-    if (qtyByVapeId.size) {
-      const vapes = await this.prisma.darkStoreVape.findMany({ where: { id: { in: [...qtyByVapeId.keys()] }, isActive: true } });
+    // Se agrupa por vapeId+sabor (no solo vapeId): dos sabores del mismo vape son líneas
+    // distintas, no se pueden sumar sin perder cuál sabor es cuál.
+    const qtyByVapeLine = new Map<string, { vapeId: string; flavor?: string; quantity: number }>();
+    for (const it of dto.vapeItems ?? []) {
+      const key = `${it.vapeId}::${it.flavor ?? ''}`;
+      const entry = qtyByVapeLine.get(key);
+      if (entry) entry.quantity += it.quantity;
+      else qtyByVapeLine.set(key, { vapeId: it.vapeId, flavor: it.flavor, quantity: it.quantity });
+    }
+    const vapeSnapshot: { vapeId: string; name: string; flavor?: string; quantity: number; unitPrice: number }[] = [];
+    if (qtyByVapeLine.size) {
+      const vapes = await this.prisma.darkStoreVape.findMany({ where: { id: { in: [...new Set([...qtyByVapeLine.values()].map((v) => v.vapeId))] }, isActive: true } });
       const byId = new Map(vapes.map((v) => [v.id, v]));
-      for (const [vapeId, quantity] of qtyByVapeId) {
+      for (const { vapeId, flavor, quantity } of qtyByVapeLine.values()) {
         const vape = byId.get(vapeId);
         if (!vape) { skipped++; continue; }
         if (dto.enforceStock && vape.stock < quantity) {
           throw new BadRequestException(`Sin stock suficiente de ${vape.name} (hay ${vape.stock})`);
         }
-        vapeSnapshot.push({ vapeId: vape.id, name: vape.name, quantity, unitPrice: Number(vape.price) });
-        confirmationItems.push({ name: vape.name, quantity, unitPrice: Number(vape.price) });
+        const displayName = flavor ? `${vape.name} (${flavor})` : vape.name;
+        vapeSnapshot.push({ vapeId: vape.id, name: displayName, flavor, quantity, unitPrice: Number(vape.price) });
+        confirmationItems.push({ name: displayName, quantity, unitPrice: Number(vape.price) });
         total = total.add(vape.price.mul(quantity));
       }
     }
@@ -140,12 +161,8 @@ export class SalesService {
     // Costo de envío: se lee del lado del servidor (nunca del cliente, que podría mandar
     // cualquier valor) — solo aplica en el flujo con issueTicket, que hoy es exclusivo de
     // Dark Store (los demás storefronts no tienen costo de envío fijo).
-    let deliveryFee = 0;
-    if (dto.issueTicket) {
-      const dsSettings = await this.darkStoreSettings.get();
-      deliveryFee = dsSettings.deliveryFee ?? 0;
-      if (deliveryFee > 0) total = total.add(deliveryFee);
-    }
+    const deliveryFee = dsSettings?.deliveryFee ?? 0;
+    if (deliveryFee > 0) total = total.add(deliveryFee);
 
     const client = (await this.prisma.client.findUnique({ where: { phone: dto.customerPhone } }))
       ?? (await this.prisma.client.create({
@@ -214,6 +231,14 @@ export class SalesService {
         });
         comprobanteNumero = comprobante.numero;
         await this.prisma.sale.update({ where: { id: sale.id }, data: { invoiced: true, comprobanteNumero } });
+        // El remito (PDF) ya se manda solo desde ComprobantesService.create() de arriba —
+        // este mensaje de texto viaja aparte, antes, con el resumen legible del pedido.
+        await this.sendDarkStoreConfirmation(client.id, client.phone, {
+          numero: comprobante.numero,
+          items: confirmationItems,
+          total: Number(total),
+          paymentAlias: dsSettings!.paymentAlias,
+        });
       } catch (err) {
         this.logger.error(`No se pudo emitir el ticket de Dark Store para la venta ${sale.id}: ${err}`);
       }
@@ -268,6 +293,56 @@ export class SalesService {
     }
   }
 
+  /** Confirmación de pedido de Dark Store: resumen prolijo por WhatsApp — el remito (PDF)
+   * llega aparte, ya lo manda solo ComprobantesService.create(). */
+  private async sendDarkStoreConfirmation(
+    clientId: string,
+    phone: string,
+    order: { numero: string; items: { name: string; quantity: number; unitPrice: number }[]; total: number; paymentAlias: string },
+  ) {
+    try {
+      let conversation = await this.prisma.conversation.findFirst({ where: { clientId }, orderBy: { createdAt: 'desc' } });
+      if (!conversation) conversation = await this.prisma.conversation.create({ data: { clientId } });
+
+      const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+      const fecha = new Date().toLocaleDateString('es-AR');
+      const productos = order.items.map((it) => `• ${it.name} ×${it.quantity}`).join('\n');
+      const text = [
+        `✅ ¡Tu pedido fue confirmado!`,
+        `¡Gracias por comprar en MAON Dark Store!`,
+        `Recibimos tu pedido correctamente y ya se encuentra en proceso. Nuestro equipo va a empezar a prepararlo para que lo recibas lo antes posible.`,
+        ``,
+        `📦 Resumen del pedido`,
+        `N.º de Pedido: ${order.numero}`,
+        `Fecha: ${fecha}`,
+        `Estado: 🟡 Confirmado`,
+        `Método de pago: Efectivo o Transferencia (alias ${order.paymentAlias})`,
+        `Tipo de entrega: Envío a domicilio`,
+        ``,
+        `Productos`,
+        productos,
+        ``,
+        `💰 Total: ${money(order.total)}`,
+        ``,
+        `🚚 ¿Qué sigue ahora?`,
+        `Nuestro equipo ya está preparando tu compra. Te avisamos por acá apenas salga hacia tu domicilio.`,
+        ``,
+        `Cualquier consulta, escribinos por este mismo chat. ¡Gracias por elegir MAON Dark Store! 💙`,
+      ].join('\n');
+
+      await this.prisma.message.create({
+        data: { conversationId: conversation.id, direction: MessageDirection.SALIENTE, author: MessageAuthor.AUTOMATIZACION, content: text },
+      });
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date(), lastMessagePreview: text.slice(0, 120) },
+      });
+      await this.sender.sendText(phone, text);
+    } catch (err) {
+      this.logger.error(`No se pudo mandar la confirmación de Dark Store: ${err}`);
+    }
+  }
+
   findAll() {
     return this.prisma.sale.findMany({
       orderBy: { createdAt: 'desc' },
@@ -297,6 +372,26 @@ export class SalesService {
     if (!payment) throw new BadRequestException('Este pedido no tiene un pago asociado');
     await this.prisma.payment.update({ where: { saleId }, data: { status: 'APROBADO' } });
     return this.prisma.sale.update({ where: { id: saleId }, data: { status: 'PAGADA' } });
+  }
+
+  /**
+   * Marca el pedido como enviado (SaleStatus.ENVIADA) y avisa al cliente por WhatsApp que
+   * ya salió — no manda ubicación en vivo (WhatsApp no tiene forma de disparar eso desde
+   * un bot, es un gesto manual de la app), solo el aviso de texto. Devuelve el teléfono del
+   * cliente para que el admin pueda abrir el chat y compartir su ubicación a mano.
+   */
+  async markShipped(id: string) {
+    const sale = await this.prisma.sale.findUnique({ where: { id }, include: { client: true } });
+    if (!sale) throw new BadRequestException('Pedido no encontrado');
+    if (sale.status !== 'ENVIADA') {
+      await this.prisma.sale.update({ where: { id }, data: { status: 'ENVIADA' } });
+      if (sale.client?.phone) {
+        this.sender
+          .sendText(sale.client.phone, `🚚 ¡Tu pedido salió! Ya está en camino a tu domicilio.`)
+          .catch((err) => this.logger.error(`No se pudo avisar el envío del pedido ${id}: ${err}`));
+      }
+    }
+    return { ok: true, clientPhone: sale.client?.phone };
   }
 
   /** Unidades vendidas por artículo (lo que ve el dashboard). */

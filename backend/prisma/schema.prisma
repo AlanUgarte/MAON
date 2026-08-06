@@ -808,6 +808,8 @@ model DarkStoreSettings {
   maxOrderAmount     Int?
   whatsappNumber     String   @default("5493413807110")
   whatsappTemplate   String?
+  /// Alias bancario para transferencias — se adjunta al mensaje de WhatsApp del pedido.
+  paymentAlias       String   @default("Alan.ugarte7")
   hiddenProductIds   String[] @default([])
   updatedAt          DateTime @updatedAt
 }
@@ -822,6 +824,10 @@ model DarkStoreVape {
   price       Decimal  @db.Decimal(12, 2)
   stock       Int      @default(0)
   images      String[] @default([])
+  /// Sabores/variantes (ej. "Cherry Watermelon") — si tiene más de uno, el detalle del
+  /// producto muestra un desplegable para elegir. No cambia precio ni stock por sabor,
+  /// es el mismo artículo físico en distintas presentaciones.
+  flavors     String[] @default([])
   featured    Boolean  @default(false)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

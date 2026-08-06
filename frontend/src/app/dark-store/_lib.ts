@@ -14,6 +14,40 @@ export const ROSE = '#F43F5E';
 
 export const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 
+/** Nombre a mostrar de una línea de carrito/checkout — suma el sabor elegido si tiene. */
+export const lineName = (l: { item: { name: string }; flavor?: string }) =>
+  l.flavor ? `${l.item.name} (${l.flavor})` : l.item.name;
+
+// El carrito se vacía apenas se confirma el pedido (checkout -> submit), así que la
+// pantalla de confirmación ya no tiene de dónde sacar el detalle para el mensaje de
+// WhatsApp. Se guarda una foto del pedido en sessionStorage justo antes de limpiar el
+// carrito — vive solo hasta que se cierra la pestaña, no hace falta persistirlo más.
+const ORDER_SUMMARY_KEY = 'compven_dark_store_last_order';
+
+export interface DarkStoreOrderSummary {
+  numero: string;
+  customerName: string;
+  address: string;
+  barrio: string;
+  lines: { name: string; qty: number; unitPrice: number }[];
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+}
+
+export function saveOrderSummary(o: DarkStoreOrderSummary) {
+  try { sessionStorage.setItem(ORDER_SUMMARY_KEY, JSON.stringify(o)); } catch {}
+}
+
+export function loadOrderSummary(): DarkStoreOrderSummary | null {
+  try {
+    const raw = sessionStorage.getItem(ORDER_SUMMARY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** "HH:mm" -> minutos desde medianoche, para comparar horarios sin librería de fechas. */
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);

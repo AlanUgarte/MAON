@@ -13,6 +13,20 @@ import type { DarkStoreSettings } from './dark-store-settings-store';
 export const DARK_STORE_CATEGORIES = ['Bebidas', 'Snacks', 'Chocolates', 'Vapeadores'] as const;
 export type DarkStoreCategory = (typeof DARK_STORE_CATEGORIES)[number];
 
+/** Categorías que se muestran en nav/home — Chocolates oculta por ahora a pedido de Alan. */
+export const VISIBLE_CATEGORIES = DARK_STORE_CATEGORIES.filter((c) => c !== 'Chocolates');
+
+// Mismo criterio que smallestUnitCost() en Productos: la unidad mínima de venta real no
+// siempre es "unitPrice" — si el artículo no tiene eso pero sí Display suelto (sin
+// Unidad/Zuncho), el Display es el costo real de una unidad. Antes esto se caía directo
+// al precio de bulto entero, cobrando de más en cualquier artículo sin unitPrice.
+export const darkStoreUnitCost = (p: { unitPrice?: number; displayPrice?: number; price: number }) =>
+  p.unitPrice ?? p.displayPrice ?? p.price;
+// Margen propio del artículo (compartido con Tienda vía Product.marginPct) si lo tiene;
+// si no, el margen general de Dark Store.
+export const darkStoreEffMargin = (p: { marginPct?: number }, settings: { margenPct: number }) =>
+  p.marginPct ?? settings.margenPct;
+
 export interface DarkStoreItem {
   kind: 'product' | 'vape';
   /** sku para product, id para vape — es lo que identifica la línea en el carrito. */
@@ -26,6 +40,8 @@ export interface DarkStoreItem {
   price: number;
   stock: number;
   featured: boolean;
+  /** Solo vapes: sabores/variantes — si hay más de uno, el detalle muestra un desplegable. */
+  flavors: string[];
 }
 
 export function useDarkStoreCatalog(settings: DarkStoreSettings) {
@@ -43,12 +59,12 @@ export function useDarkStoreCatalog(settings: DarkStoreSettings) {
         category: p.category as DarkStoreCategory,
         line: normalizeLine(p.line),
         img: p.img,
-        // Dark Store vende unidad suelta: si el artículo tiene costo real de unidad
-        // (mismo dato que usa /tienda), se usa ese; si no, no hay forma de vender "uno
-        // solo" a un precio real y se cae al costo de bulto (referencia, no ideal).
-        price: darkStorePrice(p.unitPrice ?? p.price, settings.margenPct),
+        // Dark Store vende unidad suelta: costo real de unidad (mismo dato que usa
+        // Tienda) + margen propio del artículo si lo tiene, si no el general de la tienda.
+        price: darkStorePrice(darkStoreUnitCost(p), darkStoreEffMargin(p, settings)),
         stock: p.stock,
         featured: false,
+        flavors: [],
       }));
 
     const fromVapes: DarkStoreItem[] = vapes.map((v) => ({
@@ -64,6 +80,7 @@ export function useDarkStoreCatalog(settings: DarkStoreSettings) {
       price: v.price,
       stock: v.stock,
       featured: v.featured,
+      flavors: v.flavors,
     }));
 
     return [...fromProducts, ...fromVapes];

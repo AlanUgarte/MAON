@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, IsBoolean, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -26,6 +26,7 @@ export class StorefrontSaleItemDto {
 export class StorefrontVapeItemDto {
   @ApiProperty() @IsString() @MaxLength(64) vapeId: string;
   @ApiProperty() @IsInt() @Min(1) @Max(50) quantity: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) flavor?: string;
 }
 
 /** Pedido armado en la tienda pública (sin login): identifica productos por SKU, no por id. */

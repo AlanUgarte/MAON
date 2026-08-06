@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Truck } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from './_lib';
 import { useDarkStoreShell } from './_useShell';
-import { DARK_STORE_CATEGORIES } from '@/lib/dark-store-catalog';
+import { VISIBLE_CATEGORIES } from '@/lib/dark-store-catalog';
 import { Header } from './_components/Header';
 import { MobileNav } from './_components/MobileNav';
 import { ProductCard } from './_components/ProductCard';
@@ -56,7 +56,7 @@ export default function DarkStoreHome() {
       <div className="mx-auto max-w-[1400px] px-4 pt-8">
         <h2 className="mb-3 text-[15px] font-extrabold">Categorías</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {DARK_STORE_CATEGORIES.map((c) => (
+          {VISIBLE_CATEGORIES.map((c) => (
             <button
               key={c}
               onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}

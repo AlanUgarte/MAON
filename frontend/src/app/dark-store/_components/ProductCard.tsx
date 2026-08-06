@@ -16,11 +16,13 @@ export function ProductCard({
   const [imgErr, setImgErr] = useState(false);
   const outOfStock = item.stock <= 0;
   const lowStock = !outOfStock && item.stock <= lowStockThreshold;
+  const hasFlavors = item.flavors.length > 1;
+  const goToDetail = () => router.push(`/dark-store/producto/${item.kind === 'vape' ? 'v' : 'p'}-${item.id}`);
 
   return (
     <div className="flex flex-col rounded-2xl p-3" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
       <button
-        onClick={() => router.push(`/dark-store/producto/${item.kind === 'vape' ? 'v' : 'p'}-${item.id}`)}
+        onClick={goToDetail}
         className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl"
         style={{ background: '#0D1017' }}
       >
@@ -42,7 +44,7 @@ export function ProductCard({
       </button>
 
       <div className="mt-2.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>{item.brand}</div>
-      <button onClick={() => router.push(`/dark-store/producto/${item.kind === 'vape' ? 'v' : 'p'}-${item.id}`)} className="line-clamp-2 min-h-[36px] text-left text-[13px] font-medium leading-tight" style={{ color: TEXT }}>
+      <button onClick={goToDetail} className="line-clamp-2 min-h-[36px] text-left text-[13px] font-medium leading-tight" style={{ color: TEXT }}>
         {item.name}
       </button>
 
@@ -56,6 +58,10 @@ export function ProductCard({
             <span className="w-4 text-center text-[13px] font-bold" style={{ color: TEXT }}>{qty}</span>
             <button onClick={() => onChangeQty(1)} className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: ACCENT, color: TEXT }}><Plus className="h-3.5 w-3.5" /></button>
           </div>
+        ) : hasFlavors ? (
+          <button onClick={goToDetail} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: ACCENT, color: TEXT }}>
+            Elegir sabor
+          </button>
         ) : (
           <button onClick={onAdd} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: ACCENT, color: TEXT }}>
             Agregar

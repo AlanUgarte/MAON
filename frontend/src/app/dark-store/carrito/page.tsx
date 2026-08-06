@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingCart, Zap } from 'lucide-react';
-import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
+import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule, lineName } from '../_lib';
 import { useDarkStoreShell } from '../_useShell';
 import { Header } from '../_components/Header';
 import { MobileNav } from '../_components/MobileNav';
@@ -45,22 +45,22 @@ export default function DarkStoreCartPage() {
           <>
             <div className="space-y-2.5">
               {cartLines.map((l) => (
-                <div key={`${l.kind}:${l.id}`} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
+                <div key={`${l.kind}:${l.id}:${l.flavor ?? ''}`} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: '#0D1017' }}>
                     {l.item.img ? <img src={l.item.img} alt="" className="h-full w-full object-cover" /> : <span className="text-2xl">📦</span>}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold">{l.item.name}</div>
+                    <div className="truncate text-[13px] font-semibold">{lineName(l)}</div>
                     <div className="text-[11.5px]" style={{ color: MUTED }}>{money(l.item.price)} c/u</div>
                     <div className="mt-1 flex items-center gap-2">
-                      <button onClick={() => cart.add(l.kind, l.id, -1)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: '#0D1017' }}><Minus className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => cart.add(l.kind, l.id, -1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: '#0D1017' }}><Minus className="h-3.5 w-3.5" /></button>
                       <span className="w-4 text-center text-[12.5px] font-bold">{l.qty}</span>
-                      <button onClick={() => cart.add(l.kind, l.id, 1)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => cart.add(l.kind, l.id, 1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <span className="text-[13px] font-bold">{money(l.item.price * l.qty)}</span>
-                    <button onClick={() => cart.remove(l.kind, l.id)} style={{ color: MUTED }}><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={() => cart.remove(l.kind, l.id, l.flavor)} style={{ color: MUTED }}><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
               ))}

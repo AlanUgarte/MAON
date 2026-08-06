@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Search, ShoppingCart, Zap, Clock, MapPin, ChevronDown } from 'lucide-react';
 import { BG_SOFT, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
 import type { DarkStoreSettings } from '@/lib/dark-store-settings-store';
-import { DARK_STORE_CATEGORIES, type DarkStoreItem } from '@/lib/dark-store-catalog';
+import { DARK_STORE_CATEGORIES, VISIBLE_CATEGORIES, type DarkStoreItem } from '@/lib/dark-store-catalog';
 import { linesOf } from '@/lib/dark-store-lines';
 
 export function Header({
@@ -99,13 +99,13 @@ export function Header({
 
       <div className="border-t" style={{ borderColor: CARD_BORDER }} />
       <div ref={navRef} className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1 px-4">
-        {DARK_STORE_CATEGORIES.map((c, i) => {
+        {VISIBLE_CATEGORIES.map((c, i) => {
           const active = pathname === `/dark-store/categoria/${c.toLowerCase()}`;
           const lines = linesByCategory[c] ?? [];
           const isOpen = openMenu === c;
           // Las últimas categorías están cerca del borde derecho: si el panel se abre hacia
           // la derecha se sale de la pantalla en mobile, así que esas se alinean al revés.
-          const alignRight = i >= DARK_STORE_CATEGORIES.length / 2;
+          const alignRight = i >= VISIBLE_CATEGORIES.length / 2;
           return (
             <div
               key={c}

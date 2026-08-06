@@ -2,8 +2,9 @@
 
 // Carrito de Dark Store: a diferencia de Tienda (bulto cerrado), acá cada línea es un
 // artículo individual — puede ser del catálogo mayorista (identificado por sku) o un
-// Vapeador propio (identificado por id). Se persiste en localStorage: a diferencia de
-// Tienda, acá sí importa que sobreviva un refresh (compra rápida, sesión corta).
+// Vapeador propio (identificado por id, más un sabor opcional si el vape tiene varios —
+// dos sabores del mismo vape son líneas distintas). Se persiste en localStorage: a
+// diferencia de Tienda, acá sí importa que sobreviva un refresh (compra rápida, sesión corta).
 import { useCallback, useEffect, useState } from 'react';
 
 const KEY = 'compven_dark_store_cart';
@@ -11,8 +12,12 @@ const KEY = 'compven_dark_store_cart';
 export interface DarkStoreCartLine {
   kind: 'product' | 'vape';
   id: string; // sku para product, id para vape
+  flavor?: string; // solo vapes con más de un sabor
   qty: number;
 }
+
+const sameLine = (l: DarkStoreCartLine, kind: DarkStoreCartLine['kind'], id: string, flavor?: string) =>
+  l.kind === kind && l.id === id && (l.flavor ?? '') === (flavor ?? '');
 
 function load(): DarkStoreCartLine[] {
   if (typeof window === 'undefined') return [];
@@ -31,29 +36,30 @@ export function useDarkStoreCart() {
   useEffect(() => { setLines(load()); setHydrated(true); }, []);
   useEffect(() => { if (hydrated) localStorage.setItem(KEY, JSON.stringify(lines)); }, [lines, hydrated]);
 
-  const qtyOf = useCallback((kind: DarkStoreCartLine['kind'], id: string) => lines.find((l) => l.kind === kind && l.id === id)?.qty ?? 0, [lines]);
+  const qtyOf = useCallback((kind: DarkStoreCartLine['kind'], id: string, flavor?: string) =>
+    lines.find((l) => sameLine(l, kind, id, flavor))?.qty ?? 0, [lines]);
 
-  const add = useCallback((kind: DarkStoreCartLine['kind'], id: string, delta = 1) => {
+  const add = useCallback((kind: DarkStoreCartLine['kind'], id: string, delta = 1, flavor?: string) => {
     setLines((prev) => {
-      const found = prev.find((l) => l.kind === kind && l.id === id);
-      if (!found) return delta > 0 ? [...prev, { kind, id, qty: delta }] : prev;
+      const found = prev.find((l) => sameLine(l, kind, id, flavor));
+      if (!found) return delta > 0 ? [...prev, { kind, id, flavor, qty: delta }] : prev;
       const qty = found.qty + delta;
-      if (qty <= 0) return prev.filter((l) => !(l.kind === kind && l.id === id));
-      return prev.map((l) => (l.kind === kind && l.id === id ? { ...l, qty } : l));
+      if (qty <= 0) return prev.filter((l) => !sameLine(l, kind, id, flavor));
+      return prev.map((l) => (sameLine(l, kind, id, flavor) ? { ...l, qty } : l));
     });
   }, []);
 
-  const setQty = useCallback((kind: DarkStoreCartLine['kind'], id: string, qty: number) => {
+  const setQty = useCallback((kind: DarkStoreCartLine['kind'], id: string, qty: number, flavor?: string) => {
     setLines((prev) => {
-      if (qty <= 0) return prev.filter((l) => !(l.kind === kind && l.id === id));
-      const found = prev.find((l) => l.kind === kind && l.id === id);
-      if (!found) return qty > 0 ? [...prev, { kind, id, qty }] : prev;
-      return prev.map((l) => (l.kind === kind && l.id === id ? { ...l, qty } : l));
+      if (qty <= 0) return prev.filter((l) => !sameLine(l, kind, id, flavor));
+      const found = prev.find((l) => sameLine(l, kind, id, flavor));
+      if (!found) return qty > 0 ? [...prev, { kind, id, flavor, qty }] : prev;
+      return prev.map((l) => (sameLine(l, kind, id, flavor) ? { ...l, qty } : l));
     });
   }, []);
 
-  const remove = useCallback((kind: DarkStoreCartLine['kind'], id: string) => {
-    setLines((prev) => prev.filter((l) => !(l.kind === kind && l.id === id)));
+  const remove = useCallback((kind: DarkStoreCartLine['kind'], id: string, flavor?: string) => {
+    setLines((prev) => prev.filter((l) => !sameLine(l, kind, id, flavor)));
   }, []);
 
   const clear = useCallback(() => setLines([]), []);

@@ -19,5 +19,6 @@ export class UpdateDarkStoreSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsInt() maxOrderAmount?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsString() whatsappNumber?: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() whatsappTemplate?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() paymentAlias?: string;
   @ApiProperty({ required: false, type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) hiddenProductIds?: string[];
 }

@@ -38,4 +38,11 @@ export class SalesController {
   confirmPayment(@Param('id') id: string) {
     return this.sales.confirmPayment(id);
   }
+
+  // Dark Store: marca el pedido "en camino" y le avisa al cliente por WhatsApp.
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
+  @Patch(':id/ship')
+  markShipped(@Param('id') id: string) {
+    return this.sales.markShipped(id);
+  }
 }

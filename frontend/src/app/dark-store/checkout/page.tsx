@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, ROSE, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
+import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, ROSE, TEXT, MUTED, money, isWithinSchedule, lineName, saveOrderSummary } from '../_lib';
 import { useDarkStoreShell } from '../_useShell';
 import { Header } from '../_components/Header';
 import { api } from '@/lib/api';
@@ -65,7 +65,7 @@ export default function DarkStoreCheckoutPage() {
         customerName: `${form.nombre.trim()} ${form.apellido.trim()}`.trim(),
         customerPhone: form.telefono.trim(),
         items: cartLines.filter((l) => l.kind === 'product').map((l) => ({ sku: l.id, quantity: l.qty })),
-        vapeItems: cartLines.filter((l) => l.kind === 'vape').map((l) => ({ vapeId: l.id, quantity: l.qty })),
+        vapeItems: cartLines.filter((l) => l.kind === 'vape').map((l) => ({ vapeId: l.id, quantity: l.qty, flavor: l.flavor })),
         wantsShipping: true,
         shippingAddress: direccionCompleta,
         barrio: form.barrio,
@@ -73,6 +73,16 @@ export default function DarkStoreCheckoutPage() {
         issueTicket: true,
       });
       if (!res.ok || !res.saleId) throw new Error(res.reason || 'No se pudo registrar el pedido');
+      saveOrderSummary({
+        numero: res.comprobanteNumero ?? res.saleId,
+        customerName: `${form.nombre.trim()} ${form.apellido.trim()}`.trim(),
+        address: direccionCompleta,
+        barrio: form.barrio,
+        lines: cartLines.map((l) => ({ name: lineName(l), qty: l.qty, unitPrice: l.item.price })),
+        subtotal: cartTotal,
+        deliveryFee: settings.deliveryFee,
+        total: cartTotal + settings.deliveryFee,
+      });
       cart.clear();
       const numero = res.comprobanteNumero ? `?numero=${encodeURIComponent(res.comprobanteNumero)}` : '';
       router.push(`/dark-store/confirmacion/${res.saleId}${numero}`);
@@ -151,8 +161,8 @@ export default function DarkStoreCheckoutPage() {
             <div className="mb-2 text-[12.5px] font-bold">Resumen</div>
             <div className="space-y-1 text-[12px]" style={{ color: MUTED }}>
               {cartLines.map((l) => (
-                <div key={`${l.kind}:${l.id}`} className="flex justify-between">
-                  <span>{l.qty} × {l.item.name}</span>
+                <div key={`${l.kind}:${l.id}:${l.flavor ?? ''}`} className="flex justify-between">
+                  <span>{l.qty} × {lineName(l)}</span>
                   <span>{money(l.item.price * l.qty)}</span>
                 </div>
               ))}
