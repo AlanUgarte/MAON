@@ -35,6 +35,7 @@ export default function DarkStoreSearchPage() {
   const results = useMemo(() => {
     if (!tokens.length) return [];
     return items.filter((i) => {
+      if (i.stock <= 0) return false;
       const haystack = `${i.name} ${i.brand} ${i.category}`.toLowerCase();
       return tokens.every((t) => haystack.includes(t));
     });

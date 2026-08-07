@@ -26,7 +26,7 @@ export default function DarkStoreCategoryPage() {
   const activeLine = lines.find((l) => l.slug === lineSlugParam);
 
   const filtered = useMemo(
-    () => items.filter((i) => i.category === category && (!activeLine || i.line === activeLine.key)),
+    () => items.filter((i) => i.category === category && i.stock > 0 && (!activeLine || i.line === activeLine.key)),
     [items, category, activeLine],
   );
 

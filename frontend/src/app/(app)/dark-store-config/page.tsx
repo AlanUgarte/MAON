@@ -82,6 +82,12 @@ export default function DarkStoreConfigPage() {
     if (entry) printComprobante(entry);
   };
 
+  // Tachito de la tabla de Productos: oculta el artículo de Dark Store sin tocar el
+  // catálogo mayorista — mismo campo que usa Configuración, solo un atajo más rápido.
+  const hideProduct = (tId: string) => {
+    save({ ...settings, hiddenProductIds: Array.from(new Set([...settings.hiddenProductIds, tId])) });
+  };
+
   // ---- Resumen ----
   const today = new Date().toDateString();
   const ordersToday = orders.filter((o) => new Date(o.createdAt).toDateString() === today);
@@ -302,9 +308,9 @@ export default function DarkStoreConfigPage() {
           </div>
         )}
 
-        {tab === 'productos' && <ProductsTab settings={settings} orders={orders} />}
+        {tab === 'productos' && <ProductsTab settings={settings} orders={orders} onHide={hideProduct} />}
 
-        {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} />}
+        {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} orders={orders} />}
 
         {tab === 'contenido' && (
           <Card>
@@ -437,7 +443,7 @@ type DSProduct = {
   price: number; unitPrice?: number; displayPrice?: number; marginPct: number | null; stock: number;
 };
 
-function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders: TiendaOrder[] }) {
+function ProductsTab({ settings, orders, onHide }: { settings: DarkStoreSettings; orders: TiendaOrder[]; onHide: (tId: string) => void }) {
   const [items, setItems] = useState<DSProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -480,6 +486,11 @@ function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const persist = (id: string, patch: Record<string, any>) => api.updateProduct(id, patch).catch(() => {});
 
+  const handleHide = (p: DSProduct) => {
+    setItems((arr) => arr.filter((x) => x.id !== p.id));
+    onHide(`t${p.sku}`);
+  };
+
   const filtered = items.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -508,6 +519,7 @@ function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders
                   <th className="p-2 font-medium">Ganancia</th>
                   <th className="p-2 font-medium">Stock</th>
                   <th className="p-2 font-medium">Total vendido</th>
+                  <th className="p-2 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -540,6 +552,11 @@ function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders
                       />
                     </td>
                     <td className="p-2 tnum text-content">{soldBySku.get(p.sku) ?? 0} u.</td>
+                    <td className="p-2">
+                      <button onClick={() => handleHide(p)} title="Sacar de Dark Store" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-rose/10 hover:text-rose">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -555,7 +572,17 @@ function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders
 type VapeForm = { id?: string; name: string; description: string; brand: string; price: string; stock: string; images: string; flavors: string; featured: boolean; isActive: boolean };
 const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '', stock: '0', images: '', flavors: '', featured: false, isActive: true };
 
-function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => void }) {
+function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh: () => void; orders: TiendaOrder[] }) {
+  // Unidades vendidas por vape — suma todos los sabores del mismo artículo (vapeId es el
+  // mismo, solo cambia el sabor elegido en cada línea).
+  const soldByVapeId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const o of orders) {
+      for (const v of o.vapeItems ?? []) m.set(v.vapeId, (m.get(v.vapeId) ?? 0) + v.quantity);
+    }
+    return m;
+  }, [orders]);
+
   const [editing, setEditing] = useState<VapeForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -672,7 +699,7 @@ function VapesTab({ vapes, refresh }: { vapes: DarkStoreVape[]; refresh: () => v
             <div key={v.id} className="flex items-center justify-between rounded-lg border border-line/10 px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-medium text-content">{v.name} {v.featured && <Badge tone="amber">Destacado</Badge>}</div>
-                <div className="text-[11px] text-muted">{v.brand ?? '-'} · {money(v.price)} · Stock: {v.stock}{!v.isActive && ' · Inactivo'}</div>
+                <div className="text-[11px] text-muted">{v.brand ?? '-'} · {money(v.price)} · Stock: {v.stock} · Vendido: {soldByVapeId.get(v.id) ?? 0} u.{!v.isActive && ' · Inactivo'}</div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button size="icon" variant="ghost" onClick={() => openEdit(v)}><Pencil className="h-3.5 w-3.5" /></Button>

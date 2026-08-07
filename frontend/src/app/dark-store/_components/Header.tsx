@@ -40,7 +40,7 @@ export function Header({
   const suggestions = useMemo(() => {
     if (!tokens.length) return [];
     return items
-      .filter((i) => tokens.every((t) => `${i.name} ${i.brand} ${i.category}`.toLowerCase().includes(t)))
+      .filter((i) => i.stock > 0 && tokens.every((t) => `${i.name} ${i.brand} ${i.category}`.toLowerCase().includes(t)))
       .slice(0, 6);
   }, [items, tokens]);
 
