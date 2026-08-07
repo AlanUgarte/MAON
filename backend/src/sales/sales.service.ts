@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MessageAuthor, MessageDirection, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +6,7 @@ import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 import { getTransferInstructions } from '../ai/business-config';
 import { ComprobantesService } from '../comprobantes/comprobantes.service';
 import { ComprobanteTipo, ComprobanteLetra } from '../comprobantes/dto/create-comprobante.dto';
+import { buildComprobantePdf } from '../comprobantes/comprobante-pdf';
 import { DarkStoreVapesService } from '../dark-store-vapes/dark-store-vapes.service';
 import { DarkStoreSettingsService } from '../dark-store-settings/dark-store-settings.service';
 import { CreateSaleDto, CreateStorefrontSaleDto } from './dto/create-sale.dto';
@@ -392,6 +393,19 @@ export class SalesService {
       }
     }
     return { ok: true, clientPhone: sale.client?.phone };
+  }
+
+  /** PDF del remito de un pedido — lo usa la pantalla pública de confirmación de Dark Store. */
+  async getRemitoPdf(saleId: string) {
+    const sale = await this.prisma.sale.findUnique({ where: { id: saleId }, select: { comprobanteNumero: true } });
+    if (!sale?.comprobanteNumero) throw new NotFoundException('Este pedido todavía no tiene remito');
+    const comprobante = await this.prisma.comprobante.findUnique({
+      where: { numero: sale.comprobanteNumero },
+      include: { items: true, client: true },
+    });
+    if (!comprobante) throw new NotFoundException('Remito no encontrado');
+    const pdf = await buildComprobantePdf(comprobante);
+    return { filename: `${comprobante.numero.replace(/\s+/g, '_')}.pdf`, pdf };
   }
 
   /** Unidades vendidas por artículo (lo que ve el dashboard). */

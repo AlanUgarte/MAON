@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -44,5 +45,15 @@ export class SalesController {
   @Patch(':id/ship')
   markShipped(@Param('id') id: string) {
     return this.sales.markShipped(id);
+  }
+
+  // Pública: la pantalla de confirmación de Dark Store no tiene sesión — el id de venta
+  // (cuid) no es adivinable, así que sirve como token de acceso al remito de ese pedido.
+  @Get(':id/remito')
+  async remito(@Param('id') id: string, @Res() res: Response) {
+    const { filename, pdf } = await this.sales.getRemitoPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(pdf);
   }
 }
