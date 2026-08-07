@@ -27,9 +27,10 @@ const CATEGORY_PRIORITY = ['Alimentos', 'Galletitas', 'Chocolates', 'Golosinas',
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // El reparto solo sale entre las 17 y las 21 hs — el cliente elige la franja, no escribe cualquier horario.
 const DELIVERY_SLOTS = ['17:00 a 18:00', '18:00 a 19:00', '19:00 a 20:00', '20:00 a 21:00'];
-// Vender suelto por unidad rompe el bulto cerrado — se le suma un 8.5% extra al precio
-// de venta (no al display, ese sigue siendo un pack cerrado como el bulto).
-const UNIT_SURCHARGE = 0.085;
+// Vender suelto (unidad, zuncho o display) rompe el bulto cerrado: el margen de esos
+// modos es siempre 14.5% fijo, no importa a qué se cambie el margen general de bulto
+// (ej. si el general pasa de 6% a 8%, el suelto sigue en 14.5%, no pasa a 16.5%).
+const LOOSE_SALE_MARGIN = 0.145;
 const PAGE_SIZE = 24;
 
 type SellMode = 'BULTO' | 'UNIDAD' | 'DISPLAY';
@@ -124,7 +125,7 @@ function TiendaInner() {
   // display), así que un artículo con display Y unidad/zuncho a la vez (ej. Chocolates
   // que se venden por display o por unidad) le cobraba de menos a uno de los dos.
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
-    const base = costoDe(p, mode) * (1 + margenDe(p) + (mode !== 'BULTO' ? UNIT_SURCHARGE : 0));
+    const base = costoDe(p, mode) * (1 + (mode !== 'BULTO' ? LOOSE_SALE_MARGIN : margenDe(p)));
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
