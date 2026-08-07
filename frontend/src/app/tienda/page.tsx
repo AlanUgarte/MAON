@@ -119,12 +119,12 @@ function TiendaInner() {
   // Las promos "Lleva N paga M" valen para cualquier modo de venta (bulto, unidad o
   // display) — la cantidad mínima se evalúa sobre lo que el cliente tenga cargado en
   // ESE modo puntual.
-  // El recargo va al modo más suelto que tenga el artículo: unidad si se vende por unidad,
-  // si no display (ej. FEL-FORT PARAGUITAS no se vende por unidad, así que el recargo cae
-  // en el display, que es ahí el modo más suelto disponible).
-  const surchargeMode = (p: ProductRow): SellMode | null => (p.unitPrice ? 'UNIDAD' : p.displayPrice ? 'DISPLAY' : null);
+  // El recargo va a CUALQUIER modo suelto (unidad, zuncho o display) — nunca al bulto
+  // cerrado. Antes solo se lo daba a un único modo "elegido" (unidad si existía, si no
+  // display), así que un artículo con display Y unidad/zuncho a la vez (ej. Chocolates
+  // que se venden por display o por unidad) le cobraba de menos a uno de los dos.
   const ventaBulto = (p: ProductRow, qty: number = 1, mode: SellMode = 'BULTO') => {
-    const base = costoDe(p, mode) * (1 + margenDe(p) + (mode === surchargeMode(p) ? UNIT_SURCHARGE : 0));
+    const base = costoDe(p, mode) * (1 + margenDe(p) + (mode !== 'BULTO' ? UNIT_SURCHARGE : 0));
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
     return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
@@ -704,7 +704,7 @@ function TiendaInner() {
               const mode = modes.includes(modeOf(p.id)) ? modeOf(p.id) : 'BULTO';
               const inCart = qtyInCart(p.id, mode);
               const promo = getPromo(p);
-              const original = Math.round(costoDe(p, mode) * (1 + margenDe(p) + (mode === surchargeMode(p) ? UNIT_SURCHARGE : 0)) * 100) / 100;
+              const original = ventaBulto(p, 0, mode);
               return (
                 <div key={p.id} className="group flex flex-col rounded-2xl border border-black/5 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="relative flex items-center justify-center overflow-hidden rounded-xl p-3" style={{ background: BRAND_SOFT }}>
