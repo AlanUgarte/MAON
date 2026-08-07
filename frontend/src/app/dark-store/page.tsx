@@ -102,7 +102,7 @@ export default function DarkStoreHome() {
       {/* Promo banner — ya trae adentro los 3 puntos de confianza (entrega, sin mínimos, WhatsApp), no se repiten aparte */}
       <div className="mx-auto max-w-[1400px] px-4 py-8">
         <button onClick={() => router.push('/dark-store/categoria/bebidas')} className="block w-full overflow-hidden rounded-3xl">
-          <img src="/dark-store/promo-neon.png" alt="Promo exclusiva — hasta 20% OFF" className="w-full" />
+          <img src="/dark-store/promo-neon.png" alt="MAON Dark Store — pedidos rápidos, entregamos en minutos" className="w-full" />
         </button>
       </div>
 
