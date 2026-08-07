@@ -302,7 +302,7 @@ export default function DarkStoreConfigPage() {
           </div>
         )}
 
-        {tab === 'productos' && <ProductsTab margenPct={settings.margenPct} />}
+        {tab === 'productos' && <ProductsTab settings={settings} orders={orders} />}
 
         {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} />}
 
@@ -437,7 +437,7 @@ type DSProduct = {
   price: number; unitPrice?: number; displayPrice?: number; marginPct: number | null; stock: number;
 };
 
-function ProductsTab({ margenPct }: { margenPct: number }) {
+function ProductsTab({ settings, orders }: { settings: DarkStoreSettings; orders: TiendaOrder[] }) {
   const [items, setItems] = useState<DSProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -449,6 +449,7 @@ function ProductsTab({ margenPct }: { margenPct: number }) {
         if (cancelled) return;
         const rows: DSProduct[] = (res.data ?? res)
           .filter((p: any) => p.category === 'Bebidas' || p.category === 'Snacks' || p.category === 'Chocolates')
+          .filter((p: any) => !settings.hiddenProductIds.includes(`t${p.sku}`))
           .map((p: any) => ({
             id: p.id, sku: p.sku, name: p.name, brand: p.brand ?? '-', category: p.category,
             price: Number(p.price),
@@ -461,28 +462,40 @@ function ProductsTab({ margenPct }: { margenPct: number }) {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [settings.hiddenProductIds]);
+
+  // Unidades vendidas por SKU — solo pedidos de Dark Store, para la columna "Total vendido".
+  const soldBySku = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const o of orders) {
+      for (const it of o.items) m.set(it.sku, (m.get(it.sku) ?? 0) + it.qty);
+    }
+    return m;
+  }, [orders]);
 
   const cost = (p: DSProduct) => darkStoreUnitCost(p);
-  const venta = (p: DSProduct) => darkStorePrice(cost(p), darkStoreEffMargin({ marginPct: p.marginPct ?? undefined }, { margenPct }));
+  const venta = (p: DSProduct) => darkStorePrice(cost(p), darkStoreEffMargin({ marginPct: p.marginPct ?? undefined }, { margenPct: settings.margenPct }));
 
   const setLocal = (id: string, patch: Partial<DSProduct>) =>
     setItems((arr) => arr.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const persist = (id: string, patch: Record<string, any>) => api.updateProduct(id, patch).catch(() => {});
 
   const filtered = items.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()));
-  const visible = filtered.slice(0, 200);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bebidas, Snacks y Chocolates</CardTitle>
+        <CardTitle>Artículos visibles en Dark Store</CardTitle>
         <span className="text-xs text-muted">{items.length} productos · margen y stock compartidos con Tienda/Cotillón</span>
       </CardHeader>
       <CardContent className="space-y-3">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className={inputClass} />
         {loading ? (
           <div className="py-10 text-center text-[12.5px] text-muted">Cargando...</div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
+            Ningún producto de Bebidas/Snacks/Chocolates está visible en Dark Store ahora mismo — se ocultaron todos desde Configuración.
+          </div>
         ) : (
           <div className="max-h-[560px] overflow-auto rounded-xl border border-line/10">
             <table className="w-full text-[12.5px]">
@@ -494,10 +507,11 @@ function ProductsTab({ margenPct }: { margenPct: number }) {
                   <th className="p-2 font-medium">Venta</th>
                   <th className="p-2 font-medium">Ganancia</th>
                   <th className="p-2 font-medium">Stock</th>
+                  <th className="p-2 font-medium">Total vendido</th>
                 </tr>
               </thead>
               <tbody>
-                {visible.map((p) => (
+                {filtered.map((p) => (
                   <tr key={p.id} className="border-t border-line/10">
                     <td className="max-w-[280px] p-2">
                       <div className="truncate font-medium text-content">{p.name}</div>
@@ -508,7 +522,7 @@ function ProductsTab({ margenPct }: { margenPct: number }) {
                       <input
                         type="number"
                         value={p.marginPct ?? ''}
-                        placeholder={String(margenPct)}
+                        placeholder={String(settings.margenPct)}
                         onChange={(e) => setLocal(p.id, { marginPct: e.target.value === '' ? null : Number(e.target.value) })}
                         onBlur={() => persist(p.id, { marginPct: p.marginPct })}
                         className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
@@ -525,14 +539,12 @@ function ProductsTab({ margenPct }: { margenPct: number }) {
                         className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
                       />
                     </td>
+                    <td className="p-2 tnum text-content">{soldBySku.get(p.sku) ?? 0} u.</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-        {!loading && filtered.length > visible.length && (
-          <div className="text-center text-[11px] text-muted">Mostrando {visible.length} de {filtered.length} — buscá para filtrar.</div>
         )}
       </CardContent>
     </Card>
