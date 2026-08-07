@@ -186,6 +186,9 @@ export const api = {
     request<any>(`/sales/${id}/invoice`, { method: 'PATCH', body: JSON.stringify({ comprobanteNumero }) }),
   markSaleShipped: (id: string) =>
     request<{ ok: boolean; clientPhone?: string }>(`/sales/${id}/ship`, { method: 'PATCH' }),
+  markSaleDelivered: (id: string) =>
+    request<{ ok: boolean }>(`/sales/${id}/deliver`, { method: 'PATCH' }),
+  saleStatus: (id: string) => request<{ status: string }>(`/sales/${id}/status`),
 
   // Config de la tienda pública (banner, promos, productos ocultos, etc.) — GET es público.
   tiendaSettings: () => request<any>('/tienda-settings'),

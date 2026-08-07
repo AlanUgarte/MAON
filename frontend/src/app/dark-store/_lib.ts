@@ -48,6 +48,53 @@ export function loadOrderSummary(): DarkStoreOrderSummary | null {
   }
 }
 
+// Búsquedas e items vistos — solo para armar el desplegable de autocomplete/historial del
+// buscador, en localStorage (no hace falta backend, es puramente de conveniencia del cliente).
+const SEARCH_HISTORY_KEY = 'compven_dark_store_search_history';
+const RECENT_PRODUCTS_KEY = 'compven_dark_store_recent_products';
+const MAX_HISTORY = 8;
+const MAX_RECENT = 10;
+
+export function addSearchHistory(q: string) {
+  const trimmed = q.trim();
+  if (!trimmed) return;
+  try {
+    const current = getSearchHistory().filter((h) => h.toLowerCase() !== trimmed.toLowerCase());
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify([trimmed, ...current].slice(0, MAX_HISTORY)));
+  } catch {}
+}
+
+export function getSearchHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearSearchHistory() {
+  try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch {}
+}
+
+export interface RecentProduct { kind: 'product' | 'vape'; id: string; name: string; img: string; price: number }
+
+export function addRecentProduct(p: RecentProduct) {
+  try {
+    const current = getRecentProducts().filter((r) => !(r.kind === p.kind && r.id === p.id));
+    localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify([p, ...current].slice(0, MAX_RECENT)));
+  } catch {}
+}
+
+export function getRecentProducts(): RecentProduct[] {
+  try {
+    const raw = localStorage.getItem(RECENT_PRODUCTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** "HH:mm" -> minutos desde medianoche, para comparar horarios sin librería de fechas. */
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);

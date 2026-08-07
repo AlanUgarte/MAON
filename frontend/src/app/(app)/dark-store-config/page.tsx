@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Cigarette,
-  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X, Truck,
+  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X, Truck, CheckCircle2,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -41,8 +41,9 @@ const isDarkStoreOrder = (o: TiendaOrder) => !!o.barrio || !!o.vapeItems?.length
 
 export default function DarkStoreConfigPage() {
   const { settings, save, saveError } = useDarkStoreSettings();
-  const { orders: allOrders, status: ordersStatus, markShipped } = useTiendaOrders();
+  const { orders: allOrders, status: ordersStatus, markShipped, markDelivered } = useTiendaOrders();
   const [shippingId, setShippingId] = useState<string | null>(null);
+  const [deliveringId, setDeliveringId] = useState<string | null>(null);
 
   const handleShip = async (o: TiendaOrder) => {
     setShippingId(o.id);
@@ -55,6 +56,11 @@ export default function DarkStoreConfigPage() {
     } finally {
       setShippingId(null);
     }
+  };
+
+  const handleDeliver = async (o: TiendaOrder) => {
+    setDeliveringId(o.id);
+    try { await markDelivered(o.id); } catch {} finally { setDeliveringId(null); }
   };
   const { comprobantes } = useComprobantesStore();
   const { vapes, refresh: refreshVapes } = useDarkStoreVapes(true);
@@ -168,6 +174,7 @@ export default function DarkStoreConfigPage() {
                   <div className="flex items-center gap-2">
                     {o.barrio && <Badge tone="sky">{o.barrio}</Badge>}
                     {o.status === 'ENVIADA' && <Badge tone="emerald">🚚 En camino</Badge>}
+                    {o.status === 'ENTREGADA' && <Badge tone="emerald">✅ Entregado</Badge>}
                     {o.comprobanteNumero && <Badge tone="emerald">Ticket {o.comprobanteNumero}</Badge>}
                     <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
                   </div>
@@ -193,6 +200,11 @@ export default function DarkStoreConfigPage() {
                     <a href={`https://wa.me/${o.customerPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-primary hover:underline">
                       📍 Compartir ubicación en vivo →
                     </a>
+                  )}
+                  {o.barrio && o.status === 'ENVIADA' && (
+                    <Button size="sm" variant="outline" onClick={() => handleDeliver(o)} disabled={deliveringId === o.id}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {deliveringId === o.id ? 'Marcando...' : 'Marcar entregado'}
+                    </Button>
                   )}
                 </div>
               </div>

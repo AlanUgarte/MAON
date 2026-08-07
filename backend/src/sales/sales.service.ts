@@ -395,6 +395,31 @@ export class SalesService {
     return { ok: true, clientPhone: sale.client?.phone };
   }
 
+  /** Marca el pedido como entregado (SaleStatus.ENTREGADA) y le avisa al cliente por WhatsApp. */
+  async markDelivered(id: string) {
+    const sale = await this.prisma.sale.findUnique({ where: { id }, include: { client: true } });
+    if (!sale) throw new BadRequestException('Pedido no encontrado');
+    if (sale.status !== 'ENTREGADA') {
+      await this.prisma.sale.update({ where: { id }, data: { status: 'ENTREGADA' } });
+      if (sale.client?.phone) {
+        this.sender
+          .sendText(sale.client.phone, `✅ ¡Tu pedido fue entregado! Gracias por elegir MAON Dark Store 💙`)
+          .catch((err) => this.logger.error(`No se pudo avisar la entrega del pedido ${id}: ${err}`));
+      }
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Estado del pedido para la barra de seguimiento pública (Dark Store) — el id de venta
+   * (cuid) no es adivinable, sirve como token de acceso igual que /remito.
+   */
+  async getStatus(id: string) {
+    const sale = await this.prisma.sale.findUnique({ where: { id }, select: { status: true } });
+    if (!sale) throw new NotFoundException('Pedido no encontrado');
+    return { status: sale.status };
+  }
+
   /** PDF del remito de un pedido — lo usa la pantalla pública de confirmación de Dark Store. */
   async getRemitoPdf(saleId: string) {
     const sale = await this.prisma.sale.findUnique({ where: { id: saleId }, select: { comprobanteNumero: true } });

@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingCart, Zap, Clock, MapPin, ChevronDown } from 'lucide-react';
-import { BG_SOFT, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
+import { Search, ShoppingCart, Zap, Clock, MapPin, ChevronDown, History } from 'lucide-react';
+import { BG_SOFT, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule, addSearchHistory, getSearchHistory, clearSearchHistory, getRecentProducts } from '../_lib';
 import type { DarkStoreSettings } from '@/lib/dark-store-settings-store';
 import { DARK_STORE_CATEGORIES, VISIBLE_CATEGORIES, type DarkStoreItem } from '@/lib/dark-store-catalog';
 import { linesOf } from '@/lib/dark-store-lines';
@@ -22,6 +22,41 @@ export function Header({
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const open = settings.storeOpen && isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
+
+  // Autocomplete del buscador: sugerencias en vivo mientras se tipea, historial y
+  // "vistos recientemente" cuando el campo está vacío — todo local (localStorage), no
+  // hace falta backend para esto.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [recent, setRecent] = useState<ReturnType<typeof getRecentProducts>>([]);
+  const searchRef = useRef<HTMLFormElement>(null);
+
+  const refreshHistoryAndRecent = () => {
+    setHistory(getSearchHistory());
+    setRecent(getRecentProducts());
+  };
+
+  const tokens = useMemo(() => q.trim().toLowerCase().split(/\s+/).filter(Boolean), [q]);
+  const suggestions = useMemo(() => {
+    if (!tokens.length) return [];
+    return items
+      .filter((i) => tokens.every((t) => `${i.name} ${i.brand} ${i.category}`.toLowerCase().includes(t)))
+      .slice(0, 6);
+  }, [items, tokens]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!searchRef.current?.contains(e.target as Node)) setSearchOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [searchOpen]);
+
+  const goToProduct = (i: DarkStoreItem) => {
+    setSearchOpen(false);
+    router.push(`/dark-store/producto/${i.kind === 'vape' ? 'v' : 'p'}-${i.id}`);
+  };
 
   // Una sola pasada por el catálogo para todas las categorías (son 12k productos).
   const linesByCategory = useMemo(() => {
@@ -50,7 +85,17 @@ export function Header({
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (q.trim()) router.push(`/dark-store/buscar?q=${encodeURIComponent(q.trim())}`);
+    if (!q.trim()) return;
+    addSearchHistory(q);
+    setSearchOpen(false);
+    router.push(`/dark-store/buscar?q=${encodeURIComponent(q.trim())}`);
+  };
+
+  const searchHistoryChip = (h: string) => {
+    setQ(h);
+    addSearchHistory(h);
+    setSearchOpen(false);
+    router.push(`/dark-store/buscar?q=${encodeURIComponent(h)}`);
   };
 
   return (
@@ -66,17 +111,108 @@ export function Header({
           </span>
         </button>
 
-        <form onSubmit={submitSearch} className="order-3 w-full sm:order-none sm:w-auto sm:flex-1">
+        <form ref={searchRef} onSubmit={submitSearch} className="relative order-3 w-full sm:order-none sm:w-auto sm:flex-1">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: MUTED }} />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onFocus={() => { refreshHistoryAndRecent(); setSearchOpen(true); }}
               placeholder="Buscar productos (papas, coca, chocolate...)"
               className="h-11 w-full rounded-full border pl-10 pr-4 text-sm outline-none"
               style={{ background: '#0D1017', borderColor: CARD_BORDER, color: TEXT }}
             />
           </div>
+
+          <AnimatePresence>
+            {searchOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ duration: 0.15 }}
+                className="absolute top-full z-50 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-2xl py-2 shadow-2xl sm:w-[420px]"
+                style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
+              >
+                {tokens.length > 0 ? (
+                  suggestions.length > 0 ? (
+                    <>
+                      {suggestions.map((i) => (
+                        <button
+                          key={`${i.kind}:${i.id}`}
+                          onClick={() => goToProduct(i)}
+                          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition hover:brightness-125"
+                          style={{ color: TEXT }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT_SOFT)}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: '#0D1017' }}>
+                            {i.img ? <img src={i.img} alt="" className="h-full w-full object-cover" /> : <span className="text-base">📦</span>}
+                          </div>
+                          <span className="min-w-0 flex-1 truncate text-[12.5px]">{i.name}</span>
+                          <span className="shrink-0 text-[11.5px] font-bold" style={{ color: MUTED }}>{money(i.price)}</span>
+                        </button>
+                      ))}
+                      <div className="my-1 h-px" style={{ background: CARD_BORDER }} />
+                      <button onClick={submitSearch} className="flex w-full items-center px-3.5 py-2 text-left text-[12.5px] font-bold" style={{ color: NEON }}>
+                        Ver todos los resultados para "{q.trim()}"
+                      </button>
+                    </>
+                  ) : (
+                    <div className="px-3.5 py-3 text-[12.5px]" style={{ color: MUTED }}>Sin resultados para "{q.trim()}".</div>
+                  )
+                ) : (
+                  <>
+                    {history.length > 0 && (
+                      <div className="px-3.5 pb-1 pt-1">
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <span className="text-[10.5px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>Búsquedas recientes</span>
+                          <button onClick={() => { clearSearchHistory(); setHistory([]); }} className="text-[10.5px] font-semibold" style={{ color: MUTED }}>Borrar</button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {history.map((h) => (
+                            <button
+                              key={h}
+                              onClick={() => searchHistoryChip(h)}
+                              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px]"
+                              style={{ background: '#0D1017', color: TEXT }}
+                            >
+                              <History className="h-3 w-3" style={{ color: MUTED }} /> {h}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {recent.length > 0 && (
+                      <>
+                        {history.length > 0 && <div className="my-1.5 h-px" style={{ background: CARD_BORDER }} />}
+                        <div className="px-3.5 pb-1 pt-1 text-[10.5px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>Vistos recientemente</div>
+                        {recent.slice(0, 5).map((r) => (
+                          <button
+                            key={`${r.kind}:${r.id}`}
+                            onClick={() => goToProduct({ ...r } as DarkStoreItem)}
+                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition hover:brightness-125"
+                            style={{ color: TEXT }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT_SOFT)}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: '#0D1017' }}>
+                              {r.img ? <img src={r.img} alt="" className="h-full w-full object-cover" /> : <span className="text-base">📦</span>}
+                            </div>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px]">{r.name}</span>
+                            <span className="shrink-0 text-[11.5px] font-bold" style={{ color: MUTED }}>{money(r.price)}</span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {!history.length && !recent.length && (
+                      <div className="px-3.5 py-3 text-[12.5px]" style={{ color: MUTED }}>Buscá papitas, coca, chocolate…</div>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </form>
 
         <div className="ml-auto hidden items-center gap-3 text-[11px] md:flex" style={{ color: MUTED }}>

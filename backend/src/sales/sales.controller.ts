@@ -47,6 +47,13 @@ export class SalesController {
     return this.sales.markShipped(id);
   }
 
+  // Dark Store: marca el pedido como entregado y le avisa al cliente por WhatsApp.
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
+  @Patch(':id/deliver')
+  markDelivered(@Param('id') id: string) {
+    return this.sales.markDelivered(id);
+  }
+
   // Pública: la pantalla de confirmación de Dark Store no tiene sesión — el id de venta
   // (cuid) no es adivinable, así que sirve como token de acceso al remito de ese pedido.
   @Get(':id/remito')
@@ -55,5 +62,11 @@ export class SalesController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(pdf);
+  }
+
+  // Pública: alimenta la barra de seguimiento del pedido en la pantalla de confirmación.
+  @Get(':id/status')
+  status(@Param('id') id: string) {
+    return this.sales.getStatus(id);
   }
 }

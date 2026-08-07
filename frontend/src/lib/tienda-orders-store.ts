@@ -118,5 +118,10 @@ export function useTiendaOrders() {
     return res.clientPhone;
   };
 
-  return { orders, status, addOrder, markInvoiced, markShipped, reload };
+  const markDelivered = async (orderId: string) => {
+    await api.markSaleDelivered(orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'ENTREGADA' } : o)));
+  };
+
+  return { orders, status, addOrder, markInvoiced, markShipped, markDelivered, reload };
 }

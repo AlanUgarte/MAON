@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Minus } from 'lucide-react';
-import { BG, CARD, CARD_BORDER, ACCENT, NEON, ROSE, TEXT, MUTED, money } from '../../_lib';
+import { BG, CARD, CARD_BORDER, ACCENT, NEON, ROSE, TEXT, MUTED, money, addRecentProduct } from '../../_lib';
 import { useDarkStoreShell } from '../../_useShell';
 import { Header } from '../../_components/Header';
 import { MobileNav } from '../../_components/MobileNav';
@@ -27,6 +27,10 @@ export default function DarkStoreProductPage() {
   const qty = item ? cart.qtyOf(item.kind, item.id, selectedFlavor) : 0;
   const outOfStock = !item || item.stock <= 0;
   const lowStock = item && !outOfStock && item.stock <= settings.lowStockThreshold;
+
+  useEffect(() => {
+    if (item) addRecentProduct({ kind: item.kind, id: item.id, name: item.name, img: item.img, price: item.price });
+  }, [item?.kind, item?.id]);
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: BG, color: TEXT }}>
