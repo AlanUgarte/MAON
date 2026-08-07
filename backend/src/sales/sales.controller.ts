@@ -4,7 +4,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SalesService } from './sales.service';
-import { CreateSaleDto, CreateStorefrontSaleDto, MarkInvoicedDto } from './dto/create-sale.dto';
+import { CreateSaleDto, CreateStorefrontSaleDto, MarkInvoicedDto, SetSaleStatusDto } from './dto/create-sale.dto';
 
 @ApiTags('Ventas / Pedidos')
 @Controller('sales')
@@ -52,6 +52,14 @@ export class SalesController {
   @Patch(':id/deliver')
   markDelivered(@Param('id') id: string) {
     return this.sales.markDelivered(id);
+  }
+
+  // Dark Store: cambio de estado libre (Preparando/En camino/Entregado) desde el
+  // desplegable de Pedidos — a diferencia de /ship y /deliver, puede ir para cualquier lado.
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
+  @Patch(':id/status')
+  setStatus(@Param('id') id: string, @Body() dto: SetSaleStatusDto) {
+    return this.sales.setStatus(id, dto.status);
   }
 
   // Pública: la pantalla de confirmación de Dark Store no tiene sesión — el id de venta

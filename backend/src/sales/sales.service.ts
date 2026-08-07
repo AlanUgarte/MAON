@@ -375,39 +375,40 @@ export class SalesService {
     return this.prisma.sale.update({ where: { id: saleId }, data: { status: 'PAGADA' } });
   }
 
+  // Mensaje de WhatsApp que corresponde a cada estado — solo los que ameritan avisarle
+  // al cliente (pasar a PENDIENTE, ej. al corregir un estado a mano, no manda nada).
+  private readonly STATUS_MESSAGE: Partial<Record<string, string>> = {
+    ENVIADA: '🚚 ¡Tu pedido salió! Ya está en camino a tu domicilio.',
+    ENTREGADA: '✅ ¡Tu pedido fue entregado! Gracias por elegir MAON Dark Store 💙',
+  };
+
   /**
-   * Marca el pedido como enviado (SaleStatus.ENVIADA) y avisa al cliente por WhatsApp que
-   * ya salió — no manda ubicación en vivo (WhatsApp no tiene forma de disparar eso desde
-   * un bot, es un gesto manual de la app), solo el aviso de texto. Devuelve el teléfono del
-   * cliente para que el admin pueda abrir el chat y compartir su ubicación a mano.
+   * Cambia el estado del pedido a mano desde el admin de Dark Store (Preparando/En camino/
+   * Entregado) y le avisa al cliente por WhatsApp cuando corresponde — no manda ubicación
+   * en vivo (WhatsApp no tiene forma de disparar eso desde un bot, es un gesto manual de
+   * la app), solo el aviso de texto. Devuelve el teléfono del cliente para que el admin
+   * pueda abrir el chat y compartir su ubicación a mano.
    */
-  async markShipped(id: string) {
+  async setStatus(id: string, status: string) {
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: { client: true } });
     if (!sale) throw new BadRequestException('Pedido no encontrado');
-    if (sale.status !== 'ENVIADA') {
-      await this.prisma.sale.update({ where: { id }, data: { status: 'ENVIADA' } });
-      if (sale.client?.phone) {
-        this.sender
-          .sendText(sale.client.phone, `🚚 ¡Tu pedido salió! Ya está en camino a tu domicilio.`)
-          .catch((err) => this.logger.error(`No se pudo avisar el envío del pedido ${id}: ${err}`));
-      }
+    const changed = sale.status !== status;
+    if (changed) await this.prisma.sale.update({ where: { id }, data: { status: status as any } });
+    const text = changed ? this.STATUS_MESSAGE[status] : undefined;
+    if (text && sale.client?.phone) {
+      this.sender
+        .sendText(sale.client.phone, text)
+        .catch((err) => this.logger.error(`No se pudo avisar el cambio de estado del pedido ${id}: ${err}`));
     }
     return { ok: true, clientPhone: sale.client?.phone };
   }
 
-  /** Marca el pedido como entregado (SaleStatus.ENTREGADA) y le avisa al cliente por WhatsApp. */
+  async markShipped(id: string) {
+    return this.setStatus(id, 'ENVIADA');
+  }
+
   async markDelivered(id: string) {
-    const sale = await this.prisma.sale.findUnique({ where: { id }, include: { client: true } });
-    if (!sale) throw new BadRequestException('Pedido no encontrado');
-    if (sale.status !== 'ENTREGADA') {
-      await this.prisma.sale.update({ where: { id }, data: { status: 'ENTREGADA' } });
-      if (sale.client?.phone) {
-        this.sender
-          .sendText(sale.client.phone, `✅ ¡Tu pedido fue entregado! Gracias por elegir MAON Dark Store 💙`)
-          .catch((err) => this.logger.error(`No se pudo avisar la entrega del pedido ${id}: ${err}`));
-      }
-    }
-    return { ok: true };
+    return this.setStatus(id, 'ENTREGADA');
   }
 
   /**

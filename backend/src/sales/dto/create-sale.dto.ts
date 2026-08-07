@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, IsBoolean, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsBoolean, IsIn, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
+
+// Solo los 3 estados que el admin de Dark Store puede setear a mano desde el desplegable
+// de Pedidos — PAGADA/CANCELADA se manejan por otros flujos (confirmación de pago,
+// cancelación), no desde acá.
+export const DARK_STORE_MANUAL_STATUSES = ['PENDIENTE', 'ENVIADA', 'ENTREGADA'] as const;
+export class SetSaleStatusDto {
+  @ApiProperty({ enum: DARK_STORE_MANUAL_STATUSES })
+  @IsIn(DARK_STORE_MANUAL_STATUSES)
+  status: (typeof DARK_STORE_MANUAL_STATUSES)[number];
+}
 
 export class SaleItemDto {
   @ApiProperty() @IsString() productId: string;

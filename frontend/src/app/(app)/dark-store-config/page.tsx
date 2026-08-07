@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Store, ExternalLink, Save, Check, Image as ImageIcon, Package, ClipboardList, Cigarette,
-  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X, Truck, CheckCircle2,
+  Clock, MapPin, Percent, MessageCircle, Plus, Trash2, Pencil, Download, X, Eye,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
 import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
-import { api, uploadImage } from '@/lib/api';
+import { api, uploadImage, API_URL } from '@/lib/api';
 
 const inputClass = 'h-10 w-full rounded-xl border border-line/15 bg-surface-2/60 px-3 text-sm text-content focus:border-primary/50 focus:outline-none';
 const labelClass = 'mb-1.5 block text-xs font-medium text-muted';
@@ -43,26 +43,24 @@ const isDarkStoreOrder = (o: TiendaOrder) => !!o.barrio || !!o.vapeItems?.length
 
 export default function DarkStoreConfigPage() {
   const { settings, save, saveError } = useDarkStoreSettings();
-  const { orders: allOrders, status: ordersStatus, markShipped, markDelivered } = useTiendaOrders();
-  const [shippingId, setShippingId] = useState<string | null>(null);
-  const [deliveringId, setDeliveringId] = useState<string | null>(null);
+  const { orders: allOrders, status: ordersStatus, error: ordersError, setOrderStatus, reload: reloadOrders } = useTiendaOrders();
+  const [changingId, setChangingId] = useState<string | null>(null);
 
-  const handleShip = async (o: TiendaOrder) => {
-    setShippingId(o.id);
+  // Desplegable de estado en cada pedido — puede ir para cualquier lado (no solo hacia
+  // adelante), así se puede corregir un estado tocado por error. Al pasar a "En camino"
+  // abre el chat del cliente para que el admin comparta su ubicación en vivo a mano
+  // (WhatsApp no tiene forma de disparar eso desde un bot).
+  const handleStatusChange = async (o: TiendaOrder, newStatus: 'PENDIENTE' | 'ENVIADA' | 'ENTREGADA') => {
+    setChangingId(o.id);
     try {
-      const phone = await markShipped(o.id);
-      if (phone) window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
+      const phone = await setOrderStatus(o.id, newStatus);
+      if (newStatus === 'ENVIADA' && phone) window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
     } catch {
       // el aviso al cliente puede fallar del lado del servidor sin romper la UI —
       // el estado se resincroniza solo la próxima vez que se recargue la lista
     } finally {
-      setShippingId(null);
+      setChangingId(null);
     }
-  };
-
-  const handleDeliver = async (o: TiendaOrder) => {
-    setDeliveringId(o.id);
-    try { await markDelivered(o.id); } catch {} finally { setDeliveringId(null); }
   };
   const { comprobantes } = useComprobantesStore();
   const { vapes, refresh: refreshVapes } = useDarkStoreVapes(true);
@@ -236,11 +234,13 @@ export default function DarkStoreConfigPage() {
         {tab === 'pedidos' && (
           <div className="space-y-3">
             {ordersStatus === 'error' && (
-              <div className="rounded-xl border border-rose/30 bg-rose/8 px-4 py-2.5 text-[12.5px] font-medium text-rose">
-                No se pudieron cargar los pedidos. Probá recargar la página.
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose/30 bg-rose/8 px-4 py-2.5 text-[12.5px] font-medium text-rose">
+                <span>⚠️ {ordersError || 'No se pudieron cargar los pedidos.'}</span>
+                <Button size="sm" variant="outline" onClick={reloadOrders}>Reintentar</Button>
               </div>
             )}
-            {orders.length === 0 ? (
+            <div className="text-xs text-muted">{orders.length} pedidos de Dark Store</div>
+            {orders.length === 0 && ordersStatus !== 'error' ? (
               <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
                 Todavía no hay pedidos de Dark Store.
               </div>
@@ -253,10 +253,10 @@ export default function DarkStoreConfigPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {o.barrio && <Badge tone="sky">{o.barrio}</Badge>}
-                    {o.status === 'ENVIADA' && <Badge tone="emerald">🚚 En camino</Badge>}
-                    {o.status === 'ENTREGADA' && <Badge tone="emerald">✅ Entregado</Badge>}
+                    <Badge tone={o.status === 'ENTREGADA' ? 'emerald' : o.status === 'ENVIADA' ? 'amber' : 'muted'}>
+                      {o.status === 'ENTREGADA' ? '✅ Entregado' : o.status === 'ENVIADA' ? '🚚 En camino' : '🟡 Preparando'}
+                    </Badge>
                     {o.comprobanteNumero && <Badge tone="emerald">Ticket {o.comprobanteNumero}</Badge>}
-                    <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span>
                   </div>
                 </div>
                 <div className="mt-2.5 space-y-1 border-t border-line/10 pt-2.5 text-[12.5px] text-muted">
@@ -266,25 +266,35 @@ export default function DarkStoreConfigPage() {
                 {o.shippingAddress && (
                   <div className="mt-2.5 rounded-lg bg-surface-2/50 px-3 py-2 text-[12px] text-content">📍 {o.shippingAddress}</div>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="mt-3 flex items-center justify-between border-t border-line/10 pt-3">
+                  <span className="text-sm font-bold text-muted">💰 Total: <span className="font-display text-lg font-extrabold tnum text-content">{money(o.subtotal)}</span></span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={o.status}
+                      onChange={(e) => handleStatusChange(o, e.target.value as any)}
+                      disabled={changingId === o.id}
+                      className="h-9 rounded-lg border border-line/15 bg-surface-2/60 px-2.5 text-[12.5px] font-semibold text-content disabled:opacity-50"
+                    >
+                      <option value="PENDIENTE">🟡 Preparando</option>
+                      <option value="ENVIADA">🚚 En camino</option>
+                      <option value="ENTREGADA">✅ Entregado</option>
+                    </select>
+                    {o.comprobanteNumero && (
+                      <a href={`${API_URL}/sales/${o.id}/remito`} target="_blank" rel="noreferrer" title="Ver remito" className="flex h-9 w-9 items-center justify-center rounded-lg border border-line/15 text-muted hover:text-content">
+                        <Eye className="h-4 w-4" />
+                      </a>
+                    )}
+                    {o.comprobanteNumero && (
+                      <Button size="sm" variant="outline" onClick={() => downloadInvoice(o)}><Download className="h-3.5 w-3.5" /></Button>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2.5 flex flex-wrap items-center gap-3">
                   {o.clientId && <a href={`/bandeja?clientId=${o.clientId}`} className="text-[12px] font-semibold text-primary hover:underline">Ver conversación en Bandeja →</a>}
-                  {o.comprobanteNumero && (
-                    <Button size="sm" variant="outline" onClick={() => downloadInvoice(o)}><Download className="h-3.5 w-3.5" /> Descargar ticket</Button>
-                  )}
-                  {o.barrio && o.status !== 'ENVIADA' && o.status !== 'ENTREGADA' && (
-                    <Button size="sm" onClick={() => handleShip(o)} disabled={shippingId === o.id}>
-                      <Truck className="h-3.5 w-3.5" /> {shippingId === o.id ? 'Enviando aviso...' : 'Marcar en camino'}
-                    </Button>
-                  )}
                   {o.status === 'ENVIADA' && o.customerPhone && (
                     <a href={`https://wa.me/${o.customerPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-primary hover:underline">
                       📍 Compartir ubicación en vivo →
                     </a>
-                  )}
-                  {o.barrio && o.status === 'ENVIADA' && (
-                    <Button size="sm" variant="outline" onClick={() => handleDeliver(o)} disabled={deliveringId === o.id}>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> {deliveringId === o.id ? 'Marcando...' : 'Marcar entregado'}
-                    </Button>
                   )}
                 </div>
               </div>

@@ -74,11 +74,19 @@ function fromBackend(s: any): TiendaOrder {
 export function useTiendaOrders() {
   const [orders, setOrders] = useState<TiendaOrder[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // Antes se tragaba el motivo del error (.catch(() => setStatus('error'))) — un token
+  // vencido (401) y una caída real del servidor mostraban el mismo cartel genérico, que
+  // encima sugería "recargá la página" cuando eso no arregla una sesión vencida.
+  const [error, setError] = useState<string | null>(null);
 
   const reload = () => {
     api.sales()
-      .then((rows) => { setOrders(rows.map(fromBackend)); setStatus('ready'); })
-      .catch(() => setStatus('error'));
+      .then((rows) => { setOrders(rows.map(fromBackend)); setStatus('ready'); setError(null); })
+      .catch((err: any) => {
+        setStatus('error');
+        const msg = String(err?.message || '');
+        setError(/unauthorized/i.test(msg) ? 'Tu sesión venció — cerrá sesión y volvé a entrar.' : msg || 'No se pudieron cargar los pedidos.');
+      });
   };
   useEffect(reload, []);
 
@@ -123,5 +131,14 @@ export function useTiendaOrders() {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'ENTREGADA' } : o)));
   };
 
-  return { orders, status, addOrder, markInvoiced, markShipped, markDelivered, reload };
+  // Cambio de estado libre desde el desplegable de Pedidos (Preparando/En camino/
+  // Entregado, para cualquier lado) — a diferencia de markShipped/markDelivered, que
+  // solo van "hacia adelante".
+  const setOrderStatus = async (orderId: string, newStatus: 'PENDIENTE' | 'ENVIADA' | 'ENTREGADA') => {
+    const res = await api.setSaleStatus(orderId, newStatus);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    return res.clientPhone;
+  };
+
+  return { orders, status, error, addOrder, markInvoiced, markShipped, markDelivered, setOrderStatus, reload };
 }

@@ -188,6 +188,8 @@ export const api = {
     request<{ ok: boolean; clientPhone?: string }>(`/sales/${id}/ship`, { method: 'PATCH' }),
   markSaleDelivered: (id: string) =>
     request<{ ok: boolean }>(`/sales/${id}/deliver`, { method: 'PATCH' }),
+  setSaleStatus: (id: string, status: 'PENDIENTE' | 'ENVIADA' | 'ENTREGADA') =>
+    request<{ ok: boolean; clientPhone?: string }>(`/sales/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   saleStatus: (id: string) => request<{ status: string }>(`/sales/${id}/status`),
 
   // Config de la tienda pública (banner, promos, productos ocultos, etc.) — GET es público.
