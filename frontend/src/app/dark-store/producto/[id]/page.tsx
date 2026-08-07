@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Minus } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, NEON, ROSE, TEXT, MUTED, money } from '../../_lib';
 import { useDarkStoreShell } from '../../_useShell';
@@ -39,7 +40,7 @@ export default function DarkStoreProductPage() {
         {!item ? (
           <div className="py-16 text-center" style={{ color: MUTED }}>No encontramos este producto.</div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="grid gap-6 sm:grid-cols-2">
             <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl" style={{ background: CARD }}>
               {lowStock && (
                 <span className="absolute right-3 top-3 z-10 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ background: ROSE, color: TEXT }}>
@@ -47,7 +48,16 @@ export default function DarkStoreProductPage() {
                 </span>
               )}
               {item.img && !imgErr ? (
-                <img src={item.img} alt="" onError={() => setImgErr(true)} className="h-full w-full object-cover" />
+                <motion.img
+                  key={item.img}
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.35 }}
+                  src={item.img}
+                  alt=""
+                  onError={() => setImgErr(true)}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="text-7xl">📦</span>
               )}
@@ -89,24 +99,45 @@ export default function DarkStoreProductPage() {
                   <button disabled className="w-full rounded-full py-3.5 text-[14px] font-bold" style={{ background: CARD, color: MUTED }}>
                     Sin stock
                   </button>
-                ) : qty > 0 ? (
-                  <div className="flex items-center justify-between gap-2 rounded-full p-1.5" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
-                    <button onClick={() => cart.add(item.kind, item.id, -1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: '#0D1017', color: TEXT }}>
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="text-[16px] font-extrabold">{qty} en el carrito</span>
-                    <button onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT, color: TEXT }}>
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
                 ) : (
-                  <button onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)} className="w-full rounded-full py-3.5 text-[14px] font-bold" style={{ background: ACCENT, color: TEXT }}>
-                    Agregar al carrito
-                  </button>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {qty > 0 ? (
+                      <motion.div
+                        key="stepper"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                        className="flex items-center justify-between gap-2 rounded-full p-1.5"
+                        style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
+                      >
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => cart.add(item.kind, item.id, -1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: '#0D1017', color: TEXT }}>
+                          <Minus className="h-4 w-4" />
+                        </motion.button>
+                        <motion.span key={qty} initial={{ scale: 1.25 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-[16px] font-extrabold">{qty} en el carrito</motion.span>
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT, color: TEXT }}>
+                          <Plus className="h-4 w-4" />
+                        </motion.button>
+                      </motion.div>
+                    ) : (
+                      <motion.button
+                        key="add"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => cart.add(item.kind, item.id, 1, selectedFlavor)}
+                        className="w-full rounded-full py-3.5 text-[14px] font-bold"
+                        style={{ background: ACCENT, color: TEXT }}
+                      >
+                        Agregar al carrito
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
 

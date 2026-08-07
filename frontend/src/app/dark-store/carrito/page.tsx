@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingCart, Zap } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule, lineName } from '../_lib';
 import { useDarkStoreShell } from '../_useShell';
@@ -44,26 +45,37 @@ export default function DarkStoreCartPage() {
         ) : (
           <>
             <div className="space-y-2.5">
-              {cartLines.map((l) => (
-                <div key={`${l.kind}:${l.id}:${l.flavor ?? ''}`} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: '#0D1017' }}>
-                    {l.item.img ? <img src={l.item.img} alt="" className="h-full w-full object-cover" /> : <span className="text-2xl">📦</span>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold">{lineName(l)}</div>
-                    <div className="text-[11.5px]" style={{ color: MUTED }}>{money(l.item.price)} c/u</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <button onClick={() => cart.add(l.kind, l.id, -1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: '#0D1017' }}><Minus className="h-3.5 w-3.5" /></button>
-                      <span className="w-4 text-center text-[12.5px] font-bold">{l.qty}</span>
-                      <button onClick={() => cart.add(l.kind, l.id, 1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: ACCENT }}><Plus className="h-3.5 w-3.5" /></button>
+              <AnimatePresence initial={false}>
+                {cartLines.map((l) => (
+                  <motion.div
+                    key={`${l.kind}:${l.id}:${l.flavor ?? ''}`}
+                    layout
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginBottom: 10 }}
+                    exit={{ opacity: 0, x: -40, height: 0, marginBottom: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                    className="flex items-center gap-3 overflow-hidden rounded-2xl p-3"
+                    style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
+                  >
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: '#0D1017' }}>
+                      {l.item.img ? <img src={l.item.img} alt="" className="h-full w-full object-cover" /> : <span className="text-2xl">📦</span>}
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className="text-[13px] font-bold">{money(l.item.price * l.qty)}</span>
-                    <button onClick={() => cart.remove(l.kind, l.id, l.flavor)} style={{ color: MUTED }}><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                </div>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-semibold">{lineName(l)}</div>
+                      <div className="text-[11.5px]" style={{ color: MUTED }}>{money(l.item.price)} c/u</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <motion.button whileTap={{ scale: 0.85 }} onClick={() => cart.add(l.kind, l.id, -1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: '#0D1017' }}><Minus className="h-3.5 w-3.5" /></motion.button>
+                        <motion.span key={l.qty} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="w-4 text-center text-[12.5px] font-bold">{l.qty}</motion.span>
+                        <motion.button whileTap={{ scale: 0.85 }} onClick={() => cart.add(l.kind, l.id, 1, l.flavor)} className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: ACCENT }}><Plus className="h-3.5 w-3.5" /></motion.button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="text-[13px] font-bold">{money(l.item.price * l.qty)}</span>
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={() => cart.remove(l.kind, l.id, l.flavor)} style={{ color: MUTED }}><Trash2 className="h-4 w-4" /></motion.button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
 
             <div className="mt-5 space-y-2 rounded-2xl p-4" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
@@ -90,17 +102,18 @@ export default function DarkStoreCartPage() {
             </div>
             <div className="mt-2 flex items-center justify-between text-lg font-extrabold" style={{ color: TEXT }}>
               <span>Total</span>
-              <span>{money(cartTotal + settings.deliveryFee)}</span>
+              <motion.span key={cartTotal} initial={{ opacity: 0.3, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>{money(cartTotal + settings.deliveryFee)}</motion.span>
             </div>
 
-            <button
+            <motion.button
+              whileTap={canContinue ? { scale: 0.98 } : undefined}
               onClick={() => router.push('/dark-store/checkout')}
               disabled={!canContinue}
               className="mt-4 w-full rounded-full py-3.5 text-[14px] font-bold disabled:opacity-40"
               style={{ background: ACCENT, color: TEXT }}
             >
               Continuar con el pedido
-            </button>
+            </motion.button>
           </>
         )}
       </div>

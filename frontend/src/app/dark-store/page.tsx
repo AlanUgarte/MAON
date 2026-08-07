@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { ArrowRight, Truck } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from './_lib';
 import { useDarkStoreShell } from './_useShell';
@@ -15,6 +16,14 @@ const CATEGORY_META: Record<string, { img: string; blurb: string }> = {
   Snacks: { img: '/dark-store/cat-snacks.jpg', blurb: 'Papas, palitos, maní' },
   Chocolates: { img: '/dark-store/cat-chocolates.jpg', blurb: 'Tabletas, bombones, alfajores' },
   Vapeadores: { img: '/dark-store/cat-vapeadores.jpg', blurb: 'Vapes y accesorios' },
+};
+
+// Variants compartidos para los grids con scroll-reveal (categorías, destacados) —
+// una sola vez por sección (viewport once:true), no se re-dispara al volver a scrollear.
+const STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+const FADE_UP = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 28 } },
 };
 
 export default function DarkStoreHome() {
@@ -47,18 +56,34 @@ export default function DarkStoreHome() {
 
       {/* Hero */}
       <div className="mx-auto max-w-[1400px] px-4 pt-5">
-        <button onClick={() => router.push('/dark-store/categoria/bebidas')} className="block w-full overflow-hidden rounded-3xl">
+        <motion.button
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => router.push('/dark-store/categoria/bebidas')}
+          className="block w-full overflow-hidden rounded-3xl"
+        >
           <img src="/dark-store/hero-night.png" alt="Tu noche, resuelta en minutos" className="w-full" />
-        </button>
+        </motion.button>
       </div>
 
       {/* Categorías */}
       <div className="mx-auto max-w-[1400px] px-4 pt-8">
         <h2 className="mb-3 text-[15px] font-extrabold">Categorías</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={STAGGER}
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
           {VISIBLE_CATEGORIES.map((c) => (
-            <button
+            <motion.button
               key={c}
+              variants={FADE_UP}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push(`/dark-store/categoria/${c.toLowerCase()}`)}
               className="group relative aspect-[16/10] overflow-hidden rounded-2xl text-left"
               style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
@@ -75,39 +100,58 @@ export default function DarkStoreHome() {
                 <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{counts.get(c) ?? 0} productos</div>
               </div>
               <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 opacity-0 transition group-hover:opacity-100" style={{ color: ACCENT }} />
-            </button>
+            </motion.button>
           ))}
-        </div>
+        </motion.div>
       </div>
 
       {/* Lo más pedido */}
       {destacados.length > 0 && (
         <div className="mx-auto max-w-[1400px] px-4 pt-8">
           <h2 className="mb-3 text-[15px] font-extrabold">Lo más pedido esta noche 🔥</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.1 }}
+            variants={STAGGER}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+          >
             {destacados.map((item) => (
-              <ProductCard
-                key={`${item.kind}:${item.id}`}
-                item={item}
-                qty={cart.qtyOf(item.kind, item.id)}
-                lowStockThreshold={settings.lowStockThreshold}
-                onAdd={() => cart.add(item.kind, item.id, 1)}
-                onChangeQty={(d) => cart.add(item.kind, item.id, d)}
-              />
+              <motion.div key={`${item.kind}:${item.id}`} variants={FADE_UP}>
+                <ProductCard
+                  item={item}
+                  qty={cart.qtyOf(item.kind, item.id)}
+                  lowStockThreshold={settings.lowStockThreshold}
+                  onAdd={() => cart.add(item.kind, item.id, 1)}
+                  onChangeQty={(d) => cart.add(item.kind, item.id, d)}
+                />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* Promo banner — ya trae adentro los 3 puntos de confianza (entrega, sin mínimos, WhatsApp), no se repiten aparte */}
-      <div className="mx-auto max-w-[1400px] px-4 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className="mx-auto max-w-[1400px] px-4 py-8"
+      >
         <button onClick={() => router.push('/dark-store/categoria/bebidas')} className="block w-full overflow-hidden rounded-3xl">
           <img src="/dark-store/promo-neon.png" alt="MAON Dark Store — pedidos rápidos, entregamos en minutos" className="w-full" />
         </button>
-      </div>
+      </motion.div>
 
       {/* Zona de entrega */}
-      <div className="mx-auto max-w-[1400px] px-4 pb-10">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className="mx-auto max-w-[1400px] px-4 pb-10"
+      >
         <div className="overflow-hidden rounded-3xl" style={{ border: `1px solid ${CARD_BORDER}` }}>
           <img src="/dark-store/zona-entrega.png" alt="Zona de entrega — hasta 20 minutos en moto" className="w-full" />
           <div className="p-6" style={{ background: CARD }}>
@@ -126,7 +170,7 @@ export default function DarkStoreHome() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {loading && <div className="px-4 pb-8 text-center text-[12px]" style={{ color: MUTED }}>Cargando catálogo…</div>}
 

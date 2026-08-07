@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { CheckCircle2, FileText } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, NEON, TEXT, MUTED, money, loadOrderSummary, type DarkStoreOrderSummary } from '../../_lib';
 import { useDarkStoreShell } from '../../_useShell';
@@ -28,17 +29,29 @@ export default function DarkStoreConfirmationPage() {
       <Header settings={settings} items={items} cartCount={cart.count} cartTotal={cartTotal} />
 
       <div className="mx-auto max-w-[560px] px-4 py-12">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(198,255,60,0.15)' }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="text-center">
+          <motion.div
+            initial={{ scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+            style={{ background: 'rgba(198,255,60,0.15)' }}
+          >
             <CheckCircle2 className="h-9 w-9" style={{ color: NEON }} />
-          </div>
+          </motion.div>
           <h1 className="text-2xl font-extrabold">✅ ¡Tu pedido fue confirmado!</h1>
           <p className="mt-1 text-[13.5px]" style={{ color: MUTED }}>
             ¡Gracias por comprar en MAON Dark Store! Recibimos tu pedido correctamente y ya se encuentra en proceso.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="mt-6 rounded-2xl p-5" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.15 }}
+          className="mt-6 rounded-2xl p-5"
+          style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}
+        >
           <div className="text-[13px] font-bold" style={{ color: TEXT }}>📦 Resumen del pedido</div>
           <div className="mt-3 space-y-1.5 text-[12.5px]" style={{ color: MUTED }}>
             <div className="flex justify-between"><span>N.º de Pedido</span><span style={{ color: TEXT }}>{numero || order?.numero || params.saleId}</span></div>
@@ -66,14 +79,24 @@ export default function DarkStoreConfirmationPage() {
               </div>
             </>
           )}
-        </div>
+        </motion.div>
 
-        <div className="mt-4 rounded-2xl p-5 text-[12.5px]" style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, color: MUTED }}>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.25 }}
+          className="mt-4 rounded-2xl p-5 text-[12.5px]"
+          style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, color: MUTED }}
+        >
           <div className="font-bold" style={{ color: TEXT }}>🚚 ¿Qué sigue ahora?</div>
           <p className="mt-1.5">Nuestro equipo ya está preparando tu compra. Te avisamos por WhatsApp apenas salga hacia tu domicilio.</p>
-        </div>
+        </motion.div>
 
-        <a
+        <motion.a
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.3 }}
+          whileTap={{ scale: 0.98 }}
           href={remitoUrl}
           target="_blank"
           rel="noreferrer"
@@ -81,7 +104,7 @@ export default function DarkStoreConfirmationPage() {
           style={{ background: ACCENT, color: TEXT }}
         >
           <FileText className="h-4.5 w-4.5" /> Ver remito
-        </a>
+        </motion.a>
         <button onClick={() => router.push('/dark-store')} className="mt-3 w-full rounded-full py-3 text-[13px] font-semibold" style={{ color: MUTED }}>
           Volver a la tienda
         </button>

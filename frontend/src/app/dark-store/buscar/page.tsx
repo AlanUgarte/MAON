@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { Search as SearchIcon } from 'lucide-react';
 import { BG, CARD_BORDER, MUTED, TEXT } from '../_lib';
 import { useDarkStoreShell } from '../_useShell';
@@ -47,18 +48,28 @@ export default function DarkStoreSearchPage() {
                 No encontramos nada con "{q}". Probá con otra palabra.
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <motion.div
+                key={q}
+                initial="hidden"
+                animate="show"
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.035 } } }}
+                className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+              >
                 {results.map((item) => (
-                  <ProductCard
+                  <motion.div
                     key={`${item.kind}:${item.id}`}
-                    item={item}
-                    qty={cart.qtyOf(item.kind, item.id)}
-                    lowStockThreshold={settings.lowStockThreshold}
-                    onAdd={() => cart.add(item.kind, item.id, 1)}
-                    onChangeQty={(d) => cart.add(item.kind, item.id, d)}
-                  />
+                    variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 320, damping: 28 } } }}
+                  >
+                    <ProductCard
+                      item={item}
+                      qty={cart.qtyOf(item.kind, item.id)}
+                      lowStockThreshold={settings.lowStockThreshold}
+                      onAdd={() => cart.add(item.kind, item.id, 1)}
+                      onChangeQty={(d) => cart.add(item.kind, item.id, d)}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
           </>
         )}

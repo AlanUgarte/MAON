@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShoppingCart, Zap, Clock, MapPin, ChevronDown } from 'lucide-react';
 import { BG_SOFT, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, TEXT, MUTED, money, isWithinSchedule } from '../_lib';
 import type { DarkStoreSettings } from '@/lib/dark-store-settings-store';
@@ -82,19 +83,30 @@ export function Header({
           <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Envío a: <span style={{ color: TEXT }}>Rosario Centro</span></span>
         </div>
 
-        <button
+        <motion.button
           onClick={() => router.push('/dark-store/carrito')}
+          whileTap={{ scale: 0.94 }}
           className="ml-auto flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold sm:ml-0"
           style={{ background: ACCENT, color: TEXT }}
         >
           <ShoppingCart className="h-4 w-4" />
-          {money(cartTotal)}
-          {cartCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold" style={{ background: NEON, color: '#0A0A0A' }}>
-              {cartCount}
-            </span>
-          )}
-        </button>
+          <motion.span key={cartTotal} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>{money(cartTotal)}</motion.span>
+          <AnimatePresence>
+            {cartCount > 0 && (
+              <motion.span
+                key="badge"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold"
+                style={{ background: NEON, color: '#0A0A0A' }}
+              >
+                <motion.span key={cartCount} initial={{ scale: 1.4 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }}>{cartCount}</motion.span>
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
       </div>
 
       <div className="border-t" style={{ borderColor: CARD_BORDER }} />
@@ -115,12 +127,20 @@ export function Header({
             >
               <button
                 onClick={() => (lines.length > 0 ? setOpenMenu(isOpen ? null : c) : goToLine(c))}
-                className="flex items-center gap-1 border-b-2 px-3 py-2.5 text-[12.5px] font-semibold transition"
-                style={{ borderColor: active || isOpen ? ACCENT : 'transparent', color: active || isOpen ? TEXT : MUTED }}
+                className="relative flex items-center gap-1 px-3 py-2.5 text-[12.5px] font-semibold transition-colors"
+                style={{ color: active || isOpen ? TEXT : MUTED }}
               >
                 {c}
                 {lines.length > 0 && (
                   <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : undefined }} />
+                )}
+                {(active || isOpen) && (
+                  <motion.span
+                    layoutId="dark-store-nav-underline"
+                    className="absolute -bottom-px left-0 right-0 h-[2px]"
+                    style={{ background: ACCENT }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
                 )}
               </button>
 

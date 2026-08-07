@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { BG, CARD, CARD_BORDER, ACCENT, ACCENT_SOFT, NEON, ROSE, TEXT, MUTED, money, isWithinSchedule, lineName, saveOrderSummary } from '../_lib';
 import { useDarkStoreShell } from '../_useShell';
@@ -176,20 +177,34 @@ export default function DarkStoreCheckoutPage() {
             </div>
           </div>
 
-          {error && (
-            <div className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold" style={{ background: 'rgba(244,63,94,0.12)', color: '#F87171' }}>
-              {error}
-            </div>
-          )}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold"
+                style={{ background: 'rgba(244,63,94,0.12)', color: '#F87171' }}
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <button
+          <motion.button
+            whileTap={!(sending || fueraDeZona || !open) ? { scale: 0.98 } : undefined}
             type="submit"
             disabled={sending || fueraDeZona || !open}
             className="w-full rounded-full py-3.5 text-[14px] font-bold disabled:opacity-40"
             style={{ background: ACCENT, color: TEXT }}
           >
-            {sending ? 'Enviando…' : 'Confirmar pedido'}
-          </button>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span key={sending ? 'sending' : 'idle'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                {sending ? 'Enviando…' : 'Confirmar pedido'}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
         </form>
       </div>
     </div>
