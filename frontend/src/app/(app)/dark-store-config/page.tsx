@@ -12,11 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BannerManager } from '@/components/app/banner-manager';
+import { RevenueAreaChart, RevenueBarChart, ProductBarChart } from '@/components/app/charts';
 import { darkStoreUnitCost, darkStoreEffMargin } from '@/lib/dark-store-catalog';
 import { darkStorePrice } from '@/lib/dark-store-pricing';
 import { useDarkStoreSettings, type DarkStoreSettings } from '@/lib/dark-store-settings-store';
 import { useDarkStoreVapes, type DarkStoreVape } from '@/lib/dark-store-vapes-store';
 import { useTiendaOrders, type TiendaOrder } from '@/lib/tienda-orders-store';
+import { useProductCatalog } from '@/lib/product-catalog-store';
 import { useComprobantesStore } from '@/lib/comprobantes-store';
 import { printComprobante } from '@/lib/print-comprobante';
 import { api, uploadImage } from '@/lib/api';
@@ -64,6 +66,7 @@ export default function DarkStoreConfigPage() {
   };
   const { comprobantes } = useComprobantesStore();
   const { vapes, refresh: refreshVapes } = useDarkStoreVapes(true);
+  const { products: fullCatalog } = useProductCatalog();
 
   const orders = useMemo(() => allOrders.filter(isDarkStoreOrder), [allOrders]);
 
@@ -92,6 +95,54 @@ export default function DarkStoreConfigPage() {
     for (const v of o.vapeItems ?? []) productCount.set(v.name, (productCount.get(v.name) ?? 0) + v.quantity);
   }
   const masVendido = [...productCount.entries()].sort((a, b) => b[1] - a[1])[0];
+  const rankingProductos = [...productCount.entries()]
+    .map(([product, quantity]) => ({ product, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 8);
+
+  // Ventas por hora (hoy) — 9 a 23 hs, el horario real de la tienda, no las 24hs del día.
+  const ventasPorHora = useMemo(() => {
+    const horas = Array.from({ length: 15 }, (_, i) => i + 9);
+    const buckets = horas.map((h) => ({ label: `${h}h`, ventas: 0 }));
+    for (const o of ordersToday) {
+      const h = new Date(o.createdAt).getHours();
+      const idx = horas.indexOf(h);
+      if (idx !== -1) buckets[idx].ventas += o.subtotal;
+    }
+    return buckets;
+  }, [ordersToday]);
+
+  // Ventas por día — últimos 14 días.
+  const ventasPorDia = useMemo(() => {
+    const days = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (13 - i));
+      return { key: d.toDateString(), label: d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }), ventas: 0 };
+    });
+    const byKey = new Map(days.map((d) => [d.key, d]));
+    for (const o of orders) {
+      const bucket = byKey.get(new Date(o.createdAt).toDateString());
+      if (bucket) bucket.ventas += o.subtotal;
+    }
+    return days;
+  }, [orders]);
+
+  // Ventas por categoría — cruza cada línea del pedido contra el catálogo público para
+  // saber a qué categoría pertenece (el pedido guardado solo trae sku/nombre, no rubro).
+  const ventasPorCategoria = useMemo(() => {
+    const categoryBySku = new Map(fullCatalog.map((p) => [p.sku, p.category]));
+    const m = new Map<string, number>();
+    for (const o of orders) {
+      for (const it of o.items) {
+        const cat = categoryBySku.get(it.sku) || 'Otros';
+        m.set(cat, (m.get(cat) ?? 0) + it.unitPrice * it.qty);
+      }
+      for (const v of o.vapeItems ?? []) {
+        m.set('Vapeadores', (m.get('Vapeadores') ?? 0) + v.unitPrice * v.quantity);
+      }
+    }
+    return [...m.entries()].map(([label, ventas]) => ({ label, ventas })).sort((a, b) => b.ventas - a.ventas);
+  }, [orders, fullCatalog]);
 
   return (
     <>
@@ -150,6 +201,35 @@ export default function DarkStoreConfigPage() {
                 <span className="flex items-center gap-1.5"><Percent className="h-4 w-4" /> Margen: {settings.margenPct}%</span>
               </CardContent>
             </Card>
+
+            {orders.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">
+                Todavía no hay pedidos de Dark Store para graficar.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle>Ventas por hora (hoy)</CardTitle></CardHeader>
+                  <CardContent className="pt-2"><RevenueAreaChart data={ventasPorHora} /></CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle>Ventas por día (últimos 14)</CardTitle></CardHeader>
+                  <CardContent className="pt-2"><RevenueAreaChart data={ventasPorDia} /></CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle>Ventas por categoría</CardTitle></CardHeader>
+                  <CardContent className="pt-2">
+                    {ventasPorCategoria.length ? <RevenueBarChart data={ventasPorCategoria} /> : <div className="py-6 text-center text-[12.5px] text-muted">Sin datos todavía.</div>}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle>Ranking de productos</CardTitle></CardHeader>
+                  <CardContent className="pt-2">
+                    {rankingProductos.length ? <ProductBarChart data={rankingProductos} /> : <div className="py-6 text-center text-[12.5px] text-muted">Sin datos todavía.</div>}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         )}
 

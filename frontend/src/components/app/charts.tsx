@@ -68,6 +68,46 @@ export function ProductBarChart({ data }: { data: { product: string; quantity: n
   );
 }
 
+/** Área de una sola serie en $ — ventas por hora/día, o cualquier serie temporal en pesos. */
+export function RevenueAreaChart({ data, dataKey = 'ventas' }: { data: any[]; dataKey?: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data} margin={{ top: 10, right: 6, left: -18, bottom: 0 }}>
+        <defs>
+          <linearGradient id="gRevenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4E7D2C" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#4E7D2C" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgb(148 163 184 / 0.12)" vertical={false} />
+        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={36} />
+        <Tooltip content={<ChartTooltip money />} cursor={{ stroke: 'rgb(124 92 252 / 0.3)' }} />
+        <Area type="monotone" dataKey={dataKey} name="ventas" stroke="#4E7D2C" strokeWidth={2.5} fill="url(#gRevenue)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Barras horizontales en $ — ranking de categorías u otro corte por monto. */
+export function RevenueBarChart({ data, dataKey = 'ventas', labelKey = 'label' }: { data: any[]; dataKey?: string; labelKey?: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(140, data.length * 34)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgb(148 163 184 / 0.1)" horizontal={false} />
+        <XAxis type="number" tick={AXIS} tickLine={false} axisLine={false} />
+        <YAxis type="category" dataKey={labelKey} tick={{ ...AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={90} />
+        <Tooltip content={<ChartTooltip money />} cursor={{ fill: 'rgb(124 92 252 / 0.06)' }} />
+        <Bar dataKey={dataKey} name="ventas" radius={[0, 6, 6, 0]} barSize={18}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={i === 0 ? '#56682B' : 'rgb(124 92 252 / 0.45)'} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function MiniSales({ data }: { data: any[] }) {
   return (
     <ResponsiveContainer width="100%" height={56}>
