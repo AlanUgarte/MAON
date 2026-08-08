@@ -37,15 +37,12 @@ type SellMode = 'BULTO' | 'UNIDAD' | 'DISPLAY';
 const MODE_LABEL: Record<SellMode, string> = { BULTO: 'bulto', UNIDAD: 'unidad', DISPLAY: 'display' };
 interface CartLine { productId: string; mode: SellMode; qty: number }
 
-/** Modos de venta disponibles para un artículo: bulto cerrado siempre, unidad/display solo
- * si el maestro del proveedor trae ese costo real (columna "Grupo de unidad de medida"
- * AxBxC: A = displays por bulto, B = unidades sueltas por display — si B es 0 no se vende
- * suelto por más que el maestro repita el mismo precio en la fila "unidad"). */
+/** Venta exclusiva por bulto cerrado — decisión del negocio (antes se ofrecía también
+ * por unidad/display/zuncho cuando el maestro traía ese dato; se volvió atrás a solo
+ * bulto). El costo por unidad/display sigue en el maestro y lo sigue usando Dark Store
+ * y el margen de Productos — esto solo afecta qué se puede COMPRAR en /tienda. */
 function sellModes(p: ProductRow): SellMode[] {
-  const modes: SellMode[] = ['BULTO'];
-  if (p.displayPrice) modes.push('DISPLAY');
-  if (p.unitPrice) modes.push('UNIDAD');
-  return modes;
+  return ['BULTO'];
 }
 /** Costo de un artículo según el modo de venta elegido. */
 function costoDe(p: ProductRow, mode: SellMode): number {
