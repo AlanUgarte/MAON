@@ -12,10 +12,10 @@ import { MobileNav } from './_components/MobileNav';
 import { ProductCard } from './_components/ProductCard';
 
 const CATEGORY_META: Record<string, { img: string; blurb: string }> = {
-  Bebidas: { img: '/dark-store/cat-bebidas.jpg', blurb: 'Gaseosas, aguas, energizantes' },
-  Snacks: { img: '/dark-store/cat-snacks.jpg', blurb: 'Papas, palitos, maní' },
-  Chocolates: { img: '/dark-store/cat-chocolates.jpg', blurb: 'Tabletas, bombones, alfajores' },
-  Vapeadores: { img: '/dark-store/cat-vapeadores.jpg', blurb: 'Vapes y accesorios' },
+  Bebidas: { img: '/dark-store/cat-bebidas.webp', blurb: 'Gaseosas, aguas, energizantes' },
+  Snacks: { img: '/dark-store/cat-snacks.webp', blurb: 'Papas, palitos, maní' },
+  Chocolates: { img: '/dark-store/cat-chocolates.webp', blurb: 'Tabletas, bombones, alfajores' },
+  Vapeadores: { img: '/dark-store/cat-vapeadores.webp', blurb: 'Vapes y accesorios' },
 };
 
 // Variants compartidos para los grids con scroll-reveal (categorías, destacados) —
@@ -63,8 +63,20 @@ export default function DarkStoreHome() {
           whileTap={{ scale: 0.99 }}
           onClick={() => router.push('/dark-store/categoria/bebidas')}
           className="block w-full overflow-hidden rounded-3xl"
+          style={{ background: CARD }}
         >
-          <img src="/dark-store/hero-night.png" alt="Tu noche, resuelta en minutos" className="w-full" />
+          {/* aspect-ratio fijo: sin esto la sección desaparece (altura 0) mientras la imagen
+              carga o si tarda en una red lenta — se veía "roto" hasta que terminaba de bajar. */}
+          <img
+            src="/dark-store/hero-night.webp"
+            alt="Tu noche, resuelta en minutos"
+            className="w-full"
+            style={{ aspectRatio: '2 / 1', objectFit: 'cover' }}
+            width={1600}
+            height={800}
+            loading="eager"
+            fetchPriority="high"
+          />
         </motion.button>
       </div>
 
@@ -105,8 +117,23 @@ export default function DarkStoreHome() {
         </motion.div>
       </div>
 
-      {/* Lo más pedido */}
-      {destacados.length > 0 && (
+      {/* Lo más pedido — mientras carga el catálogo se ve un skeleton en vez de un hueco
+          vacío (antes no había nada acá hasta que terminaba de bajar, se veía "roto"). */}
+      {loading && !destacados.length ? (
+        <div className="mx-auto max-w-[1400px] px-4 pt-8">
+          <h2 className="mb-3 text-[15px] font-extrabold">Lo más pedido esta noche 🔥</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-2xl p-3" style={{ background: CARD, border: `1px solid ${CARD_BORDER}` }}>
+                <div className="aspect-square rounded-xl" style={{ background: '#0D1017' }} />
+                <div className="mt-2.5 h-2 w-1/3 rounded" style={{ background: '#0D1017' }} />
+                <div className="mt-2 h-3 w-4/5 rounded" style={{ background: '#0D1017' }} />
+                <div className="mt-2.5 h-4 w-1/2 rounded" style={{ background: '#0D1017' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : destacados.length > 0 && (
         <div className="mx-auto max-w-[1400px] px-4 pt-8">
           <h2 className="mb-3 text-[15px] font-extrabold">Lo más pedido esta noche 🔥</h2>
           <motion.div
@@ -139,8 +166,16 @@ export default function DarkStoreHome() {
         transition={{ type: 'spring', stiffness: 300, damping: 28 }}
         className="mx-auto max-w-[1400px] px-4 py-8"
       >
-        <button onClick={() => router.push('/dark-store/categoria/bebidas')} className="block w-full overflow-hidden rounded-3xl">
-          <img src="/dark-store/promo-neon.png" alt="MAON Dark Store — pedidos rápidos, entregamos en minutos" className="w-full" />
+        <button onClick={() => router.push('/dark-store/categoria/bebidas')} className="block w-full overflow-hidden rounded-3xl" style={{ background: CARD }}>
+          <img
+            src="/dark-store/promo-neon.webp"
+            alt="MAON Dark Store — pedidos rápidos, entregamos en minutos"
+            className="w-full"
+            style={{ aspectRatio: '2 / 1', objectFit: 'cover' }}
+            width={1440}
+            height={720}
+            loading="lazy"
+          />
         </button>
       </motion.div>
 
@@ -153,7 +188,15 @@ export default function DarkStoreHome() {
         className="mx-auto max-w-[1400px] px-4 pb-10"
       >
         <div className="overflow-hidden rounded-3xl" style={{ border: `1px solid ${CARD_BORDER}` }}>
-          <img src="/dark-store/zona-entrega.png" alt="Zona de entrega — hasta 20 minutos en moto" className="w-full" />
+          <img
+            src="/dark-store/zona-entrega.webp"
+            alt="Zona de entrega — hasta 20 minutos en moto"
+            className="w-full"
+            style={{ aspectRatio: '1.5 / 1', objectFit: 'cover', background: CARD }}
+            width={1400}
+            height={933}
+            loading="lazy"
+          />
           <div className="p-6" style={{ background: CARD }}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12.5px]" style={{ color: MUTED }}>Despachamos a estos barrios de Rosario:</p>
