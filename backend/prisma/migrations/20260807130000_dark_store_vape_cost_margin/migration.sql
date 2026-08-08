@@ -1,0 +1,2 @@
+ALTER TABLE "DarkStoreVape" ADD COLUMN "cost" DECIMAL(12,2);
+ALTER TABLE "DarkStoreVape" ADD COLUMN "marginPct" DOUBLE PRECISION;

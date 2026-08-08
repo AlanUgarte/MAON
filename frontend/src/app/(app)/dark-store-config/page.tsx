@@ -310,7 +310,7 @@ export default function DarkStoreConfigPage() {
 
         {tab === 'productos' && <ProductsTab settings={settings} orders={orders} onHide={hideProduct} />}
 
-        {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} orders={orders} />}
+        {tab === 'vapeadores' && <VapesTab vapes={vapes} refresh={refreshVapes} orders={orders} settings={settings} />}
 
         {tab === 'contenido' && (
           <Card>
@@ -569,10 +569,13 @@ function ProductsTab({ settings, orders, onHide }: { settings: DarkStoreSettings
 }
 
 // ---- Vapeadores: CRUD completo ----
-type VapeForm = { id?: string; name: string; description: string; brand: string; price: string; stock: string; images: string; flavors: string; featured: boolean; isActive: boolean };
-const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '', stock: '0', images: '', flavors: '', featured: false, isActive: true };
+type VapeForm = {
+  id?: string; name: string; description: string; brand: string; price: string; cost: string; marginPct: string;
+  stock: string; images: string; flavors: string; featured: boolean; isActive: boolean;
+};
+const emptyVapeForm: VapeForm = { name: '', description: '', brand: '', price: '', cost: '', marginPct: '', stock: '0', images: '', flavors: '', featured: false, isActive: true };
 
-function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh: () => void; orders: TiendaOrder[] }) {
+function VapesTab({ vapes, refresh, orders, settings }: { vapes: DarkStoreVape[]; refresh: () => void; orders: TiendaOrder[]; settings: DarkStoreSettings }) {
   // Unidades vendidas por vape — suma todos los sabores del mismo artículo (vapeId es el
   // mismo, solo cambia el sabor elegido en cada línea).
   const soldByVapeId = useMemo(() => {
@@ -582,6 +585,11 @@ function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh:
     }
     return m;
   }, [orders]);
+
+  // Copia local editable en línea (costo/margen/stock) — se resincroniza cuando cambia
+  // la lista real (después de un refresh()), mismo patrón que la tabla de Productos.
+  const [local, setLocal] = useState<DarkStoreVape[]>(vapes);
+  useEffect(() => setLocal(vapes), [vapes]);
 
   const [editing, setEditing] = useState<VapeForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -606,20 +614,30 @@ function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh:
   const openNew = () => setEditing({ ...emptyVapeForm });
   const openEdit = (v: DarkStoreVape) => setEditing({
     id: v.id, name: v.name, description: v.description ?? '', brand: v.brand ?? '',
-    price: String(v.price), stock: String(v.stock), images: v.images.join(', '), flavors: v.flavors.join(', '), featured: v.featured, isActive: v.isActive,
+    price: String(v.price), cost: v.cost != null ? String(v.cost) : '', marginPct: v.marginPct != null ? String(v.marginPct) : '',
+    stock: String(v.stock), images: v.images.join(', '), flavors: v.flavors.join(', '), featured: v.featured, isActive: v.isActive,
   });
+
+  // Costo cargado + margen (propio o el general de Dark Store) -> precio final. Sin
+  // costo cargado, el precio sigue siendo el que el admin puso a mano (compatible con
+  // los vapeadores que ya existían antes de esto).
+  const computePrice = (cost: number | undefined, marginPct: number | undefined, fallbackPrice: number) =>
+    cost != null ? darkStorePrice(cost, marginPct ?? settings.margenPct) : fallbackPrice;
 
   const submit = async () => {
     if (!editing) return;
-    if (!editing.name.trim() || !editing.price) return setError('Nombre y precio son obligatorios');
+    if (!editing.name.trim() || (!editing.price && !editing.cost)) return setError('Nombre y precio (o costo) son obligatorios');
     setSaving(true);
     setError('');
     try {
+      const cost = editing.cost ? Number(editing.cost) : undefined;
+      const marginPct = editing.marginPct ? Number(editing.marginPct) : undefined;
       const dto = {
         name: editing.name.trim(),
         description: editing.description.trim() || undefined,
         brand: editing.brand.trim() || undefined,
-        price: Number(editing.price),
+        price: computePrice(cost, marginPct, Number(editing.price) || 0),
+        cost, marginPct,
         stock: Number(editing.stock) || 0,
         images: editing.images.split(',').map((s) => s.trim()).filter(Boolean),
         flavors: editing.flavors.split(',').map((s) => s.trim()).filter(Boolean),
@@ -642,6 +660,17 @@ function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh:
     refresh();
   };
 
+  // Edición rápida inline (costo/margen/stock) — recalcula y persiste el precio final
+  // en el mismo PATCH, así el checkout (que lee vape.price directo) siempre está al día.
+  const setLocalField = (id: string, patch: Partial<DarkStoreVape>) =>
+    setLocal((arr) => arr.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  const persistField = (v: DarkStoreVape, patch: Partial<DarkStoreVape>) => {
+    const merged = { ...v, ...patch };
+    const price = computePrice(merged.cost, merged.marginPct, merged.price);
+    setLocalField(v.id, { ...patch, price });
+    api.updateDarkStoreVape(v.id, { ...patch, price }).catch(() => {});
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -659,7 +688,9 @@ function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh:
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div><label className={labelClass}>Nombre*</label><input className={inputClass} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
               <div><label className={labelClass}>Marca</label><input className={inputClass} value={editing.brand} onChange={(e) => setEditing({ ...editing, brand: e.target.value })} /></div>
-              <div><label className={labelClass}>Precio de venta ($)*</label><input type="number" className={inputClass} value={editing.price} onChange={(e) => setEditing({ ...editing, price: e.target.value })} /></div>
+              <div><label className={labelClass}>Costo ($)</label><input type="number" className={inputClass} value={editing.cost} onChange={(e) => setEditing({ ...editing, cost: e.target.value })} placeholder="Si lo cargás, se calcula el precio solo" /></div>
+              <div><label className={labelClass}>Margen % (si no, usa el {settings.margenPct}% general)</label><input type="number" className={inputClass} value={editing.marginPct} onChange={(e) => setEditing({ ...editing, marginPct: e.target.value })} placeholder={String(settings.margenPct)} /></div>
+              <div><label className={labelClass}>Precio de venta ($){!editing.cost && '*'}</label><input type="number" className={inputClass} value={editing.price} onChange={(e) => setEditing({ ...editing, price: e.target.value })} disabled={!!editing.cost} placeholder={editing.cost ? String(computePrice(Number(editing.cost), editing.marginPct ? Number(editing.marginPct) : undefined, 0)) : ''} /></div>
               <div><label className={labelClass}>Stock</label><input type="number" className={inputClass} value={editing.stock} onChange={(e) => setEditing({ ...editing, stock: e.target.value })} /></div>
             </div>
             <div><label className={labelClass}>Descripción</label><input className={inputClass} value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
@@ -694,21 +725,78 @@ function VapesTab({ vapes, refresh, orders }: { vapes: DarkStoreVape[]; refresh:
           </div>
         )}
 
-        <div className="space-y-1.5">
-          {vapes.map((v) => (
-            <div key={v.id} className="flex items-center justify-between rounded-lg border border-line/10 px-3 py-2">
-              <div className="min-w-0">
-                <div className="truncate text-[13px] font-medium text-content">{v.name} {v.featured && <Badge tone="amber">Destacado</Badge>}</div>
-                <div className="text-[11px] text-muted">{v.brand ?? '-'} · {money(v.price)} · Stock: {v.stock} · Vendido: {soldByVapeId.get(v.id) ?? 0} u.{!v.isActive && ' · Inactivo'}</div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button size="icon" variant="ghost" onClick={() => openEdit(v)}><Pencil className="h-3.5 w-3.5" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(v.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-              </div>
-            </div>
-          ))}
-          {!vapes.length && <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">Todavía no cargaste ningún vapeador.</div>}
-        </div>
+        {!local.length ? (
+          <div className="rounded-xl border border-dashed border-line/15 p-6 text-center text-[13px] text-muted">Todavía no cargaste ningún vapeador.</div>
+        ) : (
+          <div className="max-h-[560px] overflow-auto rounded-xl border border-line/10">
+            <table className="w-full text-[12.5px]">
+              <thead className="sticky top-0 bg-surface text-left text-muted">
+                <tr>
+                  <th className="p-2 font-medium">Producto</th>
+                  <th className="p-2 font-medium">Costo</th>
+                  <th className="p-2 font-medium">Margen %</th>
+                  <th className="p-2 font-medium">Venta</th>
+                  <th className="p-2 font-medium">Ganancia</th>
+                  <th className="p-2 font-medium">Stock</th>
+                  <th className="p-2 font-medium">Total vendido</th>
+                  <th className="p-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {local.map((v) => {
+                  const price = computePrice(v.cost, v.marginPct, v.price);
+                  const ganancia = v.cost != null ? price - v.cost : null;
+                  return (
+                    <tr key={v.id} className="border-t border-line/10">
+                      <td className="max-w-[260px] p-2">
+                        <div className="truncate font-medium text-content">{v.name} {v.featured && <Badge tone="amber">Destacado</Badge>}{!v.isActive && <Badge tone="muted">Inactivo</Badge>}</div>
+                        <div className="truncate text-[10.5px] text-muted">{v.brand ?? '-'}</div>
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          value={v.cost ?? ''}
+                          placeholder="-"
+                          onChange={(e) => setLocalField(v.id, { cost: e.target.value === '' ? undefined : Number(e.target.value) })}
+                          onBlur={() => persistField(v, { cost: v.cost })}
+                          className="h-8 w-20 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          value={v.marginPct ?? ''}
+                          placeholder={String(settings.margenPct)}
+                          onChange={(e) => setLocalField(v.id, { marginPct: e.target.value === '' ? undefined : Number(e.target.value) })}
+                          onBlur={() => persistField(v, { marginPct: v.marginPct })}
+                          className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
+                        />
+                      </td>
+                      <td className="p-2 tnum font-bold text-emerald">{money(price)}</td>
+                      <td className="p-2 tnum text-emerald">{ganancia != null ? money(ganancia) : '-'}</td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          value={v.stock}
+                          onChange={(e) => setLocalField(v.id, { stock: Number(e.target.value) || 0 })}
+                          onBlur={() => persistField(v, { stock: v.stock })}
+                          className="h-8 w-16 rounded-lg border border-line/15 bg-surface-2/60 px-2 text-center font-bold text-content"
+                        />
+                      </td>
+                      <td className="p-2 tnum text-content">{soldByVapeId.get(v.id) ?? 0} u.</td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(v)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => remove(v.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

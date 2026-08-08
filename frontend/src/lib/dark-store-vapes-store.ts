@@ -12,6 +12,9 @@ export interface DarkStoreVape {
   description?: string;
   brand?: string;
   price: number;
+  /** Costo, opcional — si está, price se recalcula desde acá + marginPct (como Productos). */
+  cost?: number;
+  marginPct?: number;
   stock: number;
   images: string[];
   /** Sabores/variantes — si hay más de uno, el detalle muestra un desplegable. */
@@ -23,7 +26,10 @@ export interface DarkStoreVape {
 function fromBackend(v: any): DarkStoreVape {
   return {
     id: v.id, name: v.name, description: v.description ?? undefined, brand: v.brand ?? undefined,
-    price: Number(v.price), stock: v.stock ?? 0, images: v.images ?? [], flavors: v.flavors ?? [],
+    price: Number(v.price),
+    cost: v.cost != null ? Number(v.cost) : undefined,
+    marginPct: v.marginPct ?? undefined,
+    stock: v.stock ?? 0, images: v.images ?? [], flavors: v.flavors ?? [],
     featured: !!v.featured, isActive: v.isActive ?? true,
   };
 }

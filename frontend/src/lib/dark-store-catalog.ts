@@ -76,7 +76,8 @@ export function useDarkStoreCatalog(settings: DarkStoreSettings) {
       // Los vapes no traen "línea" del proveedor: la marca es el corte natural para filtrarlos.
       line: normalizeLine(v.brand),
       img: v.images[0] ?? '',
-      // Los vapeadores no tienen costo/margen: el admin carga el precio final directo.
+      // v.price es siempre el precio final ya calculado — si el admin cargó costo+margen,
+      // el panel de Vapeadores ya lo recalculó y lo guardó ahí, no hay que rehacerlo acá.
       price: v.price,
       stock: v.stock,
       featured: v.featured,

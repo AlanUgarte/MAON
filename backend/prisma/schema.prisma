@@ -815,13 +815,20 @@ model DarkStoreSettings {
 }
 
 /// Vapeadores de Dark Store: categoría administrada a mano, fuera del maestro del
-/// proveedor (que pisaría estos datos en cada sync) — precio de venta final, sin margen.
+/// proveedor (que pisaría estos datos en cada sync).
 model DarkStoreVape {
   id          String   @id @default(cuid())
   name        String
   description String?
   brand       String?
+  /// Precio de venta final — si cost/marginPct están cargados, el admin (frontend) lo
+  /// recalcula solo y lo persiste acá; si no, es el precio cargado a mano como antes.
   price       Decimal  @db.Decimal(12, 2)
+  /// Costo, opcional — a diferencia de Product no viene de ningún sync de proveedor, lo
+  /// carga el admin a mano acá mismo para poder ver margen y ganancia como en Productos.
+  cost        Decimal? @db.Decimal(12, 2)
+  /// Margen % sobre cost — si no está, usa el margen general de Dark Store.
+  marginPct   Float?
   stock       Int      @default(0)
   images      String[] @default([])
   /// Sabores/variantes (ej. "Cherry Watermelon") — si tiene más de uno, el detalle del

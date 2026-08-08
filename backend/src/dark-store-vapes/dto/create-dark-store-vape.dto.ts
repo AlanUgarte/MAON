@@ -5,7 +5,9 @@ export class CreateDarkStoreVapeDto {
   @ApiProperty() @IsString() name: string;
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() brand?: string;
-  @ApiProperty({ description: 'Precio de venta final, sin margen (lo pone el admin directo)' }) @IsNumber() price: number;
+  @ApiProperty({ description: 'Precio de venta final — si cost/marginPct están cargados, se recalcula desde ahí' }) @IsNumber() price: number;
+  @ApiPropertyOptional({ description: 'Costo, opcional — si se completa, price se recalcula con marginPct' }) @IsOptional() @IsNumber() cost?: number;
+  @ApiPropertyOptional({ description: 'Margen % sobre cost — si no está, usa el margen general de Dark Store' }) @IsOptional() @IsNumber() marginPct?: number;
   @ApiPropertyOptional({ default: 0 }) @IsOptional() @IsInt() @Min(0) stock?: number;
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() images?: string[];
   @ApiPropertyOptional({ type: [String], description: 'Sabores/variantes — si hay más de uno, el detalle muestra un desplegable' })
