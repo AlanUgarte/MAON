@@ -43,6 +43,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "C:/Users/Tyna/Desktop/proye/ventra-arg/apps/web", "--", "-p", "3010"],
       "port": 3010
+    },
+    {
+      "name": "comparador-precios",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8091", "--directory", "C:/Users/Tyna/Desktop/proye/comparador-precios"],
+      "port": 8091
     }
   ]
 }
