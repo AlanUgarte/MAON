@@ -48,6 +48,11 @@ function sellModes(p: ProductRow): SellMode[] {
   if (LOOSE_SALE_SKUS.includes(p.sku) && p.unitPrice) return ['BULTO', 'UNIDAD'];
   return ['BULTO'];
 }
+/** Recargo fijo en pesos sobre el precio de venta ya calculado (bulto y unidad por
+ * igual) — a pedido puntual de Alan para artículos concretos. Se suma DESPUÉS del
+ * margen normal, no reemplaza el margen: si el costo o el margen general cambian, el
+ * recargo se sigue sumando arriba del nuevo precio calculado. */
+const SALE_SURCHARGE: Record<string, number> = { '1060120108': 2000 };
 /** Costo de un artículo según el modo de venta elegido. */
 function costoDe(p: ProductRow, mode: SellMode): number {
   if (mode === 'UNIDAD') return p.unitPrice ?? p.price;
@@ -129,7 +134,8 @@ function TiendaInner() {
     const base = costoDe(p, mode) * (1 + (mode !== 'BULTO' ? LOOSE_SALE_MARGIN : margenDe(p)));
     const promo = getPromo(p);
     const applies = !!promo?.discountPct && qty >= promoMinQty(promo.label);
-    return Math.round((applies ? base * (1 - promo!.discountPct! / 100) : base) * 100) / 100;
+    const withPromo = applies ? base * (1 - promo!.discountPct! / 100) : base;
+    return Math.round((withPromo + (SALE_SURCHARGE[p.sku] ?? 0)) * 100) / 100;
   };
   const catalog = useMemo(() => products.filter((p) => !settings.hiddenProductIds.includes(p.id)), [products, settings.hiddenProductIds]);
   // Resalta en azul la parte final del título ("de confianza") y "100% segura" del
