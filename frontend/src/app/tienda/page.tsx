@@ -40,8 +40,12 @@ interface CartLine { productId: string; mode: SellMode; qty: number }
 /** Venta exclusiva por bulto cerrado — decisión del negocio (antes se ofrecía también
  * por unidad/display/zuncho cuando el maestro traía ese dato; se volvió atrás a solo
  * bulto). El costo por unidad/display sigue en el maestro y lo sigue usando Dark Store
- * y el margen de Productos — esto solo afecta qué se puede COMPRAR en /tienda. */
+ * y el margen de Productos — esto solo afecta qué se puede COMPRAR en /tienda.
+ * Excepción puntual: STANI Palitos de la Selva 12*660 GR. (sku 1060120108) se vende
+ * también por unidad a pedido de Alan. */
+const LOOSE_SALE_SKUS = ['1060120108'];
 function sellModes(p: ProductRow): SellMode[] {
+  if (LOOSE_SALE_SKUS.includes(p.sku) && p.unitPrice) return ['BULTO', 'UNIDAD'];
   return ['BULTO'];
 }
 /** Costo de un artículo según el modo de venta elegido. */
