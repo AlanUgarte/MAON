@@ -20,6 +20,10 @@ import { CotillonSettingsModule } from './cotillon-settings/cotillon-settings.mo
 import { CartsModule } from './carts/carts.module';
 import { DarkStoreSettingsModule } from './dark-store-settings/dark-store-settings.module';
 import { DarkStoreVapesModule } from './dark-store-vapes/dark-store-vapes.module';
+import { SupremasSettingsModule } from './supremas-settings/supremas-settings.module';
+import { SupremasIngredientsModule } from './supremas-ingredients/supremas-ingredients.module';
+import { SupremasBatchesModule } from './supremas-batches/supremas-batches.module';
+import { SupremasSalesModule } from './supremas-sales/supremas-sales.module';
 
 @Module({
   imports: [
@@ -47,6 +51,10 @@ import { DarkStoreVapesModule } from './dark-store-vapes/dark-store-vapes.module
     CartsModule,
     DarkStoreSettingsModule,
     DarkStoreVapesModule,
+    SupremasSettingsModule,
+    SupremasIngredientsModule,
+    SupremasBatchesModule,
+    SupremasSalesModule,
   ],
 })
 export class AppModule {}

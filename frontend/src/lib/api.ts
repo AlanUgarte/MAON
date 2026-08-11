@@ -215,6 +215,27 @@ export const api = {
   updateDarkStoreVape: (id: string, dto: any) => request<any>(`/dark-store-vapes/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
   deleteDarkStoreVape: (id: string) => request<any>(`/dark-store-vapes/${id}`, { method: 'DELETE' }),
 
+  // Módulo Supremas de Pollo — producción, costeo, stock y ventas propias, cliente
+  // compartido con el resto del CRM (via /clients).
+  supremasSettings: () => request<any>('/supremas-settings'),
+  updateSupremasSettings: (dto: any) => request<any>('/supremas-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
+  supremasIngredients: () => request<any[]>('/supremas-ingredients'),
+  supremasCosteo: () => request<any>('/supremas-ingredients/costeo'),
+  createSupremasIngredient: (dto: any) => request<any>('/supremas-ingredients', { method: 'POST', body: JSON.stringify(dto) }),
+  updateSupremasIngredient: (id: string, dto: any) => request<any>(`/supremas-ingredients/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  deleteSupremasIngredient: (id: string) => request<any>(`/supremas-ingredients/${id}`, { method: 'DELETE' }),
+
+  supremasBatches: () => request<any[]>('/supremas-batches'),
+  supremasStock: () => request<{ producidoKg: number; vendidoKg: number; stockKg: number }>('/supremas-batches/stock'),
+  createSupremasBatch: (dto: any) => request<any>('/supremas-batches', { method: 'POST', body: JSON.stringify(dto) }),
+  deleteSupremasBatch: (id: string) => request<any>(`/supremas-batches/${id}`, { method: 'DELETE' }),
+
+  supremasSales: () => request<any[]>('/supremas-sales'),
+  supremasSalesByClient: (clientId: string) => request<any[]>(`/supremas-sales/cliente/${clientId}`),
+  createSupremasSale: (dto: any) => request<any>('/supremas-sales', { method: 'POST', body: JSON.stringify(dto) }),
+  deleteSupremasSale: (id: string) => request<any>(`/supremas-sales/${id}`, { method: 'DELETE' }),
+
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),
   createComprobante: (dto: any) => request<any>('/comprobantes', { method: 'POST', body: JSON.stringify(dto) }),

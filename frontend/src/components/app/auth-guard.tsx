@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getToken, getUser } from '@/lib/api';
 
-// Los vendedores solo pueden entrar a su propio trabajo: dashboard, clientes, WhatsApp y sus pedidos de tienda.
-const VENDEDOR_ALLOWED = ['/dashboard', '/clientes', '/bandeja', '/tienda-config'];
+// Los vendedores solo pueden entrar a su propio trabajo: dashboard, clientes, WhatsApp,
+// sus pedidos de tienda y Supremas (ahí sí puede vender/crear clientes, ver [supremas]/page.tsx).
+const VENDEDOR_ALLOWED = ['/dashboard', '/clientes', '/bandeja', '/tienda-config', '/supremas'];
 
 // ponytail: solo valida que exista un token en localStorage, no lo verifica contra /auth/me.
 // Si el token expiró o es inválido, la primera llamada a la API fallará con 401 y ahí se puede

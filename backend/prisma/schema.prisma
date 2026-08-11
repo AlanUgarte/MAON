@@ -205,6 +205,7 @@ model User {
   sales                  Sale[]
   takenOverConversations Conversation[] @relation("TakenOverConversations")
   comprobantes           Comprobante[]  @relation("ComprobanteSeller")
+  supremaSales           SupremaSale[]
 
   @@index([role])
 }
@@ -287,6 +288,7 @@ model Client {
   aiAnalyses         AIAnalysis[]
   campaignRecipients CampaignRecipient[]
   comprobantes       Comprobante[]
+  supremaSales       SupremaSale[]
 
   @@index([stage])
   @@index([assignedSellerId])
@@ -844,4 +846,104 @@ model DarkStoreVape {
   updatedAt   DateTime @updatedAt
 
   @@index([isActive])
+}
+
+// --------------------- SUPREMAS DE POLLO ----------------------
+// Negocio chico y separado dentro del mismo CRM: producción y venta de supremas
+// rebozadas. Costo variable por lote (según precio de ingredientes) y precio por
+// tramo de cliente — no encaja en Product/Sale (pensados para catálogo de miles
+// de SKU con margen %), así que tiene su propio set de modelos. El cliente SÍ es
+// el mismo Client de todo el CRM (nunca uno paralelo).
+
+enum SupremaClientType {
+  CONSUMIDOR_FINAL
+  KIOSCO
+  MAYORISTA
+}
+
+enum SupremaPaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  MERCADO_PAGO
+  OTRO
+}
+
+/// Fila única (singleton) — precios por tramo, umbral mayorista, costo de envase y
+/// rendimiento base de producción. Mismo patrón que TiendaSettings/DarkStoreSettings.
+model SupremaSettings {
+  id                   String   @id @default("singleton")
+  priceConsumidorFinal Decimal  @default(7000) @db.Decimal(12, 2)
+  priceKiosco          Decimal  @default(6500) @db.Decimal(12, 2)
+  priceMayorista       Decimal  @default(6000) @db.Decimal(12, 2)
+  /// Kg desde los que se aplica precio mayorista — configurable, no hardcodeado.
+  mayoristaMinKg       Int      @default(15)
+  envaseCostPerKg      Decimal  @default(500) @db.Decimal(12, 2)
+  /// Rendimiento: cuánta pechuga entra y cuánta suprema terminada sale de un lote base.
+  pechugaBaseKg        Decimal  @default(5) @db.Decimal(12, 2)
+  produccionBaseKg     Decimal  @default(9) @db.Decimal(12, 2)
+  /// Si está en true, una venta que supere el stock actual se rechaza en vez de dejar stock negativo.
+  blockNegativeStock   Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+}
+
+/// Ingrediente del costeo (pechuga, huevos, pan rallado, condimentos, y los que se
+/// agreguen después). El costo/kg vigente siempre se deriva en caliente de estas filas
+/// + SupremaSettings — nunca se guarda un costo/kg fijo, así cambiar un ingrediente
+/// actualiza al instante el costeo y lo que se usa en la próxima venta/lote.
+model SupremaIngredient {
+  id            String   @id @default(cuid())
+  name          String
+  purchaseQty   Decimal  @db.Decimal(12, 3)
+  unit          String
+  purchasePrice Decimal  @db.Decimal(12, 2)
+  usedQty       Decimal  @db.Decimal(12, 3)
+  supplier      String?
+  updatedAt     DateTime @updatedAt
+}
+
+/// Producción por lote. costoTotal/costoPorKg quedan grabados (snapshot) con el costo
+/// vigente al momento de crear el lote — no se recalculan retroactivamente si después
+/// cambia el precio de un ingrediente (rompería la contabilidad histórica).
+model SupremaBatch {
+  id            String   @id @default(cuid())
+  fecha         DateTime @default(now())
+  lote          String
+  kgProducidos  Decimal  @db.Decimal(12, 3)
+  costoTotal    Decimal  @db.Decimal(12, 2)
+  costoPorKg    Decimal  @db.Decimal(12, 2)
+  observaciones String?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@index([fecha])
+}
+
+/// Venta de supremas — cliente único del CRM (Client), no uno paralelo. pricePerKg se
+/// autocompleta por clientType (editable solo por admin) y costPerKg queda grabado con
+/// el costo vigente al momento de la venta (mismo criterio que SupremaBatch).
+model SupremaSale {
+  id            String                @id @default(cuid())
+  clientId      String
+  client        Client                @relation(fields: [clientId], references: [id])
+  sellerId      String?
+  seller        User?                 @relation(fields: [sellerId], references: [id])
+  clientType    SupremaClientType
+  kg            Decimal               @db.Decimal(12, 3)
+  pricePerKg    Decimal               @db.Decimal(12, 2)
+  costPerKg     Decimal               @db.Decimal(12, 2)
+  total         Decimal               @db.Decimal(12, 2)
+  cost          Decimal               @db.Decimal(12, 2)
+  profit        Decimal               @db.Decimal(12, 2)
+  marginPct     Decimal               @db.Decimal(6, 2)
+  paymentMethod SupremaPaymentMethod
+  observaciones String?
+  fecha         DateTime              @default(now())
+  createdById   String
+  updatedById   String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([clientId])
+  @@index([fecha])
+  @@index([clientType])
 }
