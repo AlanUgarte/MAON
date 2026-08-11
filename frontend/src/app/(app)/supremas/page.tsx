@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import {
   LayoutDashboard, ShoppingCart, Users, Factory, Wallet, TrendingUp, Settings, LayoutGrid,
   Search, Plus, X, Trash2, Download, AlertTriangle, Check, Phone, MapPin, Sparkles,
+  Banknote, Landmark, Smartphone, CircleDollarSign, PackageSearch, Inbox, CalendarClock,
+  CalendarDays, CalendarRange, History,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -22,14 +24,30 @@ import { useSupremasSales, type SupremaSale, type SupremaClientType, type Suprem
 const CLIENT_TYPE_LABEL: Record<SupremaClientType, string> = {
   CONSUMIDOR_FINAL: 'Consumidor final', KIOSCO: 'Kiosco', MAYORISTA: 'Mayorista',
 };
+// Un color fijo por tramo — así se reconoce el tipo de cliente de un vistazo en
+// cualquier tabla/lista, sin tener que leer el texto cada vez.
+const CLIENT_TYPE_TONE: Record<SupremaClientType, 'sky' | 'amber' | 'emerald'> = {
+  CONSUMIDOR_FINAL: 'sky', KIOSCO: 'amber', MAYORISTA: 'emerald',
+};
 const PAYMENT_LABEL: Record<SupremaPaymentMethod, string> = {
   EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', MERCADO_PAGO: 'Mercado Pago', OTRO: 'Otro',
+};
+const PAYMENT_ICON: Record<SupremaPaymentMethod, typeof Banknote> = {
+  EFECTIVO: Banknote, TRANSFERENCIA: Landmark, MERCADO_PAGO: Smartphone, OTRO: CircleDollarSign,
 };
 const INPUT_CLS = 'h-9 w-full rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]';
 const fmtKg = (n: number) => `${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg`;
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-AR');
 const priceForType = (t: SupremaClientType, s: SupremasSettings) =>
   t === 'KIOSCO' ? s.priceKiosco : t === 'MAYORISTA' ? s.priceMayorista : s.priceConsumidorFinal;
+
+function ClientTypeBadge({ type }: { type: SupremaClientType }) {
+  return <Badge tone={CLIENT_TYPE_TONE[type]}>{CLIENT_TYPE_LABEL[type]}</Badge>;
+}
+function PaymentTag({ method }: { method: SupremaPaymentMethod }) {
+  const Icon = PAYMENT_ICON[method];
+  return <span className="flex items-center gap-1.5 text-[12.5px] text-muted"><Icon className="h-3.5 w-3.5" /> {PAYMENT_LABEL[method]}</span>;
+}
 
 // 3 pestañas arriba: Dashboard y Rentabilidad quedan con el estilo compacto de MAON
 // (tarjetas/gráficos, igual que el resto del CRM). "Gestión" agrupa Ventas, Clientes,
@@ -111,11 +129,11 @@ export default function SupremasPage() {
 // ------------------------------ Gestión (Ventas/Clientes/Producción/Costos/Config) ------------------------------
 
 const GESTION_SUB_TABS = [
-  { key: 'ventas', label: 'Ventas', icon: ShoppingCart, desc: 'Historial y filtros' },
-  { key: 'clientes', label: 'Clientes', icon: Users, desc: 'Ficha y búsqueda' },
-  { key: 'produccion', label: 'Producción', icon: Factory, desc: 'Lotes y stock' },
-  { key: 'costos', label: 'Costos', icon: Wallet, desc: 'Ingredientes y costeo' },
-  { key: 'config', label: 'Configuración', icon: Settings, desc: 'Precios y ajustes' },
+  { key: 'ventas', label: 'Ventas', icon: ShoppingCart },
+  { key: 'clientes', label: 'Clientes', icon: Users },
+  { key: 'produccion', label: 'Producción', icon: Factory },
+  { key: 'costos', label: 'Costos', icon: Wallet },
+  { key: 'config', label: 'Configuración', icon: Settings },
 ] as const;
 type GestionKey = (typeof GESTION_SUB_TABS)[number]['key'];
 const VENDEDOR_GESTION_TABS: GestionKey[] = ['ventas', 'clientes'];
@@ -137,6 +155,17 @@ function GestionTab({
   const subTabs = isVendedor ? GESTION_SUB_TABS.filter((t) => VENDEDOR_GESTION_TABS.includes(t.key)) : GESTION_SUB_TABS;
   const [sub, setSub] = useState<GestionKey>('ventas');
 
+  const clientesCount = useMemo(() => new Set(sales.map((s) => s.clientId)).size, [sales]);
+  // Un dato en vivo en vez del subtítulo fijo — así el menú ya funciona como un mini
+  // resumen (cuántas ventas, cuántos clientes, cuánto stock) sin entrar a cada sección.
+  const liveDesc: Record<GestionKey, string> = {
+    ventas: `${sales.length} venta${sales.length === 1 ? '' : 's'}`,
+    clientes: `${clientesCount} cliente${clientesCount === 1 ? '' : 's'}`,
+    produccion: `Stock: ${fmtKg(stock.stockKg)}`,
+    costos: costeo ? `${formatARS(costeo.costoPorKg)}/kg` : 'Ingredientes y costeo',
+    config: 'Precios y ajustes',
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
@@ -154,7 +183,7 @@ function GestionTab({
               </span>
               <span className="min-w-0">
                 <span className={`block truncate text-[13.5px] font-bold ${active ? 'text-primary' : 'text-content'}`}>{t.label}</span>
-                <span className="block truncate text-[11px] text-muted">{t.desc}</span>
+                <span className="block truncate text-[11px] text-muted">{liveDesc[t.key]}</span>
               </span>
             </button>
           );
@@ -291,24 +320,35 @@ function VentasTab({ sales, isVendedor, onDelete }: { sales: SupremaSale[]; isVe
     exportCsv('supremas-ventas', headers, rows);
   };
 
+  const totalFiltrado = filtered.reduce((a, s) => a + s.total, 0);
+  const kgFiltrado = filtered.reduce((a, s) => a + s.kg, 0);
+  const hayFiltros = !!(q || tipo || pago || desde || hasta);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[180px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente o teléfono..." className="h-[38px] w-full rounded-[10px] border border-line/15 bg-surface pl-9 pr-3 text-[13px]" />
+      <div className="rounded-2xl border border-line/10 bg-surface p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[180px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente o teléfono..." className="h-[38px] w-full rounded-[10px] border border-line/15 bg-surface pl-9 pr-3 text-[13px]" />
+          </div>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px] font-semibold">
+            <option value="">Todos los tipos</option>
+            {Object.entries(CLIENT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select value={pago} onChange={(e) => setPago(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px] font-semibold">
+            <option value="">Todos los pagos</option>
+            {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px]" />
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px]" />
+          <Button variant="outline" size="sm" onClick={doExport}><Download className="h-3.5 w-3.5" /> Exportar</Button>
         </div>
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px] font-semibold">
-          <option value="">Todos los tipos</option>
-          {Object.entries(CLIENT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <select value={pago} onChange={(e) => setPago(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px] font-semibold">
-          <option value="">Todos los pagos</option>
-          {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px]" />
-        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-[38px] rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px]" />
-        <Button variant="outline" size="sm" onClick={doExport}><Download className="h-3.5 w-3.5" /> Exportar</Button>
+        <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line/10 pt-3 text-[12.5px] text-muted">
+          <span>{hayFiltros ? 'Filtrado' : 'Total'}: <b className="text-content">{filtered.length}</b> venta{filtered.length === 1 ? '' : 's'}</span>
+          <span>· <b className="text-content">{fmtKg(kgFiltrado)}</b></span>
+          <span>· <b className="text-emerald">{formatARS(totalFiltrado)}</b> facturados</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-line/10 bg-surface">
@@ -326,7 +366,7 @@ function VentasTab({ sales, isVendedor, onDelete }: { sales: SupremaSale[]; isVe
               <tr key={s.id} className="border-b border-line/10 hover:bg-surface-2">
                 <td className="p-3 text-muted">{fmtDate(s.fecha)}</td>
                 <td className="p-3 font-semibold">{s.clientName}</td>
-                <td className="p-3"><Badge tone="muted">{CLIENT_TYPE_LABEL[s.clientType]}</Badge></td>
+                <td className="p-3"><ClientTypeBadge type={s.clientType} /></td>
                 <td className="p-3">{fmtKg(s.kg)}</td>
                 <td className="p-3">{formatARS(s.pricePerKg)}</td>
                 <td className="p-3 font-bold">{formatARS(s.total)}</td>
@@ -337,7 +377,7 @@ function VentasTab({ sales, isVendedor, onDelete }: { sales: SupremaSale[]; isVe
                     <td className="p-3 text-emerald">{s.marginPct.toFixed(1)}%</td>
                   </>
                 )}
-                <td className="p-3">{PAYMENT_LABEL[s.paymentMethod]}</td>
+                <td className="p-3"><PaymentTag method={s.paymentMethod} /></td>
                 <td className="p-3">
                   {!isVendedor && (
                     <button
@@ -349,7 +389,10 @@ function VentasTab({ sales, isVendedor, onDelete }: { sales: SupremaSale[]; isVe
               </tr>
             ))}
             {!filtered.length && (
-              <tr><td colSpan={isVendedor ? 7 : 10} className="p-6 text-center text-muted">Sin ventas para estos filtros.</td></tr>
+              <tr><td colSpan={isVendedor ? 7 : 10} className="p-10 text-center text-muted">
+                <Inbox className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                {hayFiltros ? 'Ninguna venta coincide con estos filtros.' : 'Todavía no hay ventas cargadas.'}
+              </td></tr>
             )}
           </tbody>
         </table>
@@ -464,7 +507,7 @@ function ClientesTab({ sales, isVendedor }: { sales: SupremaSale[]; isVendedor: 
                         <td className="p-2.5">{formatARS(s.pricePerKg)}</td>
                         <td className="p-2.5 font-semibold">{formatARS(s.total)}</td>
                         {!isVendedor && <td className="p-2.5 text-emerald">{formatARS(s.profit)}</td>}
-                        <td className="p-2.5">{PAYMENT_LABEL[s.paymentMethod]}</td>
+                        <td className="p-2.5"><PaymentTag method={s.paymentMethod} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -574,7 +617,12 @@ function ProduccionTab({
                 </td>
               </tr>
             ))}
-            {!batches.length && <tr><td colSpan={6} className="p-6 text-center text-muted">Sin lotes registrados todavía.</td></tr>}
+            {!batches.length && (
+              <tr><td colSpan={6} className="p-10 text-center text-muted">
+                <PackageSearch className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                Sin lotes registrados todavía.
+              </td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -773,17 +821,30 @@ function RentabilidadTab({ sales }: { sales: SupremaSale[] }) {
     };
   }, [filtered]);
 
-  const PERIODS: { key: Period; label: string }[] = [
-    { key: 'hoy', label: 'Hoy' }, { key: '7d', label: '7 días' }, { key: '30d', label: '30 días' },
-    { key: 'mes', label: 'Este mes' }, { key: 'mes_ant', label: 'Mes anterior' }, { key: 'custom', label: 'Personalizado' },
+  const PERIODS: { key: Period; label: string; icon: typeof CalendarDays }[] = [
+    { key: 'hoy', label: 'Hoy', icon: CalendarClock },
+    { key: '7d', label: '7 días', icon: CalendarDays },
+    { key: '30d', label: '30 días', icon: CalendarDays },
+    { key: 'mes', label: 'Este mes', icon: CalendarRange },
+    { key: 'mes_ant', label: 'Mes anterior', icon: History },
+    { key: 'custom', label: 'Personalizado', icon: CalendarRange },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        {PERIODS.map((p) => (
-          <button key={p.key} onClick={() => setPeriod(p.key)} className={`rounded-[10px] px-3 py-1.5 text-[13px] font-semibold ${period === p.key ? 'bg-primary text-white' : 'border border-line/15 text-muted hover:text-content'}`}>{p.label}</button>
-        ))}
+        {PERIODS.map((p) => {
+          const Icon = p.icon;
+          const active = period === p.key;
+          return (
+            <button
+              key={p.key} onClick={() => setPeriod(p.key)}
+              className={`flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[13px] font-semibold transition ${active ? 'bg-primary text-white shadow-[0_4px_14px_-6px_rgb(var(--primary)/0.7)]' : 'border border-line/15 bg-surface text-muted hover:border-primary/25 hover:text-content'}`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {p.label}
+            </button>
+          );
+        })}
         {period === 'custom' && (
           <>
             <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-9 rounded-[10px] border border-line/15 bg-surface px-2.5 text-[13px]" />
@@ -979,12 +1040,15 @@ function NewSaleModal({
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                     <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente por nombre o teléfono..." className="h-9 w-full rounded-[10px] border border-line/15 bg-surface pl-9 pr-3 text-[13px]" />
                   </div>
-                  <div className="mt-1.5 max-h-[140px] space-y-1 overflow-y-auto">
+                  <div className="mt-1.5 max-h-[160px] space-y-1 overflow-y-auto">
                     {filteredClients.map((c) => (
-                      <button key={c.id} onClick={() => { setClientId(c.id); if (!typeTouched) setClientType(c.lastType); }} className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-surface-2">
-                        <span>{c.name}</span><span className="text-muted">{c.phone}</span>
+                      <button key={c.id} onClick={() => { setClientId(c.id); if (!typeTouched) setClientType(c.lastType); }} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-surface-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-sky text-[10px] font-bold text-white">{initials(c.name)}</span>
+                        <span className="flex-1 truncate">{c.name}</span>
+                        <span className="shrink-0 text-muted">{c.phone}</span>
                       </button>
                     ))}
+                    {!filteredClients.length && <div className="px-2 py-2 text-[12.5px] text-muted">Sin clientes que coincidan.</div>}
                   </div>
                   <button onClick={() => setCreatingClient(true)} className="mt-1.5 flex items-center gap-1 text-[12.5px] font-semibold text-primary hover:underline"><Plus className="h-3.5 w-3.5" /> Crear nuevo cliente</button>
                 </div>
