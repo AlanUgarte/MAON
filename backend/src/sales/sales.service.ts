@@ -91,13 +91,20 @@ export class SalesService {
   async createFromStorefront(dto: CreateStorefrontSaleDto) {
     if (!dto.items?.length && !dto.vapeItems?.length) return { ok: false, reason: 'sin ítems' };
 
-    // Un mismo SKU puede venir repetido en varias líneas (carrito real o abuso):
-    // se suman las cantidades en vez de crear un SaleItem por línea.
-    const qtyBySku = new Map<string, number>();
-    for (const it of dto.items ?? []) qtyBySku.set(it.sku, (qtyBySku.get(it.sku) ?? 0) + it.quantity);
+    // Un mismo SKU puede venir repetido en varias líneas (carrito real o abuso): se suman
+    // las cantidades en vez de crear un SaleItem por línea. Se agrupa por sku+note (no solo
+    // sku) porque un mismo artículo puede estar en el carrito por bulto Y por unidad a la
+    // vez — son precios distintos, mezclarlos en una sola línea perdería uno de los dos.
+    const qtyBySku = new Map<string, { sku: string; quantity: number; unitPrice?: number; note?: string }>();
+    for (const it of dto.items ?? []) {
+      const key = `${it.sku}::${it.note ?? ''}`;
+      const entry = qtyBySku.get(key);
+      if (entry) entry.quantity += it.quantity;
+      else qtyBySku.set(key, { sku: it.sku, quantity: it.quantity, unitPrice: it.unitPrice, note: it.note });
+    }
 
     const products = qtyBySku.size
-      ? await this.prisma.product.findMany({ where: { sku: { in: [...qtyBySku.keys()] } } })
+      ? await this.prisma.product.findMany({ where: { sku: { in: [...new Set([...qtyBySku.values()].map((v) => v.sku))] } } })
       : [];
     const bySku = new Map(products.map((p) => [p.sku, p]));
 
@@ -117,15 +124,21 @@ export class SalesService {
     const confirmationItems: { name: string; quantity: number; unitPrice: number }[] = [];
     let total = new Prisma.Decimal(0);
     let skipped = 0;
-    for (const [sku, quantity] of qtyBySku) {
+    for (const { sku, quantity, unitPrice: submittedPrice, note } of qtyBySku.values()) {
       const prod = bySku.get(sku);
       if (!prod) { skipped++; continue; }
       if (dto.enforceStock && prod.stock < quantity) {
         throw new BadRequestException(`Sin stock suficiente de ${prod.name} (hay ${prod.stock})`);
       }
-      const unitPrice = dsSettings ? darkStoreUnitPrice(prod) : prod.price;
-      items.push({ productId: prod.id, quantity, unitPrice });
-      confirmationItems.push({ name: prod.name, quantity, unitPrice: Number(unitPrice) });
+      // Dark Store recalcula el precio server-side (fórmula simple, un solo modo de venta
+      // suelto). Los demás storefronts (Tienda/Cotillón/Estufa) confían en el precio que
+      // manda el cliente: ya viene calculado con costo+margen+modo+recargos por SKU, y
+      // duplicar esa fórmula acá se desincroniza fácil (pasó antes: el backend usaba el
+      // costo de bulto crudo, ignorando margen y modo, para toda línea de estos storefronts).
+      if (!dsSettings && submittedPrice == null) throw new BadRequestException(`Falta el precio de ${prod.name}`);
+      const unitPrice = dsSettings ? darkStoreUnitPrice(prod) : submittedPrice!;
+      items.push({ productId: prod.id, quantity, unitPrice, note });
+      confirmationItems.push({ name: note ? `${prod.name} (${note})` : prod.name, quantity, unitPrice: Number(unitPrice) });
       total = total.add(new Prisma.Decimal(unitPrice).mul(quantity));
     }
 
@@ -250,7 +263,7 @@ export class SalesService {
     // Descuento de stock: solo cuando el caller pidió enforceStock (hoy, únicamente
     // Dark Store) — los demás storefronts nunca lo activan, se comportan igual que antes.
     if (dto.enforceStock) {
-      for (const [sku, quantity] of qtyBySku) {
+      for (const { sku, quantity } of qtyBySku.values()) {
         const prod = bySku.get(sku);
         if (prod) await this.prisma.product.update({ where: { id: prod.id }, data: { stock: { decrement: quantity } } });
       }

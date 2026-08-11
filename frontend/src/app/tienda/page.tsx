@@ -327,13 +327,14 @@ function TiendaInner() {
     try {
       await addOrder({
         customerName: form.name.trim(), customerPhone: form.phone.trim(),
-        // ponytail: el pedido/stock del backend todavía piensa en bultos — para líneas por
-        // unidad/display se aclara el modo en el nombre para que no se pierda al facturar/
-        // revisar el pedido a mano; ajustar stock automáticamente por unidad queda pendiente.
+        // El backend confía en unitPrice (ya calculado acá con costo+margen+modo+recargos)
+        // y guarda "note" para que el remito no confunda una línea por unidad con un bulto
+        // cerrado — ajustar stock automáticamente por unidad sigue pendiente.
         items: cartLines.map((l) => ({
           productId: l.productId, sku: l.product.sku,
           name: l.mode === 'BULTO' ? l.product.name : `${l.product.name} (por ${modeLabel(l.product, l.mode)})`,
           qty: l.qty, unitPrice: l.unitPrice,
+          note: l.mode === 'BULTO' ? undefined : modeLabel(l.product, l.mode),
         })),
         subtotal, envioGratis, sellerName: vendedor || undefined,
         wantsShipping: form.wantsShipping,

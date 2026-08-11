@@ -8,7 +8,12 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 
-export interface TiendaOrderItem { productId: string; sku: string; name: string; qty: number; unitPrice: number }
+export interface TiendaOrderItem {
+  productId: string; sku: string; name: string; qty: number; unitPrice: number;
+  // Aclara el modo de venta cuando no es bulto cerrado (ej. "unidad") — se manda al
+  // backend y vuelve en la respuesta, así el remito no confunde bultos con unidades.
+  note?: string;
+}
 
 export interface TiendaOrder {
   id: string;
@@ -54,9 +59,10 @@ function fromBackend(s: any): TiendaOrder {
     items: (s.items ?? []).map((it: any) => ({
       productId: it.productId,
       sku: it.product?.sku ?? '',
-      name: it.product?.name ?? 'N/D',
+      name: it.note ? `${it.product?.name ?? 'N/D'} (${it.note})` : (it.product?.name ?? 'N/D'),
       qty: it.quantity,
       unitPrice: Number(it.unitPrice),
+      note: it.note ?? undefined,
     })),
     subtotal: Number(s.total),
     envioGratis: !!s.envioGratis,
@@ -98,7 +104,7 @@ export function useTiendaOrders() {
       customerName: o.customerName,
       customerPhone: o.customerPhone,
       sellerName: o.sellerName,
-      items: o.items.map((i) => ({ sku: i.sku, quantity: i.qty })),
+      items: o.items.map((i) => ({ sku: i.sku, quantity: i.qty, unitPrice: i.unitPrice, note: i.note })),
       wantsShipping: o.wantsShipping,
       shippingAddress: o.shippingAddress,
       availableSchedule: o.availableSchedule,

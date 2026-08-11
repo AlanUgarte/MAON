@@ -540,6 +540,9 @@ model SaleItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int     @default(1)
   unitPrice Decimal @db.Decimal(12, 2)
+  /// Aclara el modo de venta cuando no fue bulto cerrado (ej. "unidad", "zuncho x5") —
+  /// sin esto el remito no puede distinguir "2 bultos" de "2 unidades sueltas" del mismo SKU.
+  note      String?
 
   @@index([saleId])
 }

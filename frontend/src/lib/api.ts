@@ -176,7 +176,7 @@ export const api = {
   sales: () => request<any[]>('/sales'),
   salesStorefront: (dto: {
     customerName: string; customerPhone: string; sellerName?: string;
-    items: { sku: string; quantity: number }[];
+    items: { sku: string; quantity: number; unitPrice?: number; note?: string }[];
     wantsShipping?: boolean; shippingAddress?: string; availableSchedule?: string; envioGratis?: boolean;
     // Dark Store
     barrio?: string; vapeItems?: { vapeId: string; quantity: number }[];

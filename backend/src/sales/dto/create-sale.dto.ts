@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, IsBoolean, IsIn, ValidateNested, IsInt, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsBoolean, IsIn, ValidateNested, IsInt, IsNumber, Min, Max, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Solo los 3 estados que el admin de Dark Store puede setear a mano desde el desplegable
@@ -30,6 +30,18 @@ export class StorefrontSaleItemDto {
   // Tope de bultos por línea: es venta mayorista, pero un pedido real de un cliente
   // no llega ni de cerca a esto — corta abuso (cantidades absurdas) sin frenar a nadie real.
   @ApiProperty() @IsInt() @Min(1) @Max(500) quantity: number;
+  // Precio de venta por unidad de esta línea, ya calculado por el storefront (costo +
+  // margen del artículo/general + recargos, según el modo bulto/unidad/display elegido).
+  // El backend confía en este valor para Tienda/Cotillón/Estufa (no hay pago online: todo
+  // pedido lo revisa un humano por WhatsApp antes de despachar) — replicar acá la fórmula
+  // de precio del storefront (margen por artículo, recargos por SKU, promos) duplicaría
+  // reglas de negocio configurables y se desincroniza fácil, como ya pasó antes con esto.
+  // Opcional solo porque Dark Store (issueTicket) no lo manda: ese storefront vende de un
+  // único modo simple y el precio se recalcula siempre server-side, nunca hace falta acá.
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0.01) unitPrice?: number;
+  // Aclara el modo de venta cuando no es bulto cerrado (ej. "unidad", "zuncho x5") — sin
+  // esto el remito no puede distinguir 2 bultos de 2 unidades sueltas del mismo SKU.
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) note?: string;
 }
 
 /** Línea de vapeador (Dark Store) — no es un Product del maestro, se identifica por id propio. */
