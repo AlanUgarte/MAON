@@ -17,6 +17,18 @@ export class SupremasSettingsService {
     });
   }
 
+  /** Subconjunto seguro para la tienda online (sin login): solo precios y el mínimo
+   * mayorista. Nunca el costo de envase ni el rendimiento — de ahí se puede deducir el
+   * costo/kg real y el margen del negocio. */
+  async getPublic() {
+    const s = await this.get();
+    return {
+      priceConsumidorFinal: s.priceConsumidorFinal,
+      priceMayorista: s.priceMayorista,
+      mayoristaMinKg: s.mayoristaMinKg,
+    };
+  }
+
   async update(dto: UpdateSupremasSettingsDto) {
     return this.prisma.supremaSettings.upsert({
       where: { id: SINGLETON_ID },

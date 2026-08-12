@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Factory, Wallet, TrendingUp, Settings, LayoutGrid,
   Search, Plus, X, Trash2, Download, AlertTriangle, Check, Phone, MapPin, Sparkles,
   Banknote, Landmark, Smartphone, CircleDollarSign, PackageSearch, Inbox, CalendarClock,
-  CalendarDays, CalendarRange, History,
+  CalendarDays, CalendarRange, History, ExternalLink,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -96,7 +96,13 @@ export default function SupremasPage() {
               );
             })}
           </div>
-          <Button onClick={() => setShowNewSale(true)}><Plus className="h-4 w-4" /> Nueva venta</Button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/supremas-tienda" target="_blank" rel="noopener noreferrer"
+              className="flex h-9 items-center gap-1.5 rounded-[10px] border border-line/15 px-3 text-[13px] font-semibold text-muted hover:bg-surface-2 hover:text-content"
+            ><ExternalLink className="h-3.5 w-3.5" /> Tienda online</a>
+            <Button onClick={() => setShowNewSale(true)}><Plus className="h-4 w-4" /> Nueva venta</Button>
+          </div>
         </div>
 
         {tab === 'dashboard' && <DashboardTab sales={sales} stock={stock} />}

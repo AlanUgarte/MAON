@@ -218,6 +218,7 @@ export const api = {
   // Módulo Supremas de Pollo — producción, costeo, stock y ventas propias, cliente
   // compartido con el resto del CRM (via /clients).
   supremasSettings: () => request<any>('/supremas-settings'),
+  supremasSettingsPublic: () => request<{ priceConsumidorFinal: number; priceMayorista: number; mayoristaMinKg: number }>('/supremas-settings/public'),
   updateSupremasSettings: (dto: any) => request<any>('/supremas-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
 
   supremasIngredients: () => request<any[]>('/supremas-ingredients'),
@@ -235,6 +236,11 @@ export const api = {
   supremasSalesByClient: (clientId: string) => request<any[]>(`/supremas-sales/cliente/${clientId}`),
   createSupremasSale: (dto: any) => request<any>('/supremas-sales', { method: 'POST', body: JSON.stringify(dto) }),
   deleteSupremasSale: (id: string) => request<any>(`/supremas-sales/${id}`, { method: 'DELETE' }),
+  // Tienda online de Supremas (sin login) — precio y tramo de cliente los calcula el backend.
+  supremasSaleStorefront: (dto: {
+    customerName: string; customerPhone: string; kg: number; paymentMethod: string;
+    wantsShipping?: boolean; address?: string; availableSchedule?: string; observaciones?: string;
+  }) => request<{ ok: boolean; saleId: string }>('/supremas-sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
 
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),

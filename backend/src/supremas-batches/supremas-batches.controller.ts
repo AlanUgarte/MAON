@@ -8,27 +8,26 @@ import { SupremasBatchesService } from './supremas-batches.service';
 import { CreateSupremasBatchDto } from './dto/create-supremas-batch.dto';
 
 @ApiTags('Supremas')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('supremas-batches')
 export class SupremasBatchesController {
   constructor(private readonly batches: SupremasBatchesService) {}
 
-  // Solo el número de stock, sin detalle de costos — lo necesita el form de venta
-  // para avisar "sin stock" incluso a un vendedor, que no ve costos de producción.
+  // Pública: solo el número de stock, sin detalle de costos — la necesitan tanto el
+  // form de venta interno (avisar "sin stock" a un vendedor) como la tienda online
+  // pública (avisar disponibilidad a un cliente sin login).
   @Get('stock') stock() { return this.batches.stock(); }
 
-  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Get() findAll() { return this.batches.findAll(); }
 
-  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Get(':id') findOne(@Param('id') id: string) { return this.batches.findOne(id); }
 
-  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Post() create(@Body() dto: CreateSupremasBatchDto, @CurrentUser('id') userId: string) {
     return this.batches.create(dto, userId);
   }
 
-  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Delete(':id') remove(@Param('id') id: string) { return this.batches.remove(id); }
 }

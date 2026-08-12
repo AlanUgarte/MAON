@@ -7,19 +7,25 @@ import { SupremasSettingsService } from './supremas-settings.service';
 import { UpdateSupremasSettingsDto } from './dto/update-supremas-settings.dto';
 
 @ApiTags('Supremas')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('supremas-settings')
 export class SupremasSettingsController {
   constructor(private readonly settings: SupremasSettingsService) {}
 
-  // Cualquier rol autenticado: el form de Nueva Venta necesita los precios por tramo.
+  // Pública: la tienda online necesita mostrar precio/mínimo mayorista sin login,
+  // pero sin exponer costo de envase ni rendimiento (de ahí se deduce el margen real).
+  @Get('public') getPublic() {
+    return this.settings.getPublic();
+  }
+
+  // Cualquier rol autenticado: el form de Nueva Venta interno necesita todo (precios,
+  // costo de envase, rendimiento) para calcular costo/kg.
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard)
   @Get() get() {
     return this.settings.get();
   }
 
   // Editar precios/costos/rendimiento es solo admin/supervisor (punto 24 del pedido).
-  @UseGuards(RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Patch() update(@Body() dto: UpdateSupremasSettingsDto) {
     return this.settings.update(dto);
   }
