@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, PartyPopper, Beef,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, Beef,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -19,8 +19,6 @@ const FULL_NAV: NavItem[] = [
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
-  { href: '/cotillon-config', label: 'FastCotillón', icon: PartyPopper },
-  { href: '/dark-store-config', label: 'Dark Store', icon: Zap },
   { href: '/supremas', label: 'Supremas', icon: Beef },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
