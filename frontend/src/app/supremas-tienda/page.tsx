@@ -182,14 +182,6 @@ export default function SupremasTiendaPage() {
           <div className="lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-start lg:gap-6 xl:grid-cols-[1.15fr_1fr] xl:gap-8">
             {/* Columna izquierda: producto + precios */}
             <div className="space-y-4">
-              <div className="overflow-hidden rounded-3xl" style={{ background: BLACK }}>
-                <img
-                  src="/supremas/hero-banner.webp" alt="Supremas de pollo rebozadas, caseras — listas para freír o al horno"
-                  width={1774} height={887} loading="eager" fetchPriority="high"
-                  className="w-full" style={{ aspectRatio: '1774 / 887', objectFit: 'cover' }}
-                />
-              </div>
-
               {/* Precio por cantidad — transparente, no hay que adivinar el corte */}
               <div className="rounded-3xl border p-5" style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#fff' }}>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Precio por cantidad</div>
