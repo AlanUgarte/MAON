@@ -96,7 +96,7 @@ export class SupremasSalesService {
         },
       }));
 
-    const clientType = dto.kg >= settings.mayoristaMinKg ? 'MAYORISTA' : 'CONSUMIDOR_FINAL';
+    const clientType = dto.kg >= settings.mayoristaMinKg ? 'MAYORISTA' : dto.kg >= settings.kioscoMinKg ? 'KIOSCO' : 'CONSUMIDOR_FINAL';
     const pricePerKg = this.priceForType(clientType, settings);
     const costPerKg = await this.batches.currentCostPerKg();
 

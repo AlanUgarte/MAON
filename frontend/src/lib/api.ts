@@ -218,7 +218,7 @@ export const api = {
   // Módulo Supremas de Pollo — producción, costeo, stock y ventas propias, cliente
   // compartido con el resto del CRM (via /clients).
   supremasSettings: () => request<any>('/supremas-settings'),
-  supremasSettingsPublic: () => request<{ priceConsumidorFinal: number; priceMayorista: number; mayoristaMinKg: number }>('/supremas-settings/public'),
+  supremasSettingsPublic: () => request<{ priceConsumidorFinal: number; priceKiosco: number; priceMayorista: number; kioscoMinKg: number; mayoristaMinKg: number }>('/supremas-settings/public'),
   updateSupremasSettings: (dto: any) => request<any>('/supremas-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
 
   supremasIngredients: () => request<any[]>('/supremas-ingredients'),

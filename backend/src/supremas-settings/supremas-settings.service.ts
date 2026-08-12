@@ -17,14 +17,16 @@ export class SupremasSettingsService {
     });
   }
 
-  /** Subconjunto seguro para la tienda online (sin login): solo precios y el mínimo
-   * mayorista. Nunca el costo de envase ni el rendimiento — de ahí se puede deducir el
-   * costo/kg real y el margen del negocio. */
+  /** Subconjunto seguro para la tienda online (sin login): solo precios y los mínimos
+   * de kiosco/mayorista. Nunca el costo de envase ni el rendimiento — de ahí se puede
+   * deducir el costo/kg real y el margen del negocio. */
   async getPublic() {
     const s = await this.get();
     return {
       priceConsumidorFinal: s.priceConsumidorFinal,
+      priceKiosco: s.priceKiosco,
       priceMayorista: s.priceMayorista,
+      kioscoMinKg: s.kioscoMinKg,
       mayoristaMinKg: s.mayoristaMinKg,
     };
   }

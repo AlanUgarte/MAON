@@ -13,6 +13,7 @@ export interface SupremasSettings {
   priceConsumidorFinal: number;
   priceKiosco: number;
   priceMayorista: number;
+  kioscoMinKg: number;
   mayoristaMinKg: number;
   envaseCostPerKg: number;
   pechugaBaseKg: number;
@@ -24,7 +25,8 @@ export const DEFAULT_SUPREMAS_SETTINGS: SupremasSettings = {
   priceConsumidorFinal: 7000,
   priceKiosco: 6500,
   priceMayorista: 6000,
-  mayoristaMinKg: 15,
+  kioscoMinKg: 6,
+  mayoristaMinKg: 16,
   envaseCostPerKg: 500,
   pechugaBaseKg: 5,
   produccionBaseKg: 9,
@@ -36,6 +38,7 @@ function sanitize(raw: any): SupremasSettings {
     priceConsumidorFinal: Number(raw?.priceConsumidorFinal ?? DEFAULT_SUPREMAS_SETTINGS.priceConsumidorFinal),
     priceKiosco: Number(raw?.priceKiosco ?? DEFAULT_SUPREMAS_SETTINGS.priceKiosco),
     priceMayorista: Number(raw?.priceMayorista ?? DEFAULT_SUPREMAS_SETTINGS.priceMayorista),
+    kioscoMinKg: Number(raw?.kioscoMinKg ?? DEFAULT_SUPREMAS_SETTINGS.kioscoMinKg),
     mayoristaMinKg: Number(raw?.mayoristaMinKg ?? DEFAULT_SUPREMAS_SETTINGS.mayoristaMinKg),
     envaseCostPerKg: Number(raw?.envaseCostPerKg ?? DEFAULT_SUPREMAS_SETTINGS.envaseCostPerKg),
     pechugaBaseKg: Number(raw?.pechugaBaseKg ?? DEFAULT_SUPREMAS_SETTINGS.pechugaBaseKg),

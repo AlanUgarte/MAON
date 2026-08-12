@@ -875,8 +875,10 @@ model SupremaSettings {
   priceConsumidorFinal Decimal  @default(7000) @db.Decimal(12, 2)
   priceKiosco          Decimal  @default(6500) @db.Decimal(12, 2)
   priceMayorista       Decimal  @default(6000) @db.Decimal(12, 2)
+  /// Kg desde los que se aplica precio kiosco (tramo medio) — configurable, no hardcodeado.
+  kioscoMinKg          Int      @default(6)
   /// Kg desde los que se aplica precio mayorista — configurable, no hardcodeado.
-  mayoristaMinKg       Int      @default(15)
+  mayoristaMinKg       Int      @default(16)
   envaseCostPerKg      Decimal  @default(500) @db.Decimal(12, 2)
   /// Rendimiento: cuánta pechuga entra y cuánta suprema terminada sale de un lote base.
   pechugaBaseKg        Decimal  @default(5) @db.Decimal(12, 2)

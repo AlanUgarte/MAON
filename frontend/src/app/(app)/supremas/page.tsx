@@ -903,14 +903,15 @@ function ConfigTab({ settings, onSave }: { settings: SupremasSettings; onSave: (
           ))}
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-primary/8 px-3 py-2.5 text-[12.5px] text-primary">
-          <Sparkles className="h-4 w-4 shrink-0" /> Desde <b>{form.mayoristaMinKg} kg</b> el sistema sugiere precio mayorista solo.
+          <Sparkles className="h-4 w-4 shrink-0" /> 1–{form.kioscoMinKg - 1} kg: consumidor final · {form.kioscoMinKg}–{form.mayoristaMinKg - 1} kg: kiosco · {form.mayoristaMinKg}+ kg: mayorista. Así se autocompleta en Nueva Venta y en la tienda online.
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-line/10 bg-surface p-5">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-bold"><TrendingUp className="h-4 w-4 text-primary" /> Umbral y envase</div>
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-bold"><TrendingUp className="h-4 w-4 text-primary" /> Umbrales y envase</div>
           <div className="space-y-3">
+            <Field label="Kg mínimos para kiosco"><input type="number" value={form.kioscoMinKg} onChange={(e) => set('kioscoMinKg', Number(e.target.value))} className={INPUT_CLS} /></Field>
             <Field label="Kg mínimos para mayorista"><input type="number" value={form.mayoristaMinKg} onChange={(e) => set('mayoristaMinKg', Number(e.target.value))} className={INPUT_CLS} /></Field>
             <Field label="Costo de envase ($/kg)"><input type="number" value={form.envaseCostPerKg} onChange={(e) => set('envaseCostPerKg', Number(e.target.value))} className={INPUT_CLS} /></Field>
           </div>

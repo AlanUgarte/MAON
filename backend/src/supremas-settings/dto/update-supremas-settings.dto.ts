@@ -5,6 +5,7 @@ export class UpdateSupremasSettingsDto {
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() @Min(0) priceConsumidorFinal?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() @Min(0) priceKiosco?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() @Min(0) priceMayorista?: number;
+  @ApiProperty({ required: false }) @IsOptional() @IsInt() @Min(1) kioscoMinKg?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsInt() @Min(1) mayoristaMinKg?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() @Min(0) envaseCostPerKg?: number;
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() @Min(0.001) pechugaBaseKg?: number;
