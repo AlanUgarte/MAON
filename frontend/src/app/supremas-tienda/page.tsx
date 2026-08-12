@@ -1,28 +1,37 @@
 'use client';
 
-// Tienda online de Supremas de Pollo — sin login, un solo producto (venta por kg).
-// Mismo modelo de negocio que /tienda: sin pago online, el pedido se registra en el
-// backend (POST /supremas-sales/storefront, precio y tramo de cliente calculados
-// server-side) y se cierra por WhatsApp. Reutiliza la paleta de marca de /tienda para
-// que se sienta la misma empresa, no una tienda aparte.
+// Tienda online "El Reino Supremas" — sin login, un solo producto (venta por kg).
+// Marca propia para este storefront (identidad negro/dorado con isotipo de corona),
+// distinta de la marca MAON del resto de las tiendas — mismo modelo de negocio que
+// /tienda igual: sin pago online, el pedido se registra en el backend (POST
+// /supremas-sales/storefront, precio y tramo de cliente calculados server-side) y se
+// cierra por WhatsApp.
 import { useEffect, useState } from 'react';
 import {
-  Beef, MessageCircle, Truck, ShieldCheck, Minus, Plus, PackageCheck, Clock,
+  MessageCircle, Truck, PackageCheck, Clock, Minus, Plus, Lock,
   Banknote, Landmark, Smartphone, CircleDollarSign, CheckCircle2,
+  Crown, ShieldCheck, Award, Leaf, ChefHat, Headphones, MapPin,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTiendaSettings } from '@/lib/tienda-settings-store';
 
-const BRAND = '#1B3358';
-const BRAND_LIGHT = '#2E5A8C';
-const BRAND_SOFT = '#EEF2F8';
-const ACCENT = '#E38A1F';
+const BLACK = '#0E0E0E';
+const GOLD = '#E8B24C';
+const GOLD_SOFT = '#FBF1DE';
+const CREAM = '#FAF8F4';
 const WHATSAPP = '#25D366';
 
-const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const DELIVERY_SLOTS = ['17:00 a 18:00', '18:00 a 19:00', '19:00 a 20:00', '20:00 a 21:00'];
 // Cantidades típicas para no tener que tipear — igual se puede escribir cualquier valor.
 const KG_PRESETS = [10, 15, 20, 25];
+
+const FEATURES = [
+  { icon: Leaf, title: 'Fresco y casero', desc: 'Producto elaborado a diario.' },
+  { icon: Award, title: 'Calidad premium', desc: 'Ingredientes seleccionados.' },
+  { icon: ChefHat, title: 'Hechas a pedido', desc: 'Preparamos según tu solicitud.' },
+  { icon: Headphones, title: 'Atención rápida', desc: 'Respondemos siempre.' },
+];
 
 type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MERCADO_PAGO' | 'OTRO';
 const PAYMENT_OPTIONS: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
@@ -72,7 +81,7 @@ export default function SupremasTiendaPage() {
 
   const buildMessage = () => {
     const lines = [
-      '¡Hola! Quiero pedir Supremas de Pollo en *MAON*:',
+      '¡Hola! Quiero pedir Supremas de Pollo en *El Reino Supremas*:',
       '',
       `Cantidad: ${kg} kg`,
       `Precio: ${money(pricePerKg)}/kg${tier?.label ? ` (${tier.label})` : ''}`,
@@ -116,92 +125,128 @@ export default function SupremasTiendaPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: '#FAFAF7' }}>
-      <div className="truncate px-4 py-1.5 text-center text-[11px] font-medium tracking-wide text-white/90" style={{ background: '#1A1A1A' }}>
-        Producto elaborado en el día · Pedido confirmado por WhatsApp
-      </div>
-
-      <header className="border-b" style={{ borderColor: 'rgba(0,0,0,0.06)', background: '#fff' }}>
-        <div className="mx-auto flex max-w-[1100px] items-center gap-2.5 px-4 py-3.5 sm:px-6">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: BRAND }}>
-            <Beef className="h-[18px] w-[18px]" />
+    <div className="min-h-screen" style={{ background: CREAM }}>
+      <header style={{ background: BLACK }}>
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3.5 sm:px-6 lg:flex-nowrap">
+          <div className="flex items-center gap-4">
+            <img src="/supremas/logo.png" alt="El Reino Supremas" width={1284} height={305} className="h-8 w-auto sm:h-9" />
+            <div className="hidden h-8 w-px bg-white/15 sm:block" />
+            <div className="hidden leading-tight sm:block">
+              <div className="text-[14px] font-bold text-white">Supremas de pollo</div>
+              <div className="text-[10.5px] font-bold uppercase tracking-widest" style={{ color: GOLD }}>Pedí por kilo, online</div>
+            </div>
           </div>
-          <div className="min-w-0 leading-tight">
-            <div className="truncate font-display text-[15px] font-extrabold" style={{ color: BRAND }}>MAON — Supremas de Pollo</div>
-            <div className="truncate text-[10.5px] font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>Pedí por kilo, online</div>
+
+          <div className="flex flex-1 flex-wrap items-center justify-start gap-x-6 gap-y-2 lg:justify-end">
+            {[
+              { icon: Truck, title: 'Envío coordinado', sub: 'por WhatsApp' },
+              { icon: PackageCheck, title: 'Producto fresco', sub: 'de calidad' },
+              { icon: Clock, title: 'Respuesta rápida', sub: 'y personalizada' },
+            ].map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(232,178,76,0.16)', color: GOLD }}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="leading-tight">
+                    <div className="text-[12px] font-bold text-white">{f.title}</div>
+                    <div className="text-[11px] text-white/50">{f.sub}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:py-10">
+      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:py-9">
         {sent ? (
           <div className="mx-auto flex max-w-[440px] flex-col items-center gap-3 rounded-3xl border p-8 text-center" style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#fff' }}>
             <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: `${WHATSAPP}1a`, color: WHATSAPP }}>
               <CheckCircle2 className="h-8 w-8" />
             </span>
-            <h2 className="font-display text-lg font-extrabold" style={{ color: BRAND }}>¡Pedido registrado!</h2>
+            <h2 className="text-lg font-extrabold text-neutral-900">¡Pedido registrado!</h2>
             <p className="max-w-xs text-[13.5px] text-neutral-500">
               Te abrimos WhatsApp con el resumen — mandalo para que confirmemos tu pedido y coordinemos {wantsShipping ? 'la entrega' : 'el retiro'}.
             </p>
             <button
               onClick={reset}
-              className="mt-1 rounded-full border px-5 py-2 text-[13px] font-bold"
-              style={{ borderColor: BRAND, color: BRAND }}
+              className="mt-1 rounded-full border-2 px-5 py-2 text-[13px] font-bold"
+              style={{ borderColor: BLACK, color: BLACK }}
             >
               Hacer otro pedido
             </button>
           </div>
         ) : (
-          <div className="lg:grid lg:grid-cols-[1fr_1.15fr] lg:items-start lg:gap-6 xl:grid-cols-[1fr_1.3fr] xl:gap-8">
-            {/* Columna izquierda: producto + precios (sticky en desktop) */}
-            <div className="space-y-4 lg:sticky lg:top-6">
-              <div className="overflow-hidden rounded-3xl text-white" style={{ background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_LIGHT} 100%)` }}>
-                <div className="p-5 sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h1 className="font-display text-xl font-extrabold leading-tight sm:text-2xl">Supremas de pollo<br />rebozadas, caseras</h1>
-                      <p className="mt-1.5 text-[12.5px] text-white/75 sm:text-[13.5px]">Listas para freír o al horno. Se venden por kilo.</p>
-                    </div>
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:h-14 sm:w-14" style={{ background: 'rgba(255,255,255,0.14)' }}>
-                      <Beef className="h-6 w-6 sm:h-7 sm:w-7" />
-                    </span>
-                  </div>
-                  <span className="mt-4 inline-block rounded-full px-3 py-1 text-[11.5px] font-semibold" style={{ background: 'rgba(255,255,255,0.14)' }}>
-                    Se elabora a pedido, según lo que pidas
-                  </span>
-                </div>
+          <div className="lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-start lg:gap-6 xl:grid-cols-[1.15fr_1fr] xl:gap-8">
+            {/* Columna izquierda: producto + precios */}
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-3xl" style={{ background: BLACK }}>
+                <img
+                  src="/supremas/hero-banner.webp" alt="Supremas de pollo rebozadas, caseras — listas para freír o al horno"
+                  width={1774} height={887} loading="eager" fetchPriority="high"
+                  className="w-full" style={{ aspectRatio: '1774 / 887', objectFit: 'cover' }}
+                />
               </div>
 
-              {/* Tabla de precios por cantidad — transparente, no hay que adivinar el corte */}
+              {/* Precio por cantidad — transparente, no hay que adivinar el corte */}
               <div className="rounded-3xl border p-5" style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#fff' }}>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Precio por cantidad</div>
-                <div className="mt-2.5 space-y-1.5">
+                <div className="mt-2.5 space-y-2">
                   {prices ? (
                     [
-                      { range: `1 a ${prices.kioscoMinKg - 1} kg`, price: prices.priceConsumidorFinal, active: tier?.label === null },
-                      { range: `${prices.kioscoMinKg} a ${prices.mayoristaMinKg - 1} kg`, price: prices.priceKiosco, active: tier?.label === 'Kiosco' },
-                      { range: `${prices.mayoristaMinKg} kg o más`, price: prices.priceMayorista, active: tier?.label === 'Mayorista' },
-                    ].map((row) => (
-                      <div
-                        key={row.range}
-                        className="flex items-center justify-between rounded-xl px-3 py-2 text-[13px] transition"
-                        style={row.active ? { background: BRAND_SOFT, color: BRAND } : { color: '#6B7280' }}
-                      >
-                        <span className={row.active ? 'font-bold' : 'font-medium'}>{row.range}</span>
-                        <span className={row.active ? 'font-bold' : 'font-semibold'}>{money(row.price)}/kg</span>
-                      </div>
-                    ))
+                      { range: `1 a ${prices.kioscoMinKg - 1} kg`, price: prices.priceConsumidorFinal, active: tier?.label === null, icon: Crown },
+                      { range: `${prices.kioscoMinKg} a ${prices.mayoristaMinKg - 1} kg`, price: prices.priceKiosco, active: tier?.label === 'Kiosco', icon: ShieldCheck },
+                      { range: `${prices.mayoristaMinKg} kg o más`, price: prices.priceMayorista, active: tier?.label === 'Mayorista', icon: Award },
+                    ].map((row) => {
+                      const Icon = row.icon;
+                      return (
+                        <div
+                          key={row.range}
+                          className="flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-[13.5px] transition"
+                          style={row.active ? { borderColor: GOLD, background: GOLD_SOFT } : { borderColor: 'rgba(0,0,0,0.08)' }}
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={row.active ? { background: GOLD, color: BLACK } : { background: '#F3F1EC', color: '#9CA3AF' }}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span className={`flex-1 ${row.active ? 'font-bold text-neutral-900' : 'font-medium text-neutral-500'}`}>{row.range}</span>
+                          <span className={row.active ? 'font-extrabold text-neutral-900' : 'font-semibold text-neutral-500'}>{money(row.price)} /kg</span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="px-3 py-2 text-[13px] text-neutral-400">Cargando precios…</div>
                   )}
                 </div>
               </div>
 
-              <div className="hidden flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11.5px] text-neutral-400 lg:flex">
-                <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Envío coordinado por WhatsApp</span>
-                <span className="flex items-center gap-1"><PackageCheck className="h-3.5 w-3.5" /> Producto fresco</span>
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Respuesta rápida</span>
-                <span className="flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Sin pago online</span>
+              <div className="flex items-center gap-3 rounded-3xl border p-4" style={{ borderColor: GOLD, background: GOLD_SOFT }}>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: GOLD, color: BLACK }}>
+                  <ShieldCheck className="h-[18px] w-[18px]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-bold text-neutral-900">Sin pago online</div>
+                  <div className="text-[12px] text-neutral-500">Coordinamos tu pedido por WhatsApp.</div>
+                </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: `${WHATSAPP}1f`, color: WHATSAPP }}>
+                  <MessageCircle className="h-[18px] w-[18px]" />
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {FEATURES.map((f) => {
+                  const Icon = f.icon;
+                  return (
+                    <div key={f.title} className="rounded-2xl border p-3.5 text-center" style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#fff' }}>
+                      <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-full" style={{ background: '#F3F1EC', color: BLACK }}>
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <div className="mt-2 text-[12.5px] font-bold text-neutral-900">{f.title}</div>
+                      <div className="text-[11px] leading-snug text-neutral-500">{f.desc}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -216,61 +261,59 @@ export default function SupremasTiendaPage() {
                     <button
                       key={preset}
                       onClick={() => setKg(preset)}
-                      className="rounded-xl border px-3.5 py-2 text-[13px] font-bold transition"
-                      style={kg === preset ? { borderColor: BRAND, background: BRAND, color: '#fff' } : { borderColor: 'rgba(0,0,0,0.1)', color: BRAND }}
+                      className="rounded-full border-2 px-3.5 py-1.5 text-[13px] font-bold transition"
+                      style={kg === preset ? { borderColor: GOLD, background: GOLD_SOFT, color: '#8A6414' } : { borderColor: 'rgba(0,0,0,0.1)', color: '#6B7280' }}
                     >
                       {preset} kg
                     </button>
                   ))}
                 </div>
 
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-4 flex items-center gap-3">
                   <button
                     onClick={() => setKg((k) => Math.max(0.5, Math.round((k - 0.5) * 10) / 10))}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-bold"
-                    style={{ borderColor: BRAND_SOFT, color: BRAND }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold"
+                    style={{ borderColor: 'rgba(0,0,0,0.1)', color: BLACK }}
                   ><Minus className="h-4 w-4" /></button>
                   <div className="flex-1 text-center">
-                    <input
-                      type="number" min={0.5} step={0.5} value={kg}
-                      onChange={(e) => setKg(Math.max(0.5, Number(e.target.value) || 0.5))}
-                      className="w-full bg-transparent text-center font-display text-2xl font-extrabold outline-none"
-                      style={{ color: BRAND }}
-                    />
-                    <div className="text-[11px] text-neutral-400">kilogramos — se puede escribir cualquier cantidad</div>
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <input
+                        type="number" min={0.5} step={0.5} value={kg}
+                        onChange={(e) => setKg(Math.max(0.5, Number(e.target.value) || 0.5))}
+                        className="w-20 bg-transparent text-center text-3xl font-extrabold outline-none"
+                        style={{ color: BLACK }}
+                      />
+                      <span className="text-[13px] font-semibold text-neutral-400">kg</span>
+                    </div>
+                    <div className="text-[11px] text-neutral-400">escribí cualquier cantidad</div>
                   </div>
                   <button
                     onClick={() => setKg((k) => Math.round((k + 0.5) * 10) / 10)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-bold"
-                    style={{ borderColor: BRAND_SOFT, color: BRAND }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold"
+                    style={{ borderColor: 'rgba(0,0,0,0.1)', color: BLACK }}
                   ><Plus className="h-4 w-4" /></button>
                 </div>
 
-                {tier?.label && (
-                  <div className="mt-3 rounded-xl px-3 py-2 text-[12px] font-semibold" style={{ background: `${ACCENT}1a`, color: ACCENT }}>
-                    Precio {tier.label.toLowerCase()} aplicado por la cantidad pedida.
-                  </div>
-                )}
-                <div className="mt-4 flex items-center justify-between border-t pt-3" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                <div className="mt-4 flex items-center justify-between border-t pt-3.5" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                   <span className="text-[13px] text-neutral-500">Total ({money(pricePerKg)}/kg)</span>
-                  <span className="font-display text-xl font-extrabold" style={{ color: BRAND }}>{money(total)}</span>
+                  <span className="text-2xl font-extrabold" style={{ color: BLACK }}>{money(total)}</span>
                 </div>
               </div>
 
               {/* Envío / retiro */}
               <div className="rounded-3xl border p-5" style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#fff' }}>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Entrega</div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setWantsShipping(true)}
-                    className="rounded-xl border px-3 py-2.5 text-[13px] font-bold"
-                    style={wantsShipping ? { borderColor: BRAND, background: BRAND_SOFT, color: BRAND } : { borderColor: 'rgba(0,0,0,0.1)', color: '#9CA3AF' }}
-                  >Quiero envío</button>
+                    className="flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-[13px] font-bold"
+                    style={wantsShipping ? { borderColor: GOLD, background: GOLD_SOFT, color: '#8A6414' } : { borderColor: 'rgba(0,0,0,0.1)', color: '#9CA3AF' }}
+                  ><Truck className="h-4 w-4" /> Quiero envío</button>
                   <button
                     onClick={() => setWantsShipping(false)}
-                    className="rounded-xl border px-3 py-2.5 text-[13px] font-bold"
-                    style={!wantsShipping ? { borderColor: BRAND, background: BRAND_SOFT, color: BRAND } : { borderColor: 'rgba(0,0,0,0.1)', color: '#9CA3AF' }}
-                  >Retiro en el local</button>
+                    className="flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-[13px] font-bold"
+                    style={!wantsShipping ? { borderColor: GOLD, background: GOLD_SOFT, color: '#8A6414' } : { borderColor: 'rgba(0,0,0,0.1)', color: '#9CA3AF' }}
+                  ><MapPin className="h-4 w-4" /> Retiro en el local</button>
                 </div>
                 {wantsShipping && (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -305,8 +348,8 @@ export default function SupremasTiendaPage() {
                     return (
                       <button
                         key={p.key} onClick={() => setPayment(p.key)}
-                        className="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-semibold"
-                        style={active ? { borderColor: BRAND, background: BRAND_SOFT, color: BRAND } : { borderColor: 'rgba(0,0,0,0.1)', color: '#6B7280' }}
+                        className="flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-[12.5px] font-semibold"
+                        style={active ? { borderColor: GOLD, background: GOLD_SOFT, color: '#8A6414' } : { borderColor: 'rgba(0,0,0,0.1)', color: '#6B7280' }}
                       ><Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{p.label}</span></button>
                     );
                   })}
@@ -317,20 +360,18 @@ export default function SupremasTiendaPage() {
 
               {error && <div className="rounded-xl border px-3.5 py-2.5 text-[13px] font-semibold" style={{ borderColor: '#FCA5A5', background: '#FEF2F2', color: '#B91C1C' }}>{error}</div>}
 
-              <button
-                onClick={submit}
-                disabled={sending || !prices}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[14px] font-bold text-white shadow-lg disabled:opacity-60"
-                style={{ background: WHATSAPP }}
-              >
-                <MessageCircle className="h-[18px] w-[18px]" /> {sending ? 'Enviando…' : 'Pedir por WhatsApp'}
-              </button>
-
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pt-1 text-[11.5px] text-neutral-400 lg:hidden">
-                <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Envío coordinado por WhatsApp</span>
-                <span className="flex items-center gap-1"><PackageCheck className="h-3.5 w-3.5" /> Producto fresco</span>
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Respuesta rápida</span>
-                <span className="flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Sin pago online</span>
+              <div>
+                <button
+                  onClick={submit}
+                  disabled={sending || !prices}
+                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-[14.5px] font-extrabold uppercase tracking-wide shadow-lg disabled:opacity-60"
+                  style={{ background: GOLD, color: BLACK }}
+                >
+                  <MessageCircle className="h-[18px] w-[18px]" /> {sending ? 'Enviando…' : 'Confirmar pedido por WhatsApp'}
+                </button>
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-neutral-400">
+                  <Lock className="h-3 w-3" /> No realizamos cobros online. Coordinamos todo por WhatsApp.
+                </div>
               </div>
             </div>
           </div>
