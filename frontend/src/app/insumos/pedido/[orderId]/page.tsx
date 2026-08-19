@@ -141,15 +141,14 @@ function PaymentBox({ orderId, alias, total, onCopy, copied, onReported }: {
 
   const submit = async () => {
     setError('');
-    if (!file) return setError('Adjuntá el comprobante (foto o PDF).');
     if (!holderName.trim()) return setError('Ingresá el nombre y apellido del titular de la transferencia.');
     setBusy(true);
     try {
-      const imageUrl = await uploadInsumosComprobante(file);
+      const imageUrl = file ? await uploadInsumosComprobante(file) : undefined;
       await api.reportInsumosPayment(orderId, { imageUrl, holderName: holderName.trim() });
       onReported();
     } catch (err: any) {
-      setError(err?.message || 'No pudimos subir el comprobante. Probá de nuevo.');
+      setError(err?.message || 'No pudimos informar el pago. Probá de nuevo.');
     } finally { setBusy(false); }
   };
 
@@ -168,12 +167,12 @@ function PaymentBox({ orderId, alias, total, onCopy, copied, onReported }: {
       <div className="mt-2 text-[13px] text-neutral-600">Importe exacto a transferir: <b className="text-neutral-900">{money(total)}</b></div>
 
       <div className="mt-4 space-y-2.5 border-t pt-4" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Ya transferí — subir comprobante</div>
+        <div className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Ya transferí — contanos quién lo hizo</div>
+        <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre y apellido del titular de la transferencia*" className="h-11 w-full rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
         <label className="flex h-11 w-full cursor-pointer items-center gap-2 rounded-sm border px-3.5 text-[13px] text-neutral-600" style={{ borderColor: 'rgba(0,0,0,0.15)' }}>
-          <Upload className="h-4 w-4 shrink-0" /> {file ? file.name : 'Elegir foto o PDF del comprobante*'}
+          <Upload className="h-4 w-4 shrink-0" /> {file ? file.name : 'Adjuntar comprobante (opcional)'}
           <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
-        <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre y apellido del titular de la transferencia*" className="h-11 w-full rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
         {error && <div className="rounded-sm border px-3 py-2 text-[12.5px] font-semibold" style={{ borderColor: '#FCA5A5', background: '#FEF2F2', color: '#B91C1C' }}>{error}</div>}
         <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center rounded-sm text-[12.5px] font-bold uppercase tracking-widest text-white disabled:opacity-60" style={{ background: BLACK }}>
           {busy ? 'Enviando…' : 'Informar pago'}

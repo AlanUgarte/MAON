@@ -179,7 +179,11 @@ function OrderDetailModal({ order, onClose, onApprove, onSetStatus }: {
           {order.paymentProof ? (
             <div className="rounded-xl border border-line/10 p-3">
               <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Comprobante</div>
-              <a href={order.paymentProof.imageUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Ver archivo →</a>
+              {order.paymentProof.imageUrl ? (
+                <a href={order.paymentProof.imageUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Ver archivo →</a>
+              ) : (
+                <div className="text-muted">Sin archivo adjunto — el cliente informó el pago solo con su nombre.</div>
+              )}
               <div className="mt-1 text-muted">Titular: {order.paymentProof.holderName}</div>
             </div>
           ) : (

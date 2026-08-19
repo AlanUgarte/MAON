@@ -1181,7 +1181,9 @@ model InsumosPaymentProof {
   id         String       @id @default(cuid())
   orderId    String       @unique
   order      InsumosOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  imageUrl   String
+  /// Opcional a pedido de Alan: con el nombre del titular alcanza para informar el
+  /// pago, el comprobante es un extra si el cliente lo tiene a mano.
+  imageUrl   String?
   holderName String
   createdAt  DateTime     @default(now())
 }

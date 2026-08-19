@@ -26,7 +26,7 @@ export interface InsumosOrder {
   approvedAt?: string;
   createdAt: string;
   items: { productName: string; size?: string; quantity: number; unitPrice: number; subtotal: number }[];
-  paymentProof?: { imageUrl: string; holderName: string };
+  paymentProof?: { imageUrl?: string; holderName: string };
 }
 
 function fromBackend(o: any): InsumosOrder {
