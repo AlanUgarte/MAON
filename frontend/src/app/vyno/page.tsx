@@ -8,7 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Truck, ShieldCheck, Search, User, ShoppingCart, Menu, X, Star, Plus, Minus,
-  Zap, MousePointerClick, Gift, RotateCcw, Wine, Droplets, Lock, Layers,
+  Zap, RotateCcw, Wine, Droplets, Lock, Layers,
 } from 'lucide-react';
 import { useVynoProductsPublic } from '@/lib/vyno-products-store';
 import { useVynoCart } from '@/lib/vyno-cart';
@@ -93,45 +93,16 @@ export default function VynoHomePage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden" style={{ background: BLACK }}>
-        <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-2 lg:py-20">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.25em]" style={{ color: CHAMPAGNE }}>Disfrutá cada momento</div>
-            <h1 className="mt-3 text-[34px] font-bold leading-[1.08] text-white sm:text-[46px]" style={{ fontFamily: 'var(--font-vyno-serif)' }}>
-              Abridor de vino<br />eléctrico 4 piezas
-            </h1>
-            <p className="mt-4 max-w-md text-[14.5px] leading-relaxed text-white/60">
-              Abrí tus vinos favoritos con un solo toque. Elegancia, practicidad y tecnología en tu mesa.
-            </p>
-            <div className="mt-7 grid grid-cols-3 gap-4 text-white/85">
-              {[
-                { icon: Zap, label: 'Recargable', sub: 'USB' },
-                { icon: MousePointerClick, label: 'Uso fácil', sub: 'Un solo botón' },
-                { icon: Gift, label: 'Ideal para', sub: 'Regalar' },
-              ].map((f) => {
-                const Icon = f.icon;
-                return (
-                  <div key={f.label} className="flex flex-col items-start gap-1.5">
-                    <Icon className="h-5 w-5" style={{ color: CHAMPAGNE }} />
-                    <div className="text-[11.5px] font-bold uppercase leading-tight tracking-wide">{f.label}<br />{f.sub}</div>
-                  </div>
-                );
-              })}
-            </div>
-            <a
-              href="#producto"
-              className="mt-8 inline-flex h-12 items-center rounded-sm px-8 text-[13px] font-bold uppercase tracking-widest text-black transition hover:opacity-90"
-              style={{ background: CHAMPAGNE }}
-            >
-              Comprar ahora
-            </a>
-          </div>
-          <div className="relative aspect-[4/3] w-full">
-            {product?.images?.[0] ? (
-              <img src={product.images[0]} alt={product.name} className="h-full w-full rounded-sm object-cover" />
-            ) : (
-              <ImagePlaceholder className="h-full w-full rounded-sm" label="Foto principal del producto — pendiente" />
-            )}
-          </div>
+        <h1 className="sr-only">Abridor de vino eléctrico 4 piezas — VYNO</h1>
+        <div className="mx-auto max-w-[1280px] px-4 py-10 text-center sm:px-8">
+          <img src="/vyno/hero-banner.webp" alt="Abridor de vino eléctrico 4 piezas — VYNO, elegancia en cada descorche" className="mx-auto w-full rounded-sm" />
+          <a
+            href="#producto"
+            className="mt-8 inline-flex h-12 items-center rounded-sm px-8 text-[13px] font-bold uppercase tracking-widest text-black transition hover:opacity-90"
+            style={{ background: CHAMPAGNE }}
+          >
+            Comprar ahora
+          </a>
         </div>
       </section>
 
