@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Copy, Upload, Truck, Package, Check } from 'lucide-react';
-import { api, uploadInsumosComprobante } from '@/lib/api';
+import { CheckCircle2, MessageCircle, Truck, Package, Check } from 'lucide-react';
+import { api } from '@/lib/api';
 import { useInsumosSettingsPublic } from '@/lib/insumos-settings-store';
 
 const BLACK = '#161513';
@@ -28,18 +28,10 @@ export default function InsumosOrderPage() {
   const { settings } = useInsumosSettingsPublic();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
-  const load = () => {
+  useEffect(() => {
     api.insumosOrderPublic(orderId).then(setOrder).catch(() => {}).finally(() => setLoading(false));
-  };
-  useEffect(load, [orderId]);
-
-  const copyAlias = () => {
-    navigator.clipboard?.writeText(settings.paymentAlias);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
+  }, [orderId]);
 
   const stepIndex = order ? STEPS.findIndex((s) => s.key === order.status) : -1;
   const cancelled = order?.status === 'CANCELADO';
@@ -102,13 +94,13 @@ export default function InsumosOrderPage() {
             </div>
 
             {order.status === 'PAGO_PENDIENTE' && (
-              <PaymentBox orderId={orderId} alias={settings.paymentAlias} total={order.total} onCopy={copyAlias} copied={copied} onReported={load} />
+              <WhatsappCloseBox order={order} whatsappNumber={settings.whatsappNumber} />
             )}
 
             {order.status === 'COMPROBANTE_RECIBIDO' && (
               <div className="flex items-center gap-3 rounded-sm border p-5" style={{ borderColor: ORANGE, background: `${ORANGE}14` }}>
                 <Package className="h-5 w-5 shrink-0" style={{ color: ORANGE_DARK }} />
-                <p className="text-[13px] text-neutral-700">Recibimos tu comprobante — lo estamos verificando. Te avisamos por WhatsApp apenas esté confirmado.</p>
+                <p className="text-[13px] text-neutral-700">Ya estamos coordinando tu pedido por WhatsApp.</p>
               </div>
             )}
 
@@ -131,53 +123,30 @@ export default function InsumosOrderPage() {
   );
 }
 
-function PaymentBox({ orderId, alias, total, onCopy, copied, onReported }: {
-  orderId: string; alias: string; total: number; onCopy: () => void; copied: boolean; onReported: () => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [holderName, setHolderName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async () => {
-    setError('');
-    if (!holderName.trim()) return setError('Ingresá el nombre y apellido del titular de la transferencia.');
-    setBusy(true);
-    try {
-      const imageUrl = file ? await uploadInsumosComprobante(file) : undefined;
-      await api.reportInsumosPayment(orderId, { imageUrl, holderName: holderName.trim() });
-      onReported();
-    } catch (err: any) {
-      setError(err?.message || 'No pudimos informar el pago. Probá de nuevo.');
-    } finally { setBusy(false); }
-  };
+function WhatsappCloseBox({ order, whatsappNumber }: { order: any; whatsappNumber: string }) {
+  const text = [
+    `¡Hola! Quiero cerrar mi pedido *${order.orderNumber}* de *Ugarte Insumos Carnicería*:`,
+    '',
+    ...order.items.map((it: any) => `${it.quantity}× ${it.name}${it.size ? ` (${it.size}m)` : ''} — ${money(it.subtotal)}`),
+    '',
+    `Envío: ${money(order.shippingCost)}`,
+    `*Total: ${money(order.total)}*`,
+  ].join('\n');
+  const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
 
   return (
-    <div className="rounded-sm border bg-white p-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-      <div className="text-[13px] font-bold text-neutral-900">Transferí el importe total y contanos cuando lo hagas</div>
-      <div className="mt-3 flex items-center justify-between rounded-sm p-3.5" style={{ background: '#F1EDE6' }}>
-        <div>
-          <div className="text-[10.5px] font-bold uppercase tracking-widest text-neutral-500">Alias</div>
-          <div className="text-[15px] font-extrabold text-neutral-900">{alias}</div>
-        </div>
-        <button onClick={onCopy} className="flex items-center gap-1.5 rounded-sm border bg-white px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: 'rgba(0,0,0,0.12)' }}>
-          <Copy className="h-3.5 w-3.5" /> {copied ? 'Copiado' : 'Copiar'}
-        </button>
-      </div>
-      <div className="mt-2 text-[13px] text-neutral-600">Importe exacto a transferir: <b className="text-neutral-900">{money(total)}</b></div>
-
-      <div className="mt-4 space-y-2.5 border-t pt-4" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Ya transferí — contanos quién lo hizo</div>
-        <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre y apellido del titular de la transferencia*" className="h-11 w-full rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
-        <label className="flex h-11 w-full cursor-pointer items-center gap-2 rounded-sm border px-3.5 text-[13px] text-neutral-600" style={{ borderColor: 'rgba(0,0,0,0.15)' }}>
-          <Upload className="h-4 w-4 shrink-0" /> {file ? file.name : 'Adjuntar comprobante (opcional)'}
-          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </label>
-        {error && <div className="rounded-sm border px-3 py-2 text-[12.5px] font-semibold" style={{ borderColor: '#FCA5A5', background: '#FEF2F2', color: '#B91C1C' }}>{error}</div>}
-        <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center rounded-sm text-[12.5px] font-bold uppercase tracking-widest text-white disabled:opacity-60" style={{ background: BLACK }}>
-          {busy ? 'Enviando…' : 'Informar pago'}
-        </button>
-      </div>
+    <div className="rounded-sm border bg-white p-5 text-center" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+      <div className="text-[13px] font-bold text-neutral-900">Cerrá tu compra por WhatsApp</div>
+      <p className="mt-1.5 text-[13px] text-neutral-500">Coordinamos ahí el pago y el envío con vos, directo.</p>
+      <a
+        href={waLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-sm text-[13px] font-bold uppercase tracking-widest text-white transition hover:opacity-90"
+        style={{ background: '#25D366' }}
+      >
+        <MessageCircle className="h-4 w-4" /> Abrir WhatsApp
+      </a>
     </div>
   );
 }

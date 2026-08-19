@@ -22,6 +22,7 @@ export class InsumosSettingsService {
     return {
       shippingFlatCost: s.shippingFlatCost,
       paymentAlias: s.paymentAlias,
+      whatsappNumber: s.whatsappNumber,
       aboutText: s.aboutText,
       privacyPolicy: s.privacyPolicy,
       termsAndConditions: s.termsAndConditions,

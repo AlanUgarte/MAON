@@ -46,20 +46,6 @@ export async function uploadImage(file: File): Promise<string> {
   return url;
 }
 
-/** Sube el comprobante de transferencia de un pedido de Insumos Carnicería —
- * pública, sin login (el cliente que compra no tiene sesión). */
-export async function uploadInsumosComprobante(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch('/api/insumos-upload-comprobante', { method: 'POST', body: form });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}));
-    throw new Error(detail.message || `Error ${res.status}`);
-  }
-  const { url } = await res.json();
-  return url;
-}
-
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);
@@ -271,7 +257,6 @@ export const api = {
   insumosOrder: (id: string) => request<any>(`/insumos-orders/${id}`),
   insumosOrderPublic: (id: string) => request<any>(`/insumos-orders/${id}/public`),
   createInsumosOrder: (dto: any) => request<{ id: string; orderNumber: string }>('/insumos-orders', { method: 'POST', body: JSON.stringify(dto) }),
-  reportInsumosPayment: (orderId: string, dto: any) => request<any>(`/insumos-orders/${orderId}/payment`, { method: 'POST', body: JSON.stringify(dto) }),
   approveInsumosOrder: (id: string) => request<any>(`/insumos-orders/${id}/approve`, { method: 'PATCH' }),
   setInsumosOrderStatus: (id: string, dto: { status: string; trackingNumber?: string; carrier?: string }) =>
     request<any>(`/insumos-orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(dto) }),

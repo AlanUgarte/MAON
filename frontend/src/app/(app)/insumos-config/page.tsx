@@ -328,8 +328,8 @@ function ConfigTab({ settings, onSave }: { settings: InsumosSettings; onSave: (s
   return (
     <div className="max-w-2xl space-y-4">
       <div className="rounded-2xl border border-line/10 bg-surface p-5">
-        <div className="mb-3 text-[13px] font-bold">Envío y pago</div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="mb-3 text-[13px] font-bold">Envío, pago y WhatsApp</div>
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted">Costo de envío fijo ($)</label>
             <input type="number" value={form.shippingFlatCost} onChange={(e) => set('shippingFlatCost', Number(e.target.value))} className="h-10 w-full rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]" />
@@ -338,9 +338,13 @@ function ConfigTab({ settings, onSave }: { settings: InsumosSettings; onSave: (s
             <label className="mb-1 block text-[11px] font-semibold text-muted">Alias de transferencia</label>
             <input value={form.paymentAlias} onChange={(e) => set('paymentAlias', e.target.value)} className="h-10 w-full rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]" />
           </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted">WhatsApp para cerrar ventas</label>
+            <input value={form.whatsappNumber} onChange={(e) => set('whatsappNumber', e.target.value)} placeholder="54911..." className="h-10 w-full rounded-[10px] border border-line/15 bg-surface px-3 text-[13px]" />
+          </div>
         </div>
         <div className="mt-3 rounded-lg bg-primary/8 px-3 py-2 text-[12px] text-primary">
-          Este es un costo de envío fijo, provisorio — todavía no está conectado Andreani. Apenas tengas las credenciales avisame para reemplazarlo por la cotización real.
+          El costo de envío es fijo, provisorio — todavía no está conectado Andreani. El pedido se arma en la web y se cierra por WhatsApp con este número.
         </div>
       </div>
 

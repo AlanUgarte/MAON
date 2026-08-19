@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, User as UserIcon, Landmark } from 'lucide-react';
+import { ArrowLeft, MapPin, User as UserIcon, MessageCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useInsumosProductsPublic } from '@/lib/insumos-products-store';
 import { useInsumosCart } from '@/lib/insumos-cart';
@@ -44,6 +44,11 @@ export default function InsumosCheckoutPage() {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
 
+  const buildWhatsappText = (orderNumber: string) => {
+    const itemLines = lines.map((l) => `${l.quantity}× ${l.product!.name} (${l.size}m) — ${money(l.product!.price * l.quantity)}`).join('\n');
+    return `¡Hola! Quiero cerrar mi pedido *${orderNumber}* de *Ugarte Insumos Carnicería*:\n\n${itemLines}\n\nEnvío: ${shippingCost > 0 ? money(shippingCost) : 'gratis'}\n*Total: ${money(total)}*\n\nNombre: ${form.firstName} ${form.lastName}\nDirección: ${form.street} ${form.streetNumber}, ${form.city}, ${form.province}`;
+  };
+
   const submit = async () => {
     setError('');
     const required: (keyof typeof form)[] = ['firstName', 'lastName', 'email', 'phone', 'province', 'city', 'postalCode', 'street', 'streetNumber'];
@@ -57,6 +62,8 @@ export default function InsumosCheckoutPage() {
         items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, size: l.size })),
       });
       cart.clear();
+      const waLink = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(buildWhatsappText(res.orderNumber))}`;
+      window.open(waLink, '_blank');
       router.push(`/insumos/pedido/${res.id}`);
     } catch (err: any) {
       setSending(false);
@@ -111,9 +118,9 @@ export default function InsumosCheckoutPage() {
               </section>
 
               <section className="rounded-sm border bg-white p-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-widest text-neutral-500"><Landmark className="h-4 w-4" /> Forma de pago</div>
+                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-widest text-neutral-500"><MessageCircle className="h-4 w-4" /> Cómo se cierra la compra</div>
                 <div className="mt-3 rounded-sm p-3.5 text-[13px]" style={{ background: '#F1EDE6' }}>
-                  Transferencia bancaria. Después de confirmar el pedido vas a ver el alias y el importe exacto para transferir, y vas a poder subir el comprobante.
+                  El pedido queda registrado acá y se abre WhatsApp con el resumen para coordinar el pago y el envío directo con nosotros.
                 </div>
               </section>
             </div>

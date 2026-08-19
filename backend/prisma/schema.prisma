@@ -1194,6 +1194,9 @@ model InsumosSettings {
   id                 String   @id @default("singleton")
   shippingFlatCost   Decimal  @default(0) @db.Decimal(12, 2)
   paymentAlias       String   @default("Alan.ugarte7")
+  /// El pedido se arma en la web pero se cierra por WhatsApp — mismo numero que ya
+  /// usan Tienda/Estufa/Dark Store/Supremas.
+  whatsappNumber     String   @default("5493413807110")
   aboutText          String?
   privacyPolicy      String?
   termsAndConditions String?

@@ -10,6 +10,7 @@ const SAVE_DEBOUNCE_MS = 600;
 export interface InsumosSettings {
   shippingFlatCost: number;
   paymentAlias: string;
+  whatsappNumber: string;
   aboutText: string;
   privacyPolicy: string;
   termsAndConditions: string;
@@ -19,6 +20,7 @@ export interface InsumosSettings {
 export const DEFAULT_INSUMOS_SETTINGS: InsumosSettings = {
   shippingFlatCost: 0,
   paymentAlias: 'Alan.ugarte7',
+  whatsappNumber: '5493413807110',
   aboutText: '',
   privacyPolicy: '',
   termsAndConditions: '',
@@ -29,6 +31,7 @@ function sanitize(raw: any): InsumosSettings {
   return {
     shippingFlatCost: Number(raw?.shippingFlatCost ?? 0),
     paymentAlias: raw?.paymentAlias ?? DEFAULT_INSUMOS_SETTINGS.paymentAlias,
+    whatsappNumber: raw?.whatsappNumber ?? DEFAULT_INSUMOS_SETTINGS.whatsappNumber,
     aboutText: raw?.aboutText ?? '',
     privacyPolicy: raw?.privacyPolicy ?? '',
     termsAndConditions: raw?.termsAndConditions ?? '',
