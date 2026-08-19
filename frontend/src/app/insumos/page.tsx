@@ -6,6 +6,7 @@
 // misma --font-display que ya usa el resto de MAON, sin cargar una fuente nueva).
 import { useState } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import {
   Truck, ShieldCheck, Search, User, ShoppingCart, Menu, X, Star, Plus, Minus,
   Factory, Ruler, Award, Wrench, ScissorsLineDashed,
@@ -301,13 +302,37 @@ export default function InsumosHomePage() {
         </div>
       </section>
 
-      {/* Testimonios */}
+      {/* Videos */}
       <section className="py-16" style={{ background: CREAM }}>
-        <div className="mx-auto max-w-[1280px] px-4 text-center sm:px-8">
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-neutral-800">Lo que dicen nuestros clientes</h2>
-          <div className="mx-auto mt-8 max-w-md rounded-sm border border-dashed p-8" style={{ borderColor: 'rgba(0,0,0,0.12)' }}>
-            <p className="text-[13.5px] text-neutral-500">Todavía no tenemos reseñas de clientes reales — apenas las primeras compras se completen, van a aparecer acá.</p>
+        <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
+          <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.25em] text-neutral-800">Mirá nuestros productos en video</h2>
+          <div className="mt-8 grid gap-8 sm:grid-cols-2">
+            <div className="mx-auto w-full" style={{ maxWidth: 450 }}>
+              <blockquote
+                className="tiktok-embed"
+                cite="https://www.tiktok.com/@linkmarket.ml/video/7391928486593662214"
+                data-video-id="7391928486593662214"
+                style={{ width: '100%' }}
+              >
+                <section>
+                  <a target="_blank" rel="noopener noreferrer" title="@linkmarket.ml" href="https://www.tiktok.com/@linkmarket.ml?refer=embed">@linkmarket.ml</a>
+                </section>
+              </blockquote>
+            </div>
+            <div className="mx-auto w-full" style={{ maxWidth: 450 }}>
+              <blockquote
+                className="tiktok-embed"
+                cite="https://www.tiktok.com/@linkmarket.ml/video/7396848907575217414"
+                data-video-id="7396848907575217414"
+                style={{ width: '100%' }}
+              >
+                <section>
+                  <a target="_blank" rel="noopener noreferrer" title="@linkmarket.ml" href="https://www.tiktok.com/@linkmarket.ml?refer=embed">@linkmarket.ml</a>
+                </section>
+              </blockquote>
+            </div>
           </div>
+          <Script src="https://www.tiktok.com/embed.js" strategy="lazyOnload" />
         </div>
       </section>
 
