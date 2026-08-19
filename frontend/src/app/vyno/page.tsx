@@ -145,8 +145,8 @@ export default function VynoHomePage() {
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
             {/* Galería */}
             <div className="grid grid-cols-[72px_1fr] gap-3">
-              <div className="flex flex-col gap-2.5">
-                {images.slice(0, 4).map((img, i) => (
+              <div className="flex max-h-[420px] flex-col gap-2.5 overflow-y-auto">
+                {images.map((img, i) => (
                   <button
                     key={i} onClick={() => setActiveImg(i)}
                     className="aspect-square overflow-hidden rounded-sm border-2 transition"
