@@ -206,6 +206,7 @@ model User {
   takenOverConversations Conversation[] @relation("TakenOverConversations")
   comprobantes           Comprobante[]  @relation("ComprobanteSeller")
   supremaSales           SupremaSale[]
+  vynoOrdersApproved     VynoOrder[]    @relation("VynoOrderApprovedBy")
 
   @@index([role])
 }
@@ -289,6 +290,7 @@ model Client {
   campaignRecipients CampaignRecipient[]
   comprobantes       Comprobante[]
   supremaSales       SupremaSale[]
+  vynoOrders         VynoOrder[]
 
   @@index([stage])
   @@index([assignedSellerId])
@@ -948,4 +950,134 @@ model SupremaSale {
   @@index([clientId])
   @@index([fecha])
   @@index([clientType])
+}
+
+// ------------------------------ VYNO --------------------------
+// Tienda e-commerce real (retail directo, no mayorista): un producto por ahora
+// (abridor de vino eléctrico), precio de venta directo + precio tachado, pago por
+// transferencia con comprobante y aprobación manual del admin, envío con costo
+// configurable a mano hasta conectar Andreani. Cliente único del CRM (Client), no uno
+// paralelo — igual criterio que Supremas. Product/Sale no encajan acá: son mayoristas
+// (precio de bulto + margen %), VYNO es retail con precio directo, stock por unidad y
+// un estado de pedido mucho más granular (aprobación de pago + despacho + tracking).
+
+enum VynoOrderStatus {
+  NUEVO
+  PAGO_PENDIENTE
+  COMPROBANTE_RECIBIDO
+  PAGO_VERIFICADO
+  LISTO_PARA_DESPACHAR
+  DESPACHADO
+  EN_TRANSITO
+  ENTREGADO
+  CANCELADO
+}
+
+model VynoProduct {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  /// Precio de venta real. Arranca en 0 a propósito — significa "todavía sin
+  /// configurar", no un precio válido. Lo carga el admin en /vyno-config.
+  price          Decimal  @default(0) @db.Decimal(12, 2)
+  /// Precio tachado (oferta) — opcional, no obligatorio para vender.
+  compareAtPrice Decimal? @db.Decimal(12, 2)
+  stock          Int      @default(0)
+  images         String[] @default([])
+  description    String?
+  installments   Int?
+  ratingAvg      Decimal? @db.Decimal(2, 1)
+  ratingCount    Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orderItems VynoOrderItem[]
+}
+
+model VynoOrder {
+  id          String          @id @default(cuid())
+  /// Numero de pedido legible para el cliente, ej. "VYNO-000001".
+  orderNumber String          @unique
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id])
+  status      VynoOrderStatus @default(NUEVO)
+
+  subtotal     Decimal @db.Decimal(12, 2)
+  shippingCost Decimal @db.Decimal(12, 2)
+  total        Decimal @db.Decimal(12, 2)
+
+  // Envio
+  province      String
+  city          String
+  postalCode    String
+  street        String
+  streetNumber  String
+  floorApt      String?
+  shippingNotes String?
+  /// DNI/CUIT del comprador — opcional, algunos envios/facturas lo piden.
+  docNumber     String?
+  /// Nombre del servicio elegido (placeholder mientras no haya Andreani real).
+  shippingMethod   String?
+  /// Snapshot de la cotizacion usada (placeholder hoy, respuesta real de Andreani despues).
+  shippingQuoteRaw Json?
+  trackingNumber   String?
+  carrier          String?
+
+  // Aprobacion de pago — SIEMPRE la hace un admin, nunca el cliente ni el frontend.
+  approvedById String?
+  approvedBy   User?     @relation("VynoOrderApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @updatedAt @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        VynoOrderItem[]
+  paymentProof VynoPaymentProof?
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model VynoOrderItem {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     VynoOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   VynoProduct @relation(fields: [productId], references: [id])
+  quantity  Int
+  /// Precio unitario al momento de la compra (snapshot — no se recalcula si despues cambia el precio del producto).
+  unitPrice Decimal     @db.Decimal(12, 2)
+  subtotal  Decimal     @db.Decimal(12, 2)
+
+  @@index([orderId])
+}
+
+/// Comprobante de transferencia que sube el cliente — nunca marca el pedido como
+/// pagado por si solo, solo dispara el paso COMPROBANTE_RECIBIDO a la espera de que
+/// un admin lo verifique a mano.
+model VynoPaymentProof {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  order           VynoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  imageUrl        String
+  operationNumber String?
+  transferredAt   DateTime?
+  holderName      String?
+  comment         String?
+  createdAt       DateTime  @default(now())
+}
+
+/// Fila unica (singleton) — costo de envio placeholder mientras no haya Andreani
+/// conectado, alias de transferencia y textos institucionales del footer.
+model VynoSettings {
+  id                 String   @id @default("singleton")
+  shippingFlatCost   Decimal  @default(0) @db.Decimal(12, 2)
+  paymentAlias       String   @default("Alan.ugarte7")
+  aboutText          String?
+  privacyPolicy      String?
+  termsAndConditions String?
+  returnsPolicy      String?
+  updatedAt          DateTime @updatedAt
 }

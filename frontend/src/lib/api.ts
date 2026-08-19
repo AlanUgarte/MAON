@@ -46,6 +46,20 @@ export async function uploadImage(file: File): Promise<string> {
   return url;
 }
 
+/** Sube el comprobante de transferencia de un pedido VYNO — pública, sin login (el
+ * cliente que compra no tiene sesión). */
+export async function uploadVynoComprobante(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/vyno-upload-comprobante', { method: 'POST', body: form });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.message || `Error ${res.status}`);
+  }
+  const { url } = await res.json();
+  return url;
+}
+
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);
@@ -241,6 +255,26 @@ export const api = {
     customerName: string; customerPhone: string; kg: number; paymentMethod: string;
     wantsShipping?: boolean; address?: string; availableSchedule?: string; observaciones?: string;
   }) => request<{ ok: boolean; saleId: string }>('/supremas-sales/storefront', { method: 'POST', body: JSON.stringify(dto) }),
+
+  // Módulo VYNO — tienda e-commerce retail (producto propio, no el catálogo mayorista).
+  vynoSettingsPublic: () => request<any>('/vyno-settings/public'),
+  vynoSettings: () => request<any>('/vyno-settings'),
+  updateVynoSettings: (dto: any) => request<any>('/vyno-settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+
+  vynoProductsPublic: () => request<any[]>('/vyno-products/public'),
+  vynoProducts: () => request<any[]>('/vyno-products'),
+  createVynoProduct: (dto: any) => request<any>('/vyno-products', { method: 'POST', body: JSON.stringify(dto) }),
+  updateVynoProduct: (id: string, dto: any) => request<any>(`/vyno-products/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  deleteVynoProduct: (id: string) => request<any>(`/vyno-products/${id}`, { method: 'DELETE' }),
+
+  vynoOrders: (status?: string) => request<any[]>(`/vyno-orders${status ? `?status=${status}` : ''}`),
+  vynoOrder: (id: string) => request<any>(`/vyno-orders/${id}`),
+  vynoOrderPublic: (id: string) => request<any>(`/vyno-orders/${id}/public`),
+  createVynoOrder: (dto: any) => request<{ id: string; orderNumber: string }>('/vyno-orders', { method: 'POST', body: JSON.stringify(dto) }),
+  reportVynoPayment: (orderId: string, dto: any) => request<any>(`/vyno-orders/${orderId}/payment`, { method: 'POST', body: JSON.stringify(dto) }),
+  approveVynoOrder: (id: string) => request<any>(`/vyno-orders/${id}/approve`, { method: 'PATCH' }),
+  setVynoOrderStatus: (id: string, dto: { status: string; trackingNumber?: string; carrier?: string }) =>
+    request<any>(`/vyno-orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(dto) }),
 
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),

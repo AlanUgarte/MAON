@@ -24,6 +24,9 @@ import { SupremasSettingsModule } from './supremas-settings/supremas-settings.mo
 import { SupremasIngredientsModule } from './supremas-ingredients/supremas-ingredients.module';
 import { SupremasBatchesModule } from './supremas-batches/supremas-batches.module';
 import { SupremasSalesModule } from './supremas-sales/supremas-sales.module';
+import { VynoSettingsModule } from './vyno-settings/vyno-settings.module';
+import { VynoProductsModule } from './vyno-products/vyno-products.module';
+import { VynoOrdersModule } from './vyno-orders/vyno-orders.module';
 
 @Module({
   imports: [
@@ -55,6 +58,9 @@ import { SupremasSalesModule } from './supremas-sales/supremas-sales.module';
     SupremasIngredientsModule,
     SupremasBatchesModule,
     SupremasSalesModule,
+    VynoSettingsModule,
+    VynoProductsModule,
+    VynoOrdersModule,
   ],
 })
 export class AppModule {}
