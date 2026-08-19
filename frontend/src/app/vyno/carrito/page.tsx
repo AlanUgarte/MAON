@@ -38,7 +38,7 @@ export default function VynoCartPage() {
             <Link href="/vyno" className="mt-2 text-[13px] font-bold underline" style={{ color: '#8A6B2E' }}>Ver el producto →</Link>
           </div>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="grid gap-8 md:grid-cols-[1fr_320px]">
             <div className="space-y-4">
               {lines.map((l) => (
                 <div key={l.productId} className="flex items-center gap-4 rounded-sm border bg-white p-4" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>

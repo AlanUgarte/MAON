@@ -114,7 +114,7 @@ export default function VynoHomePage() {
         ) : !product ? (
           <div className="py-20 text-center text-[13px] text-neutral-400">Todavía no hay un producto cargado.</div>
         ) : (
-          <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="grid gap-10 md:grid-cols-2 lg:gap-14">
             {/* Galería */}
             <div className="grid grid-cols-[72px_1fr] gap-3">
               <div className="flex max-h-[420px] flex-col gap-2.5 overflow-y-auto">
@@ -243,13 +243,13 @@ export default function VynoHomePage() {
 
       {/* Editorial */}
       <section className="py-16 sm:py-20" style={{ background: '#F1EDE6' }}>
-        <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 sm:px-8 lg:grid-cols-2">
-          <div className="mx-auto w-full" style={{ maxWidth: 325 }}>
+        <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 sm:px-8 md:grid-cols-2">
+          <div className="mx-auto w-full" style={{ maxWidth: 450 }}>
             <blockquote
               className="tiktok-embed"
               cite="https://www.tiktok.com/@chinauniquefinds/video/7458255773983001902"
               data-video-id="7458255773983001902"
-              style={{ maxWidth: 605, minWidth: 325 }}
+              style={{ width: '100%' }}
             >
               <section>
                 <a target="_blank" rel="noopener noreferrer" title="@chinauniquefinds" href="https://www.tiktok.com/@chinauniquefinds?refer=embed">@chinauniquefinds</a>

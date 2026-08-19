@@ -80,7 +80,7 @@ export default function VynoCheckoutPage() {
             Tu carrito está vacío. <Link href="/vyno" className="font-bold underline" style={{ color: '#8A6B2E' }}>Ver el producto →</Link>
           </div>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="grid gap-8 md:grid-cols-[1fr_320px]">
             <div className="space-y-6">
               <section className="rounded-sm border bg-white p-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
                 <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-widest text-neutral-500"><UserIcon className="h-4 w-4" /> Tus datos</div>
