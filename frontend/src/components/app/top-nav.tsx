@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, Beef, Wine, ScissorsLineDashed,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, ScissorsLineDashed,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -19,8 +19,6 @@ const FULL_NAV: NavItem[] = [
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
-  { href: '/supremas', label: 'Supremas', icon: Beef },
-  { href: '/vyno-config', label: 'VYNO', icon: Wine },
   { href: '/insumos-config', label: 'Insumos', icon: ScissorsLineDashed },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
@@ -28,14 +26,13 @@ const FULL_NAV: NavItem[] = [
   { href: '/vendedores', label: 'Equipo', icon: Users },
 ];
 
-// Los vendedores solo ven su propio trabajo: sus clientes, su WhatsApp, su dashboard,
-// sus pedidos de tienda y sus ventas de Supremas (crear venta/cliente, sin costos).
+// Los vendedores solo ven su propio trabajo: sus clientes, su WhatsApp, su dashboard
+// y sus pedidos de tienda.
 const VENDEDOR_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/bandeja', label: 'WhatsApp', icon: MessageSquareText },
   { href: '/tienda-config', label: 'Mis pedidos', icon: ClipboardList },
-  { href: '/supremas', label: 'Supremas', icon: Beef },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
