@@ -207,6 +207,7 @@ model User {
   comprobantes           Comprobante[]  @relation("ComprobanteSeller")
   supremaSales           SupremaSale[]
   vynoOrdersApproved     VynoOrder[]    @relation("VynoOrderApprovedBy")
+  insumosOrdersApproved  InsumosOrder[] @relation("InsumosOrderApprovedBy")
 
   @@index([role])
 }
@@ -291,6 +292,7 @@ model Client {
   comprobantes       Comprobante[]
   supremaSales       SupremaSale[]
   vynoOrders         VynoOrder[]
+  insumosOrders      InsumosOrder[]
 
   @@index([stage])
   @@index([assignedSellerId])
@@ -1072,6 +1074,121 @@ model VynoPaymentProof {
 /// Fila unica (singleton) — costo de envio placeholder mientras no haya Andreani
 /// conectado, alias de transferencia y textos institucionales del footer.
 model VynoSettings {
+  id                 String   @id @default("singleton")
+  shippingFlatCost   Decimal  @default(0) @db.Decimal(12, 2)
+  paymentAlias       String   @default("Alan.ugarte7")
+  aboutText          String?
+  privacyPolicy      String?
+  termsAndConditions String?
+  returnsPolicy      String?
+  updatedAt          DateTime @updatedAt
+}
+
+// ── UGARTE INSUMOS CARNICERIA — tienda de insumos para carnicerias (arranca con
+// hojas de sierra Kaiser). Mismo patron que VYNO: modelos propios, Client compartido.
+
+enum InsumosOrderStatus {
+  NUEVO
+  PAGO_PENDIENTE
+  COMPROBANTE_RECIBIDO
+  PAGO_VERIFICADO
+  LISTO_PARA_DESPACHAR
+  DESPACHADO
+  EN_TRANSITO
+  ENTREGADO
+  CANCELADO
+}
+
+model InsumosProduct {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  /// Precio de venta real. Arranca en 0 a proposito — significa "todavia sin
+  /// configurar", no un precio valido. Lo carga el admin en /insumos-config.
+  price          Decimal  @default(0) @db.Decimal(12, 2)
+  compareAtPrice Decimal? @db.Decimal(12, 2)
+  stock          Int      @default(0)
+  images         String[] @default([])
+  description    String?
+  ratingAvg      Decimal? @db.Decimal(2, 1)
+  ratingCount    Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orderItems InsumosOrderItem[]
+}
+
+model InsumosOrder {
+  id          String             @id @default(cuid())
+  orderNumber String             @unique
+  clientId    String
+  client      Client             @relation(fields: [clientId], references: [id])
+  status      InsumosOrderStatus @default(NUEVO)
+
+  subtotal     Decimal @db.Decimal(12, 2)
+  shippingCost Decimal @db.Decimal(12, 2)
+  total        Decimal @db.Decimal(12, 2)
+
+  province      String
+  city          String
+  postalCode    String
+  street        String
+  streetNumber  String
+  floorApt      String?
+  shippingNotes String?
+  docNumber     String?
+  shippingMethod   String?
+  shippingQuoteRaw Json?
+  trackingNumber   String?
+  carrier          String?
+
+  approvedById String?
+  approvedBy   User?     @relation("InsumosOrderApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        InsumosOrderItem[]
+  paymentProof InsumosPaymentProof?
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model InsumosOrderItem {
+  id        String         @id @default(cuid())
+  orderId   String
+  order     InsumosOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   InsumosProduct @relation(fields: [productId], references: [id])
+  quantity  Int
+  /// Medida elegida (largo en metros, ej. "3.50") — el producto tiene precio unico
+  /// pero se vende por medida, el cliente tiene que elegir una antes de comprar.
+  size      String?
+  unitPrice Decimal        @db.Decimal(12, 2)
+  subtotal  Decimal        @db.Decimal(12, 2)
+
+  @@index([orderId])
+}
+
+/// Comprobante de transferencia que sube el cliente — nunca marca el pedido como
+/// pagado por si solo, solo dispara COMPROBANTE_RECIBIDO a la espera de que un
+/// admin lo verifique a mano.
+model InsumosPaymentProof {
+  id         String       @id @default(cuid())
+  orderId    String       @unique
+  order      InsumosOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  imageUrl   String
+  holderName String
+  createdAt  DateTime     @default(now())
+}
+
+/// Fila unica (singleton) — costo de envio, alias de transferencia y textos
+/// institucionales del footer.
+model InsumosSettings {
   id                 String   @id @default("singleton")
   shippingFlatCost   Decimal  @default(0) @db.Decimal(12, 2)
   paymentAlias       String   @default("Alan.ugarte7")

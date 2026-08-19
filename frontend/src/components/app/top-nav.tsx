@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, Beef, Wine,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, Beef, Wine, ScissorsLineDashed,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -21,6 +21,7 @@ const FULL_NAV: NavItem[] = [
   { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/supremas', label: 'Supremas', icon: Beef },
   { href: '/vyno-config', label: 'VYNO', icon: Wine },
+  { href: '/insumos-config', label: 'Insumos', icon: ScissorsLineDashed },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },
