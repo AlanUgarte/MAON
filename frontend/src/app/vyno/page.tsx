@@ -6,6 +6,7 @@
 // "diseñado para amantes del vino", editorial, testimonios, footer).
 import { useState } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import {
   Truck, ShieldCheck, Search, User, ShoppingCart, Menu, X, Star, Plus, Minus,
   Zap, RotateCcw, Wine, Droplets, Lock, Layers,
@@ -243,7 +244,19 @@ export default function VynoHomePage() {
       {/* Editorial */}
       <section className="py-16 sm:py-20" style={{ background: '#F1EDE6' }}>
         <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 sm:px-8 lg:grid-cols-2">
-          <ImagePlaceholder className="aspect-[4/3] rounded-sm" label="Imagen lifestyle — pendiente de carga" />
+          <div className="mx-auto w-full" style={{ maxWidth: 325 }}>
+            <blockquote
+              className="tiktok-embed"
+              cite="https://www.tiktok.com/@chinauniquefinds/video/7458255773983001902"
+              data-video-id="7458255773983001902"
+              style={{ maxWidth: 605, minWidth: 325 }}
+            >
+              <section>
+                <a target="_blank" rel="noopener noreferrer" title="@chinauniquefinds" href="https://www.tiktok.com/@chinauniquefinds?refer=embed">@chinauniquefinds</a>
+              </section>
+            </blockquote>
+            <Script src="https://www.tiktok.com/embed.js" strategy="lazyOnload" />
+          </div>
           <div>
             <h2 className="text-[26px] font-bold leading-tight text-neutral-900 sm:text-[32px]" style={{ fontFamily: 'var(--font-vyno-serif)' }}>
               Elegancia en tu mesa,<br />práctico en tu día a día
