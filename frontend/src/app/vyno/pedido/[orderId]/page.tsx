@@ -134,19 +134,18 @@ function PaymentBox({ orderId, alias, total, onCopy, copied, onReported }: {
   orderId: string; alias: string; total: number; onCopy: () => void; copied: boolean; onReported: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [operationNumber, setOperationNumber] = useState('');
   const [holderName, setHolderName] = useState('');
-  const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async () => {
     setError('');
     if (!file) return setError('Adjuntá el comprobante (foto o PDF).');
+    if (!holderName.trim()) return setError('Ingresá el nombre y apellido del titular de la transferencia.');
     setBusy(true);
     try {
       const imageUrl = await uploadVynoComprobante(file);
-      await api.reportVynoPayment(orderId, { imageUrl, operationNumber: operationNumber || undefined, holderName: holderName || undefined, comment: comment || undefined });
+      await api.reportVynoPayment(orderId, { imageUrl, holderName: holderName.trim() });
       onReported();
     } catch (err: any) {
       setError(err?.message || 'No pudimos subir el comprobante. Probá de nuevo.');
@@ -173,11 +172,7 @@ function PaymentBox({ orderId, alias, total, onCopy, copied, onReported }: {
           <Upload className="h-4 w-4 shrink-0" /> {file ? file.name : 'Elegir foto o PDF del comprobante*'}
           <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          <input value={operationNumber} onChange={(e) => setOperationNumber(e.target.value)} placeholder="N° de operación (opcional)" className="h-11 rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
-          <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre del titular (opcional)" className="h-11 rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
-        </div>
-        <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} className="w-full rounded-sm border p-3 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
+        <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre y apellido del titular de la transferencia*" className="h-11 w-full rounded-sm border px-3.5 text-[13px]" style={{ borderColor: 'rgba(0,0,0,0.15)' }} />
         {error && <div className="rounded-sm border px-3 py-2 text-[12.5px] font-semibold" style={{ borderColor: '#FCA5A5', background: '#FEF2F2', color: '#B91C1C' }}>{error}</div>}
         <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center rounded-sm text-[12.5px] font-bold uppercase tracking-widest text-white disabled:opacity-60" style={{ background: BLACK }}>
           {busy ? 'Enviando…' : 'Informar pago'}

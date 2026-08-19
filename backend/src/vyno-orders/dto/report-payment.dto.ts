@@ -8,6 +8,6 @@ export class ReportPaymentDto {
   @ApiProperty() @IsString() @MaxLength(2000) imageUrl: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) operationNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() transferredAt?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) holderName?: string;
+  @ApiProperty() @IsString() @MaxLength(120) holderName: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) comment?: string;
 }
