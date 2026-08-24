@@ -425,17 +425,35 @@ function LabeledInput({
   );
 }
 
+/** Arranque sugerido cuando todavía no hay ningún paquete cargado — se muestra
+ * precargado en el editor, pero no queda guardado hasta que el admin toca Guardar. */
+const PAQUETES_SUGERIDOS = [
+  { chances: '3', price: '5000', isPopular: false },
+  { chances: '8', price: '10000', isPopular: true },
+  { chances: '18', price: '20000', isPopular: false },
+  { chances: '38', price: '40000', isPopular: false },
+  { chances: '50', price: '50000', isPopular: false },
+];
+
 function PackagesEditor({
   rows, onSave,
 }: { rows: { chances: number; price: number; isPopular: boolean }[]; onSave: (r: any[]) => Promise<void> }) {
   const [draft, setDraft] = useState<{ chances: string; price: string; isPopular: boolean }[] | null>(null);
-  const current = draft ?? rows.map((r) => ({ chances: String(r.chances), price: String(r.price), isPopular: r.isPopular }));
+  const saved = rows.map((r) => ({ chances: String(r.chances), price: String(r.price), isPopular: r.isPopular }));
+  const sinCargar = !draft && !saved.length;
+  const current = draft ?? (saved.length ? saved : PAQUETES_SUGERIDOS);
 
   const update = (i: number, patch: Partial<(typeof current)[number]>) =>
     setDraft(current.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   return (
     <div className="space-y-2">
+      {sinCargar && (
+        <p className="rounded-xl border border-amber/30 bg-amber/10 p-2.5 text-[12.5px] text-amber">
+          Estos paquetes vienen sugeridos y <b>todavía no están guardados</b> — hasta que toques
+          Guardar, la página del sorteo no muestra botones de compra. Cambiá lo que quieras antes.
+        </p>
+      )}
       {current.map((r, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2">
           <Input
@@ -460,7 +478,7 @@ function PackagesEditor({
           <Plus className="h-4 w-4" /> Agregar paquete
         </Button>
         <Button
-          disabled={!draft}
+          disabled={!draft && !sinCargar}
           onClick={async () => {
             await onSave(current
               .filter((r) => Number(r.chances) > 0 && Number(r.price) >= 0)
