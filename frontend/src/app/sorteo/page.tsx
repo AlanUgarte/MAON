@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Clover, Trophy, Copy, Check, X, Upload, Search, Loader2, Play, ShieldCheck, Lock,
   Ticket, CreditCard, Smartphone, ShoppingCart, Mail, Instagram, Facebook, Music2, MessageCircle,
+  Maximize2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { api, uploadSorteoReceipt } from '@/lib/api';
 
@@ -46,14 +47,12 @@ const TRUST = [
   { icon: ShieldCheck, l1: 'SORTEO', l2: 'TRANSPARENTE' },
   { icon: Lock, l1: 'COMPRA 100%', l2: 'SEGURA' },
   { icon: Clover, l1: 'MUCHA SUERTE', l2: 'Y SIEMPRE CON FE' },
-  { icon: Play, l1: 'SORTEO', l2: 'EN VIVO' },
 ];
 
 const FEATURES = [
   { icon: Ticket, title: 'NÚMEROS AL INSTANTE', body: 'Recibí tus números apenas verificamos tu pago.' },
   { icon: CreditCard, title: 'MEDIOS DE PAGO', body: 'Transferencia bancaria al alias, simple y directo.' },
   { icon: Smartphone, title: '100% ONLINE', body: 'Desde donde estés, fácil y rápido.' },
-  { icon: ShieldCheck, title: 'SORTEO EN VIVO', body: 'Transmitimos el sorteo en nuestras redes.' },
 ];
 
 const STEPS = [
@@ -141,17 +140,13 @@ export default function SorteoPage() {
             </p>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <MediaPanel label="IMAGEN REAL">
-              {data.images[0]
-                ? <img src={data.images[0]} alt={data.prize} className="h-full w-full object-cover" />
-                : <Placeholder text="Subí la foto de la moto desde el panel del CRM" />}
-            </MediaPanel>
-            <MediaPanel label="VIDEO REAL" live={!!data.videoUrl}>
+          <div className="space-y-5">
+            <MediaPanel label="VIDEO REAL" ratio="16/9" live={!!data.videoUrl}>
               {data.videoUrl
                 ? <VideoPlayer src={data.videoUrl} poster={data.images[0]} />
                 : <Placeholder text="Subí el video de la moto desde el panel del CRM" />}
             </MediaPanel>
+            <Gallery images={data.images} prize={data.prize} />
           </div>
         </section>
 
@@ -463,9 +458,9 @@ function Headline({ text }: { text: string }) {
   );
 }
 
-function MediaPanel({ label, live, children }: { label: string; live?: boolean; children: React.ReactNode }) {
+function MediaPanel({ label, live, ratio = '4/3', children }: { label: string; live?: boolean; ratio?: string; children: React.ReactNode }) {
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+    <div className="relative overflow-hidden rounded-2xl" style={{ aspectRatio: ratio, background: PANEL, border: `1px solid ${LINE}` }}>
       {children}
       <span
         className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-bold tracking-wide"
@@ -486,29 +481,111 @@ function Placeholder({ text }: { text: string }) {
   );
 }
 
-/** Video del premio: arranca en pausa con el botón de play encima, como el diseño. */
+/** Video del premio: arranca solo, mudo y en loop — es la vidriera de la moto. Con
+ * controles para que el que quiera le suba el volumen o lo pause. */
 function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
+  return (
+    <video
+      src={src} poster={poster}
+      autoPlay muted loop playsInline controls preload="metadata"
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
+/** Fotos reales de la moto. Al tocar una se abre en grande para verla en detalle. */
+function Gallery({ images, prize }: { images: string[]; prize: string }) {
+  const [open, setOpen] = useState<number | null>(null);
+
+  if (!images.length) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="grid aspect-[4/3] place-items-center rounded-2xl px-4 text-center text-[12px]"
+            style={{ background: PANEL, border: `1px dashed ${LINE}`, color: 'rgba(255,255,255,.35)' }}
+          >{i === 0 ? 'Subí las fotos de la moto desde el panel del CRM' : ''}</div>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-full w-full">
-      <video
-        ref={ref} src={src} poster={poster} controls={playing} playsInline preload="metadata"
-        className="h-full w-full object-cover"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-      />
-      {!playing && (
-        <button
-          onClick={() => ref.current?.play()}
-          aria-label="Reproducir el video"
-          className="absolute inset-0 grid place-items-center transition hover:bg-black/10"
-        >
-          <span className="flex h-[74px] w-[74px] items-center justify-center rounded-full border-[3px] border-white/90 bg-black/25 backdrop-blur">
-            <Play className="ml-1 h-8 w-8 text-white" fill="currentColor" />
-          </span>
-        </button>
+    <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {images.map((url, i) => (
+          <button
+            key={url + i}
+            onClick={() => setOpen(i)}
+            className="group relative aspect-[4/3] overflow-hidden rounded-2xl"
+            style={{ background: PANEL, border: `1px solid ${LINE}` }}
+            aria-label={`Ver la foto ${i + 1} en grande`}
+          >
+            <img src={url} alt={prize} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+            <span
+              className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-[10.5px] font-bold tracking-wide"
+              style={{ background: 'rgba(5,7,5,.85)', border: `1px solid ${LINE}`, color: 'rgba(255,255,255,.85)' }}
+            ><Maximize2 className="h-3 w-3" style={{ color: GREEN }} /> {i === 0 ? 'IMAGEN REAL' : 'AMPLIAR'}</span>
+          </button>
+        ))}
+      </div>
+      {open !== null && (
+        <Lightbox images={images} index={open} prize={prize} onClose={() => setOpen(null)} onIndex={setOpen} />
+      )}
+    </>
+  );
+}
+
+function Lightbox({
+  images, index, prize, onClose, onIndex,
+}: { images: string[]; index: number; prize: string; onClose: () => void; onIndex: (i: number) => void }) {
+  const move = (d: number) => onIndex((index + d + images.length) % images.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') move(1);
+      if (e.key === 'ArrowLeft') move(-1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] grid p-4"
+      style={{ background: 'rgba(0,0,0,.92)', placeItems: 'center' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <button onClick={onClose} aria-label="Cerrar" className="absolute right-5 top-5 text-white/70 hover:text-white">
+        <X className="h-7 w-7" />
+      </button>
+
+      <img src={images[index]} alt={prize} className="max-h-[86vh] max-w-full rounded-xl object-contain" />
+
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={() => move(-1)} aria-label="Foto anterior"
+            className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white"
+            style={{ background: 'rgba(255,255,255,.12)' }}
+          ><ChevronLeft className="h-6 w-6" /></button>
+          <button
+            onClick={() => move(1)} aria-label="Foto siguiente"
+            className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white"
+            style={{ background: 'rgba(255,255,255,.12)' }}
+          ><ChevronRight className="h-6 w-6" /></button>
+          <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
+            {images.map((_, i) => (
+              <button
+                key={i} onClick={() => onIndex(i)} aria-label={`Foto ${i + 1}`}
+                className="h-2 w-2 rounded-full"
+                style={{ background: i === index ? GREEN : 'rgba(255,255,255,.3)' }}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -576,6 +653,10 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
   const submit = async () => {
     if (form.buyerName.trim().length < 3) { setError('Escribí tu nombre completo'); return; }
     if (!form.buyerEmail.trim() && !form.buyerPhone.trim()) { setError('Dejanos un email o un WhatsApp'); return; }
+    if (!file && !form.holderName.trim()) {
+      setError('Adjuntá el comprobante o escribí el nombre de quien hizo la transferencia');
+      return;
+    }
     setBusy(true); setError(null);
     try {
       const order = await api.createSorteoOrder({
@@ -584,6 +665,7 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
         buyerEmail: form.buyerEmail.trim() || undefined,
         buyerPhone: form.buyerPhone.trim() || undefined,
         holderName: form.holderName.trim() || undefined,
+        hasReceipt: !!file,
       });
       // El comprobante se sube después: recién con la compra creada tenemos el id que
       // habilita la subida.
@@ -660,16 +742,23 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
               <Field placeholder="Nombre completo *" value={form.buyerName} onChange={(v) => setForm({ ...form, buyerName: v })} />
               <Field placeholder="Email (recibís tus números acá)" type="email" value={form.buyerEmail} onChange={(v) => setForm({ ...form, buyerEmail: v })} />
               <Field placeholder="WhatsApp — ej: 1139554443" value={form.buyerPhone} onChange={(v) => setForm({ ...form, buyerPhone: v })} />
-              <Field placeholder="Titular de la cuenta que transfirió (opcional)" value={form.holderName} onChange={(v) => setForm({ ...form, holderName: v })} />
+            </div>
 
+            <div className="mt-4 rounded-xl p-4" style={{ border: `1px solid ${LINE}` }}>
+              <p className="mb-3 text-[12.5px]" style={{ color: 'rgba(255,255,255,.65)' }}>
+                Para validar que la transferencia llegó necesitamos <b style={{ color: GREEN }}>una de las dos</b>:
+                el comprobante o el nombre de quien transfirió.
+              </p>
               <label
                 className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-[13.5px] font-black text-black"
                 style={{ background: GREEN }}
               >
                 <Upload className="h-4 w-4" />
-                {file ? file.name.slice(0, 28) : 'SUBÍ EL COMPROBANTE (opcional)'}
+                {file ? file.name.slice(0, 28) : 'SUBÍ EL COMPROBANTE'}
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
               </label>
+              <div className="my-2.5 text-center text-[11.5px] font-bold" style={{ color: 'rgba(255,255,255,.4)' }}>O BIEN</div>
+              <Field placeholder="Nombre de quien hizo la transferencia" value={form.holderName} onChange={(v) => setForm({ ...form, holderName: v })} />
             </div>
 
             {error && <p className="mt-2.5 text-[13.5px]" style={{ color: '#ffb4a2' }}>{error}</p>}

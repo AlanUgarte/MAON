@@ -110,6 +110,15 @@ export class SorteoService {
       throw new BadRequestException('Dejanos un email o un WhatsApp para poder avisarte');
     }
 
+    // Sin comprobante ni titular no hay forma de cruzar la transferencia con la compra,
+    // así que se pide al menos uno. Es un chequeo de datos completos, no de seguridad:
+    // el filtro real sigue siendo que un admin aprueba a mano cada compra.
+    if (!dto.holderName?.trim() && !dto.hasReceipt) {
+      throw new BadRequestException(
+        'Adjuntá el comprobante o escribí el nombre de quien hizo la transferencia',
+      );
+    }
+
     const pkg = await this.prisma.sorteoPackage.findFirst({ where: { id: dto.packageId, isActive: true } });
     if (!pkg) throw new BadRequestException('El paquete elegido ya no está disponible');
 

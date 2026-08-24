@@ -14,6 +14,9 @@ export class CreateSorteoOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) buyerPhone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) receiptUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) holderName?: string;
+  /** El comprador eligió un comprobante para subir — se adjunta con POST /orders/:id/receipt
+   * apenas se crea la compra, porque la subida necesita el id de la orden. */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() hasReceipt?: boolean;
 }
 
 export class UpdateSorteoSettingsDto {

@@ -353,7 +353,7 @@ function ConfigTab({ settings }: { settings: ReturnType<typeof useSorteoSettings
       <Card>
         <CardHeader><CardTitle>Foto y video del premio</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <ImageField label="Foto de la moto" urls={s.images} onChange={(urls) => set({ images: urls })} max={1} />
+          <ImageField label="Fotos de la moto (se ven abajo del video, se agrandan al tocarlas)" urls={s.images} onChange={(urls) => set({ images: urls })} max={6} />
           <VideoField url={s.videoUrl} onChange={(url) => set({ videoUrl: url })} />
         </CardContent>
       </Card>
