@@ -1234,7 +1234,7 @@ model SorteoSettings {
   /// Rango de numeros del sorteo: 1..totalNumbers.
   totalNumbers   Int      @default(10000)
   drawDate       String   @default("")
-  drawWhere      String   @default("QUINIELA NACIONAL NOCTURNA")
+  drawWhere      String   @default("QUINIELA DE SANTA FE - LA PREVIA")
   /// Premios secundarios: numeros fijos que elige el admin de antemano.
   blessedNumbers Int[]    @default([])
   blessedPrize   String   @default("")
