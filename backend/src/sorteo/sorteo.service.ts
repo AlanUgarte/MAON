@@ -52,9 +52,15 @@ export class SorteoService {
     ]);
     const soldBlessed = new Set(blessedSold.map((n) => n.number));
     return {
+      brandName: s.brandName,
       title: s.title,
       prize: s.prize,
       images: s.images,
+      videoUrl: s.videoUrl,
+      email: s.email,
+      instagramUrl: s.instagramUrl,
+      facebookUrl: s.facebookUrl,
+      tiktokUrl: s.tiktokUrl,
       drawDate: s.drawDate,
       drawWhere: s.drawWhere,
       blessedPrize: s.blessedPrize,

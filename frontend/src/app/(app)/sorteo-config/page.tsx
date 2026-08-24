@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import {
-  ClipboardList, Search, Trophy, Settings, ExternalLink, Check, X, Upload, Trash2, Ticket, Plus,
+  ClipboardList, Search, Trophy, Settings, ExternalLink, Check, X, Upload, Trash2, Ticket, Plus, Video,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { api, uploadImage } from '@/lib/api';
+import { api, uploadImage, uploadLargeFile } from '@/lib/api';
 import {
   useSorteoOrders, useSorteoPackages, useSorteoSettings,
   type SorteoOrder, type SorteoOrderStatus, type SorteoSettings,
@@ -332,7 +332,8 @@ function ConfigTab({ settings }: { settings: ReturnType<typeof useSorteoSettings
       <Card>
         <CardHeader><CardTitle>El sorteo</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <LabeledInput label="Título de la página" value={s.title} onChange={(v) => set({ title: v })} />
+          <LabeledInput label="Titular de la portada" value={s.title} onChange={(v) => set({ title: v })} placeholder="COMPRÁ QUE SE VAN VOLANDO!" />
+          <p className="text-[11.5px] text-muted">La última palabra se resalta en verde.</p>
           <LabeledInput label="Premio principal" value={s.prize} onChange={(v) => set({ prize: v })} />
           <LabeledInput label="Cuándo se sortea" value={s.drawDate} onChange={(v) => set({ drawDate: v })} placeholder="5 de septiembre de 2026" />
           <LabeledInput label="Dónde se ve el ganador" value={s.drawWhere} onChange={(v) => set({ drawWhere: v })} placeholder="Quiniela de Buenos Aires — La Previa 10:15 hs" />
@@ -350,9 +351,22 @@ function ConfigTab({ settings }: { settings: ReturnType<typeof useSorteoSettings
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Fotos del premio</CardTitle></CardHeader>
-        <CardContent>
-          <ImageField label="" urls={s.images} onChange={(urls) => set({ images: urls })} max={8} />
+        <CardHeader><CardTitle>Foto y video del premio</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <ImageField label="Foto de la moto" urls={s.images} onChange={(urls) => set({ images: urls })} max={1} />
+          <VideoField url={s.videoUrl} onChange={(url) => set({ videoUrl: url })} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Marca y contacto</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <LabeledInput label="Nombre de la marca" value={s.brandName} onChange={(v) => set({ brandName: v })} placeholder="TREBOL MOTOS" />
+          <p className="text-[11.5px] text-muted">La primera palabra se muestra en verde en el logo.</p>
+          <LabeledInput label="Email de contacto" value={s.email} onChange={(v) => set({ email: v })} placeholder="info@trebolmotos.com.ar" />
+          <LabeledInput label="Instagram (link)" value={s.instagramUrl} onChange={(v) => set({ instagramUrl: v })} placeholder="https://instagram.com/..." />
+          <LabeledInput label="Facebook (link)" value={s.facebookUrl} onChange={(v) => set({ facebookUrl: v })} placeholder="https://facebook.com/..." />
+          <LabeledInput label="TikTok (link)" value={s.tiktokUrl} onChange={(v) => set({ tiktokUrl: v })} placeholder="https://tiktok.com/@..." />
         </CardContent>
       </Card>
 
@@ -533,6 +547,46 @@ function ImageField({
           </label>
         )}
       </div>
+      {error && <p className="text-[13px] text-rose">{error}</p>}
+    </div>
+  );
+}
+
+/** El video va directo del navegador a Vercel Blob: no pasa por la función
+ * serverless, que tiene un tope de body de ~4.5MB. */
+function VideoField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const [pct, setPct] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setPct(0); setError(null);
+    try {
+      onChange(await uploadLargeFile(file, setPct));
+    } catch (e: any) { setError(e?.message || 'No se pudo subir el video'); }
+    finally { setPct(null); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-[11px] uppercase tracking-wide text-muted">Video de la moto</label>
+      {url ? (
+        <div className="space-y-2">
+          <video src={url} controls className="w-full max-w-[320px] rounded-lg" />
+          <Button variant="danger" size="sm" onClick={() => onChange('')}>
+            <Trash2 className="h-3.5 w-3.5" /> Quitar video
+          </Button>
+        </div>
+      ) : (
+        <label className="flex h-20 w-full max-w-[320px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line/30 text-[12px] text-muted hover:bg-surface-2">
+          <Video className="h-5 w-5" />
+          {pct === null ? 'Subir video (mp4, hasta 200MB)' : `Subiendo… ${pct}%`}
+          <input
+            type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden"
+            onChange={(e) => pick(e.target.files?.[0])}
+          />
+        </label>
+      )}
       {error && <p className="text-[13px] text-rose">{error}</p>}
     </div>
   );

@@ -25,6 +25,12 @@ export class UpdateSorteoSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) drawWhere?: string;
   @ApiPropertyOptional() @IsOptional() @IsArray() @IsInt({ each: true }) blessedNumbers?: number[];
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) blessedPrize?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) brandName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) videoUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(160) email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instagramUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) facebookUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) tiktokUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) paymentAlias?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) paymentHolder?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) whatsappNumber?: string;

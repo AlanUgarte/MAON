@@ -1,34 +1,67 @@
 'use client';
 
-// Landing pública del sorteo — identidad propia (negro verdoso + verde neón, la suerte),
-// independiente del tema del CRM, mismo criterio que /insumos y /vyno: colores acá adentro.
+// Landing pública del sorteo — identidad propia (negro + verde trébol), independiente
+// del tema del CRM, mismo criterio que /insumos y /vyno: colores hardcodeados acá.
 // El flujo es: elegir paquete -> transferir al alias -> cargar el comprobante. Los
 // números NO se asignan al comprar: se asignan cuando el admin verifica el pago.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Clover, ShoppingCart, Trophy, Copy, Check, X, Upload, Search, Loader2, ChevronLeft, ChevronRight,
+  Clover, Trophy, Copy, Check, X, Upload, Search, Loader2, Play, ShieldCheck, Lock,
+  Ticket, CreditCard, Smartphone, ShoppingCart, Mail, Instagram, Facebook, Music2, MessageCircle,
 } from 'lucide-react';
 import { api, uploadSorteoReceipt } from '@/lib/api';
 
-const BLACK = '#05100a';
-const PANEL = '#0e1b13';
+const BG = '#050705';
+const PANEL = '#0d110d';
+const PANEL_2 = '#141a14';
 const LINE = 'rgba(255,255,255,0.09)';
-const GREEN = '#2ee06a';
-const GREEN_DARK = '#12833f';
+const GREEN = '#7ee23e';
+const GREEN_SOFT = '#a8ef70';
 const WHATSAPP = '#22c55e';
-const GOLD = '#ffd75e';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
+const miles = (n: number) => Number(n).toLocaleString('es-AR');
 
 interface Pkg { id: string; chances: number; price: number; isPopular: boolean }
 interface PublicSorteo {
-  title: string; prize: string; images: string[]; drawDate: string; drawWhere: string;
+  brandName: string; title: string; prize: string; images: string[]; videoUrl: string;
+  drawDate: string; drawWhere: string;
   blessedPrize: string; blessedNumbers: { number: number; sold: boolean }[];
   paymentAlias: string; paymentHolder: string; whatsappNumber: string;
+  email: string; instagramUrl: string; facebookUrl: string; tiktokUrl: string;
   isActive: boolean; totalNumbers: number; sold: number; percentSold: number;
   packages: Pkg[];
   winners: { id: string; name: string; number: number | null; prize: string; photoUrl: string | null; note: string | null }[];
 }
+
+const NAV = [
+  { label: 'Inicio', href: '#inicio' },
+  { label: 'Cómo funciona', href: '#como-funciona' },
+  { label: 'Premios', href: '#premios' },
+  { label: 'Preguntas frecuentes', href: '#faq' },
+  { label: 'Contacto', href: '#contacto' },
+];
+
+const TRUST = [
+  { icon: ShieldCheck, l1: 'SORTEO', l2: 'TRANSPARENTE' },
+  { icon: Lock, l1: 'COMPRA 100%', l2: 'SEGURA' },
+  { icon: Clover, l1: 'MUCHA SUERTE', l2: 'Y SIEMPRE CON FE' },
+  { icon: Play, l1: 'SORTEO', l2: 'EN VIVO' },
+];
+
+const FEATURES = [
+  { icon: Ticket, title: 'NÚMEROS AL INSTANTE', body: 'Recibí tus números apenas verificamos tu pago.' },
+  { icon: CreditCard, title: 'MEDIOS DE PAGO', body: 'Transferencia bancaria al alias, simple y directo.' },
+  { icon: Smartphone, title: '100% ONLINE', body: 'Desde donde estés, fácil y rápido.' },
+  { icon: ShieldCheck, title: 'SORTEO EN VIVO', body: 'Transmitimos el sorteo en nuestras redes.' },
+];
+
+const STEPS = [
+  { n: 1, icon: ShoppingCart, title: 'ELEGÍ TUS CHANCES', body: 'Seleccioná la cantidad de números que quieras.' },
+  { n: 2, icon: CreditCard, title: 'TRANSFERÍ', body: 'Pagá al alias y cargá el comprobante.' },
+  { n: 3, icon: Ticket, title: 'RECIBÍ TUS NÚMEROS', body: 'Te los asignamos al azar apenas verificamos el pago.' },
+  { n: 4, icon: Clover, title: '¡PARTICIPÁS!', body: 'Y ya estás jugando por el premio.' },
+];
 
 export default function SorteoPage() {
   const [data, setData] = useState<PublicSorteo | null>(null);
@@ -36,125 +69,196 @@ export default function SorteoPage() {
   const [buying, setBuying] = useState<Pkg | null>(null);
 
   useEffect(() => {
-    api.sorteoPublic()
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    api.sorteoPublic().then(setData).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: BLACK, color: '#fff' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: BG }}>
         <Loader2 className="h-6 w-6 animate-spin" style={{ color: GREEN }} />
       </div>
     );
   }
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6 text-center" style={{ background: BLACK, color: '#fff' }}>
+      <div className="flex min-h-screen items-center justify-center px-6 text-center" style={{ background: BG, color: '#fff' }}>
         No pudimos cargar el sorteo. Probá de nuevo en un rato.
       </div>
     );
   }
 
   const wa = `https://wa.me/${data.whatsappNumber}`;
+  const scrollToPacks = () => document.getElementById('chances')?.scrollIntoView({ behavior: 'smooth' });
 
   return (
-    <div style={{ background: BLACK, color: '#f2f2f5', minHeight: '100vh' }}>
-      <header
-        className="sticky top-0 z-30 backdrop-blur"
-        style={{ background: 'rgba(5,16,10,.92)', borderBottom: `1px solid ${LINE}` }}
-      >
-        <div className="mx-auto flex h-[62px] max-w-[1180px] items-center justify-between px-4">
-          <a href="#inicio" className="flex items-center gap-2 font-extrabold tracking-tight" style={{ color: GREEN }}>
-            <Clover className="h-5 w-5" fill="currentColor" /> SORTEO
-          </a>
-          <nav className="flex gap-5 text-[14px]" style={{ color: 'rgba(255,255,255,.6)' }}>
-            <a href="#inicio">Inicio</a>
-            <a href="#consulta">Mis números</a>
-            <a href="#ganadores">Ganadores</a>
-          </nav>
-        </div>
-      </header>
+    <div style={{ background: BG, color: '#f4f6f4', minHeight: '100vh' }}>
+      <Header brand={data.brandName} onCta={scrollToPacks} />
 
-      <main className="mx-auto max-w-[1180px] px-4">
-        <section id="inicio" className="grid gap-10 py-12 lg:grid-cols-2">
+      <main className="mx-auto max-w-[1500px] px-4 sm:px-6">
+        {/* ------------------------------ hero ------------------------------ */}
+        <section id="inicio" className="grid gap-8 py-8 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:py-10">
           <div>
-            <Carousel images={data.images} />
-            <h1
-              className="mt-6 text-center text-[clamp(22px,3vw,34px)] font-black uppercase"
-              style={{ color: GREEN, textShadow: '0 0 18px rgba(46,224,106,.5)' }}
-            >{data.title}</h1>
-            <p className="mt-2 text-center text-[14px] font-semibold tracking-wide" style={{ color: GOLD }}>
-              🍀 Mucha suerte y siempre con fe 🍀
+            <span
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[12px] font-bold tracking-wide"
+              style={{ borderColor: GREEN, color: GREEN }}
+            ><Clover className="h-3.5 w-3.5" fill="currentColor" /> SORTEO OFICIAL</span>
+
+            <h1 className="mt-5 text-[clamp(38px,5.2vw,66px)] font-black uppercase leading-[0.95] tracking-tight">
+              <Headline text={data.title} />
+            </h1>
+
+            <p className="mt-4 max-w-[380px] text-[17px] leading-snug" style={{ color: 'rgba(255,255,255,.75)' }}>
+              Participá por la <b style={{ color: GREEN }}>{data.prize}</b> y hacé realidad tu sueño.
+            </p>
+
+            <div className="mt-7 flex flex-wrap gap-x-2 gap-y-4">
+              {TRUST.map((t, i) => {
+                const Icon = t.icon;
+                return (
+                  <div
+                    key={t.l1 + t.l2}
+                    className="flex min-w-[90px] flex-1 flex-col items-center gap-2 px-2 text-center"
+                    style={i ? { borderLeft: `1px solid ${LINE}` } : undefined}
+                  >
+                    <Icon className="h-6 w-6" style={{ color: GREEN }} />
+                    <span className="text-[10.5px] font-bold leading-tight tracking-wide" style={{ color: 'rgba(255,255,255,.8)' }}>
+                      {t.l1}<br />{t.l2}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={scrollToPacks}
+              className="mt-7 flex w-full items-center justify-center gap-2.5 rounded-xl py-4 text-[17px] font-black tracking-wide text-black transition hover:brightness-110 sm:max-w-[330px]"
+              style={{ background: GREEN, boxShadow: `0 0 34px rgba(126,226,62,.35)` }}
+            >
+              <Clover className="h-5 w-5" fill="currentColor" /> PARTICIPAR AHORA <Clover className="h-5 w-5" fill="currentColor" />
+            </button>
+            <p className="mt-3 flex items-center gap-1.5 text-[12px]" style={{ color: 'rgba(255,255,255,.45)' }}>
+              <ShieldCheck className="h-3.5 w-3.5" /> Sitio seguro con encriptación SSL
             </p>
           </div>
 
-          <div>
-            <h2 className="mb-5 text-[clamp(20px,2.4vw,30px)] font-extrabold">Comprá que se van volando!</h2>
-
-            <Panel className="text-center">
-              <h3 className="mb-3.5 text-[15px] font-bold">Chances vendidas</h3>
-              <div className="relative flex h-[26px] items-center overflow-hidden rounded-full" style={{ background: '#1a2a20' }}>
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-                  style={{ width: `${Math.max(data.percentSold, 2)}%`, background: 'linear-gradient(90deg,#12833f,#2ee06a,#ffd75e)' }}
-                />
-                <b className="relative mx-auto text-[13px]">{data.percentSold}%</b>
-              </div>
-            </Panel>
-
-            {!data.isActive && (
-              <Panel><p className="text-center font-bold" style={{ color: GOLD }}>El sorteo está cerrado por el momento.</p></Panel>
-            )}
-
-            {data.packages.map((p) => (
-              <Panel key={p.id} highlighted={p.isPopular}>
-                {p.isPopular && (
-                  <span
-                    className="absolute -top-[11px] left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-extrabold tracking-wider"
-                    style={{ background: GREEN, color: '#fff' }}
-                  >MÁS POPULAR</span>
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-[22px] font-extrabold">{p.chances} Chances</h3>
-                    <small className="font-bold" style={{ color: GREEN }}>{p.chances} Chances por la {data.prize}</small>
-                  </div>
-                  <div className="text-right">
-                    <span className="mb-2 block text-[26px] font-black" style={{ color: GREEN }}>{money(p.price)}</span>
-                    <button
-                      onClick={() => setBuying(p)}
-                      disabled={!data.isActive}
-                      className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[15px] font-bold text-white transition disabled:opacity-40"
-                      style={{ background: GREEN }}
-                    ><ShoppingCart className="h-4 w-4" /> Comprar</button>
-                  </div>
-                </div>
-              </Panel>
-            ))}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <MediaPanel label="IMAGEN REAL">
+              {data.images[0]
+                ? <img src={data.images[0]} alt={data.prize} className="h-full w-full object-cover" />
+                : <Placeholder text="Subí la foto de la moto desde el panel del CRM" />}
+            </MediaPanel>
+            <MediaPanel label="VIDEO REAL" live={!!data.videoUrl}>
+              {data.videoUrl
+                ? <VideoPlayer src={data.videoUrl} poster={data.images[0]} />
+                : <Placeholder text="Subí el video de la moto desde el panel del CRM" />}
+            </MediaPanel>
           </div>
         </section>
 
-        <section className="py-14">
-          <h2 className="mb-8 text-center text-[clamp(26px,4vw,42px)] font-black">Premios</h2>
-          <div className="mx-auto grid max-w-[760px] gap-5 sm:grid-cols-2">
-            <Box>
-              <div className="mb-3 font-extrabold" style={{ color: GOLD }}>1er Premio</div>
-              <h3 className="text-[24px] font-black">{data.prize}</h3>
-            </Box>
-            {!!data.blessedNumbers.length && (
-              <Box>
-                <div className="font-extrabold" style={{ color: GOLD }}>🏆 PREMIOS SECUNDARIOS</div>
-                <div className="mb-3 font-extrabold" style={{ color: GOLD }}>NÚMEROS BENDECIDOS 🙏</div>
+        {/* ------------------------ chances + paquetes ------------------------ */}
+        <section id="chances" className="grid gap-5 pb-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+          <div className="rounded-2xl p-6" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+            <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div>
+                <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black tracking-wide">
+                  <Clover className="h-4 w-4" style={{ color: GREEN }} fill="currentColor" /> CHANCES VENDIDAS
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="relative h-[34px] flex-1 overflow-hidden rounded-full" style={{ background: PANEL_2, border: `1px solid ${LINE}` }}>
+                    <span
+                      className="absolute inset-y-[3px] left-[3px] rounded-full transition-all duration-700"
+                      style={{
+                        width: `calc(${Math.max(data.percentSold, 1.5)}% - 6px)`,
+                        background: `linear-gradient(90deg, #4bb814, ${GREEN})`,
+                        boxShadow: `0 0 18px rgba(126,226,62,.45)`,
+                      }}
+                    />
+                    <b className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px]">{data.percentSold}%</b>
+                  </div>
+                </div>
+                <p className="mt-3 text-[19px] font-black">
+                  <span style={{ color: GREEN }}>{miles(data.sold)}</span>
+                  <span style={{ color: 'rgba(255,255,255,.5)' }}> / {miles(data.totalNumbers)}</span>
+                </p>
+              </div>
+              <div className="sm:max-w-[240px]">
+                <h4 className="text-[15px] font-black" style={{ color: GREEN }}>¡VAMOS POR MÁS!</h4>
+                <p className="mt-2 text-[13.5px] leading-snug" style={{ color: 'rgba(255,255,255,.7)' }}>
+                  Cada chance acerca más al ganador.<br />No te quedes afuera.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {data.packages.length ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {data.packages.map((p) => <PackageCard key={p.id} pkg={p} disabled={!data.isActive} onBuy={() => setBuying(p)} />)}
+            </div>
+          ) : (
+            <div className="grid place-items-center rounded-2xl p-8 text-center text-[13.5px]" style={{ background: PANEL, border: `1px solid ${LINE}`, color: 'rgba(255,255,255,.5)' }}>
+              Cargá los paquetes de chances desde el panel del CRM (pestaña Sorteo → Configuración).
+            </div>
+          )}
+        </section>
+
+        {/* --------------------------- franja features --------------------------- */}
+        <section className="mb-10 grid gap-6 rounded-2xl px-6 py-6 sm:grid-cols-2 lg:grid-cols-4" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+          {FEATURES.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.title} className="flex gap-3.5 lg:px-2" style={i ? { borderLeft: `1px solid ${LINE}` } : undefined}>
+                <Icon className="h-8 w-8 shrink-0" style={{ color: GREEN, marginLeft: i ? 14 : 0 }} strokeWidth={1.5} />
+                <div>
+                  <h4 className="text-[13.5px] font-black tracking-wide">{f.title}</h4>
+                  <p className="mt-1 text-[12.5px] leading-snug" style={{ color: 'rgba(255,255,255,.6)' }}>{f.body}</p>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        {/* ---------------------------- cómo funciona ---------------------------- */}
+        <section id="como-funciona" className="py-12">
+          <h2 className="mb-8 flex items-center justify-center gap-3 text-center text-[clamp(24px,3.4vw,36px)] font-black">
+            <Clover className="h-7 w-7" style={{ color: GREEN }} fill="currentColor" /> ¿CÓMO FUNCIONA?
+          </h2>
+          <div className="grid gap-4 rounded-2xl p-6 sm:grid-cols-2 lg:grid-cols-4" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+            {STEPS.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.n} className="flex flex-col items-center gap-2 px-3 text-center">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-black text-black" style={{ background: GREEN }}>{s.n}</span>
+                    <Icon className="h-7 w-7" style={{ color: GREEN }} strokeWidth={1.5} />
+                  </div>
+                  <h4 className="mt-1 text-[13.5px] font-black tracking-wide">{s.title}</h4>
+                  <p className="text-[12.5px] leading-snug" style={{ color: 'rgba(255,255,255,.6)' }}>{s.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* -------------------------------- premios -------------------------------- */}
+        <section id="premios" className="py-12">
+          <h2 className="mb-8 text-center text-[clamp(24px,3.4vw,36px)] font-black">PREMIOS</h2>
+          <div className="mx-auto grid max-w-[820px] gap-5 sm:grid-cols-2">
+            <div className="rounded-2xl p-7 text-center" style={{ background: PANEL, border: `1px solid ${GREEN}` }}>
+              <div className="mb-3 text-[13px] font-black tracking-widest" style={{ color: GREEN }}>1ER PREMIO</div>
+              <h3 className="text-[26px] font-black uppercase">{data.prize}</h3>
+            </div>
+            {data.blessedNumbers.length ? (
+              <div className="rounded-2xl p-7 text-center" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                <div className="text-[13px] font-black tracking-widest" style={{ color: GREEN }}>PREMIOS SECUNDARIOS</div>
+                <div className="mb-3 mt-1 text-[13px] font-black tracking-widest" style={{ color: GREEN_SOFT }}>NÚMEROS BENDECIDOS 🍀</div>
                 <div className="mb-3 flex flex-wrap justify-center gap-2.5">
                   {data.blessedNumbers.map((b) => (
                     <span
                       key={b.number}
-                      className="rounded-[10px] border-2 px-4 py-2 text-[20px] font-extrabold"
+                      className="rounded-[10px] border-2 px-4 py-2 text-[20px] font-black"
                       style={b.sold
                         ? { borderColor: LINE, color: 'rgba(255,255,255,.35)', textDecoration: 'line-through' }
-                        : { borderColor: GOLD, color: GOLD, background: 'rgba(255,215,94,.06)' }}
+                        : { borderColor: GREEN, color: GREEN, background: 'rgba(126,226,62,.07)' }}
                     >{b.number}</span>
                   ))}
                 </div>
@@ -163,48 +267,58 @@ export default function SorteoPage() {
                     Si te toca alguno de estos números ganás <b style={{ color: '#fff' }}>{data.blessedPrize}</b> 🎁
                   </p>
                 )}
-              </Box>
+              </div>
+            ) : (
+              <div className="grid place-items-center rounded-2xl p-7 text-center text-[13.5px]" style={{ background: PANEL, border: `1px solid ${LINE}`, color: 'rgba(255,255,255,.5)' }}>
+                Los números bendecidos se cargan desde el panel del CRM.
+              </div>
             )}
           </div>
         </section>
 
-        <section className="py-14">
-          <h2 className="mb-8 text-center text-[clamp(26px,4vw,42px)] font-black">Preguntas frecuentes</h2>
-          <div className="mx-auto max-w-[700px]">
-            <Faq q="¿Cuándo se realiza el evento?" a={data.drawDate || 'A confirmar'} />
+        {/* ---------------------------------- faq ---------------------------------- */}
+        <section id="faq" className="py-12">
+          <h2 className="mb-8 text-center text-[clamp(24px,3.4vw,36px)] font-black">PREGUNTAS FRECUENTES</h2>
+          <div className="mx-auto max-w-[760px] space-y-4">
+            <Faq q="¿Cuándo se realiza el sorteo?" a={data.drawDate || 'A confirmar'} />
             <Faq q="¿En dónde vemos el ganador?" a={data.drawWhere || 'A confirmar'} />
-            <Faq
-              q="¿Cómo recibo mis números?"
-              a="Apenas verificamos tu transferencia te asignamos los números al azar y te avisamos. También podés consultarlos acá abajo con tu email o tu WhatsApp."
-            />
+            <Faq q="¿Cómo recibo mis números?" a="Apenas verificamos tu transferencia te asignamos los números al azar y te avisamos. También podés consultarlos acá abajo con tu email o tu WhatsApp." />
+            <Faq q="¿Cómo pago?" a={`Por transferencia bancaria al alias ${data.paymentAlias}. Después cargás el comprobante en el formulario de compra.`} />
           </div>
+        </section>
+
+        {/* ------------------------------- banda CTA ------------------------------- */}
+        <section className="mb-12 flex flex-wrap items-center justify-between gap-5 rounded-2xl px-7 py-6" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+          <div className="flex items-center gap-4">
+            <Clover className="h-11 w-11" style={{ color: GREEN }} fill="currentColor" />
+            <div>
+              <h3 className="text-[21px] font-black">NO TE QUEDES AFUERA</h3>
+              <p className="text-[13.5px]" style={{ color: 'rgba(255,255,255,.6)' }}>Tu próximo gran cambio puede empezar hoy.</p>
+            </div>
+          </div>
+          <button
+            onClick={scrollToPacks}
+            className="flex items-center gap-2.5 rounded-xl px-9 py-4 text-[16px] font-black tracking-wide text-black transition hover:brightness-110"
+            style={{ background: GREEN }}
+          ><Clover className="h-5 w-5" fill="currentColor" /> PARTICIPAR AHORA <Clover className="h-5 w-5" fill="currentColor" /></button>
         </section>
 
         <Consulta />
 
         {!!data.winners.length && (
-          <section id="ganadores" className="py-14">
-            <div className="mb-2 flex justify-center">
-              <Trophy className="h-8 w-8" style={{ color: GOLD }} />
-            </div>
-            <h2 className="text-center text-[clamp(26px,4vw,42px)] font-black">Ganadores anteriores</h2>
+          <section className="py-12">
+            <div className="mb-2 flex justify-center"><Trophy className="h-8 w-8" style={{ color: GREEN }} /></div>
+            <h2 className="text-center text-[clamp(24px,3.4vw,36px)] font-black">GANADORES ANTERIORES</h2>
             <p className="mb-8 text-center text-[14px]" style={{ color: 'rgba(255,255,255,.55)' }}>
               Conocé a las personas que ya ganaron con nosotros
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {data.winners.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex gap-4 overflow-hidden rounded-2xl"
-                  style={{ background: PANEL, border: `1px solid ${LINE}` }}
-                >
-                  {w.photoUrl && <img src={w.photoUrl} alt="" className="h-full w-[130px] shrink-0 object-cover" />}
+                <div key={w.id} className="flex gap-4 overflow-hidden rounded-2xl" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                  {w.photoUrl && <img src={w.photoUrl} alt="" className="h-full w-[120px] shrink-0 object-cover" />}
                   <div className="py-4 pr-4">
-                    <span
-                      className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold"
-                      style={{ background: 'rgba(255,215,94,.12)', color: GOLD }}
-                    >🏆 Ganador</span>
-                    <h3 className="text-[20px] font-black uppercase">{w.name}</h3>
+                    <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold" style={{ background: 'rgba(126,226,62,.14)', color: GREEN }}>🍀 Ganador</span>
+                    <h3 className="text-[18px] font-black uppercase">{w.name}</h3>
                     <p className="text-[13px]" style={{ color: 'rgba(255,255,255,.55)' }}>
                       {[w.number ? `N° ${w.number}` : null, w.prize, w.note].filter(Boolean).join(' · ')}
                     </p>
@@ -216,108 +330,240 @@ export default function SorteoPage() {
         )}
       </main>
 
-      <footer className="py-12 text-center" style={{ borderTop: `1px solid ${LINE}`, color: 'rgba(255,255,255,.55)' }}>
-        <p>Consultas 👇</p>
-        <a
-          href={wa} target="_blank" rel="noopener noreferrer"
-          className="mt-3 inline-block rounded-full px-7 py-3 font-bold text-white"
-          style={{ background: WHATSAPP }}
-        >WHATSAPP</a>
-      </footer>
+      <Footer data={data} wa={wa} />
 
       {buying && <BuyModal pkg={buying} data={data} onClose={() => setBuying(null)} />}
     </div>
   );
 }
 
-// ------------------------------ piezas ------------------------------
+// ------------------------------ header / footer ------------------------------
 
-function Panel({ children, className = '', highlighted }: { children: React.ReactNode; className?: string; highlighted?: boolean }) {
+function Header({ brand, onCta }: { brand: string; onCta: () => void }) {
+  const [first, ...rest] = (brand || 'TREBOL MOTOS').split(' ');
   return (
-    <div
-      className={`relative mb-4 rounded-2xl px-5 py-[18px] ${className}`}
-      style={{
-        background: PANEL,
-        border: `2px solid ${GREEN}`,
-        boxShadow: highlighted ? '0 0 30px rgba(46,224,106,.32)' : '0 0 22px rgba(46,224,106,.16)',
-      }}
-    >{children}</div>
+    <header className="sticky top-0 z-30 backdrop-blur" style={{ background: 'rgba(5,7,5,.94)', borderBottom: `1px solid ${LINE}` }}>
+      <div className="mx-auto flex h-[76px] max-w-[1500px] items-center gap-6 px-4 sm:px-6">
+        <a href="#inicio" className="flex items-center gap-2.5">
+          <Clover className="h-8 w-8" style={{ color: GREEN }} fill="currentColor" />
+          <span className="text-[24px] font-black tracking-tight">
+            <span style={{ color: GREEN }}>{first}</span>{rest.length ? ' ' + rest.join(' ') : ''}
+          </span>
+        </a>
+
+        <nav className="mx-auto hidden items-center gap-7 text-[14px] lg:flex">
+          {NAV.map((n, i) => (
+            <a
+              key={n.href} href={n.href}
+              className="transition hover:text-white"
+              style={i === 0
+                ? { color: GREEN, borderBottom: `2px solid ${GREEN}`, paddingBottom: 2 }
+                : { color: 'rgba(255,255,255,.75)' }}
+            >{n.label}</a>
+          ))}
+        </nav>
+
+        <button
+          onClick={onCta}
+          className="ml-auto flex items-center gap-2 rounded-xl px-5 py-3 text-[13.5px] font-black tracking-wide text-black transition hover:brightness-110 lg:ml-0"
+          style={{ background: GREEN }}
+        >PARTICIPAR AHORA <Clover className="h-4 w-4" fill="currentColor" /></button>
+      </div>
+    </header>
   );
 }
 
-function Box({ children }: { children: React.ReactNode }) {
+function Footer({ data, wa }: { data: PublicSorteo; wa: string }) {
+  const [first, ...rest] = (data.brandName || 'TREBOL MOTOS').split(' ');
+  const socials = [
+    { url: data.instagramUrl, icon: Instagram, label: 'Instagram' },
+    { url: data.facebookUrl, icon: Facebook, label: 'Facebook' },
+    { url: data.tiktokUrl, icon: Music2, label: 'TikTok' },
+  ].filter((s) => s.url);
+
   return (
-    <div className="rounded-2xl p-6 text-center" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+    <footer id="contacto" className="relative overflow-hidden" style={{ borderTop: `1px solid ${LINE}` }}>
+      <Clover
+        className="pointer-events-none absolute -bottom-6 right-4 h-40 w-40 opacity-25"
+        style={{ color: GREEN }} strokeWidth={1}
+      />
+      <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <Clover className="h-8 w-8" style={{ color: GREEN }} fill="currentColor" />
+            <span className="text-[22px] font-black tracking-tight">
+              <span style={{ color: GREEN }}>{first}</span>{rest.length ? ' ' + rest.join(' ') : ''}
+            </span>
+          </div>
+          <p className="mt-3 text-[13px] leading-snug" style={{ color: 'rgba(255,255,255,.55)' }}>
+            Mucho más que un sorteo,<br />una oportunidad real.
+          </p>
+        </div>
+
+        {!!socials.length && (
+          <div>
+            <h4 className="text-[12px] font-black tracking-widest" style={{ color: 'rgba(255,255,255,.55)' }}>SEGUINOS</h4>
+            <div className="mt-3 flex gap-3">
+              {socials.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <a
+                    key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label}
+                    className="flex h-9 w-9 items-center justify-center rounded-full transition hover:brightness-125"
+                    style={{ border: `1px solid ${LINE}`, color: GREEN }}
+                  ><Icon className="h-4 w-4" /></a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <h4 className="text-[12px] font-black tracking-widest" style={{ color: 'rgba(255,255,255,.55)' }}>INFORMACIÓN</h4>
+          <ul className="mt-3 space-y-1.5 text-[13px]" style={{ color: 'rgba(255,255,255,.7)' }}>
+            <li><a href="#como-funciona">Cómo funciona</a></li>
+            <li><a href="#faq">Preguntas frecuentes</a></li>
+            <li><a href="#premios">Premios</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="text-[12px] font-black tracking-widest" style={{ color: 'rgba(255,255,255,.55)' }}>CONTACTO</h4>
+          <ul className="mt-3 space-y-2 text-[13px]" style={{ color: 'rgba(255,255,255,.7)' }}>
+            <li>
+              <a href={wa} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" style={{ color: GREEN }} /> WhatsApp
+              </a>
+            </li>
+            {data.email && (
+              <li>
+                <a href={`mailto:${data.email}`} className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" style={{ color: GREEN }} /> {data.email}
+                </a>
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// -------------------------------- piezas del hero --------------------------------
+
+/** El título va en mayúsculas y con la última palabra resaltada, como el diseño. */
+function Headline({ text }: { text: string }) {
+  const words = (text || '').trim().split(/\s+/);
+  const last = words.pop() ?? '';
+  return (
+    <>
+      {words.length > 0 && <span className="block">{words.join(' ')}</span>}
+      <span className="block italic" style={{ color: GREEN }}>{last}</span>
+    </>
+  );
+}
+
+function MediaPanel({ label, live, children }: { label: string; live?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
       {children}
+      <span
+        className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-bold tracking-wide"
+        style={{ background: 'rgba(5,7,5,.85)', border: `1px solid ${LINE}`, color: 'rgba(255,255,255,.85)' }}
+      >
+        {live && <span className="h-1.5 w-1.5 rounded-full" style={{ background: GREEN }} />}
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function Placeholder({ text }: { text: string }) {
+  return (
+    <div className="grid h-full place-items-center px-6 text-center text-[12.5px]" style={{ color: 'rgba(255,255,255,.4)' }}>
+      {text}
+    </div>
+  );
+}
+
+/** Video del premio: arranca en pausa con el botón de play encima, como el diseño. */
+function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  return (
+    <div className="relative h-full w-full">
+      <video
+        ref={ref} src={src} poster={poster} controls={playing} playsInline preload="metadata"
+        className="h-full w-full object-cover"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+      {!playing && (
+        <button
+          onClick={() => ref.current?.play()}
+          aria-label="Reproducir el video"
+          className="absolute inset-0 grid place-items-center transition hover:bg-black/10"
+        >
+          <span className="flex h-[74px] w-[74px] items-center justify-center rounded-full border-[3px] border-white/90 bg-black/25 backdrop-blur">
+            <Play className="ml-1 h-8 w-8 text-white" fill="currentColor" />
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PackageCard({ pkg, disabled, onBuy }: { pkg: Pkg; disabled: boolean; onBuy: () => void }) {
+  return (
+    <div
+      className="relative flex flex-col items-center rounded-2xl px-4 pb-5 pt-7 text-center"
+      style={{
+        background: PANEL,
+        border: `1px solid ${pkg.isPopular ? GREEN : LINE}`,
+        boxShadow: pkg.isPopular ? '0 0 28px rgba(126,226,62,.25)' : undefined,
+      }}
+    >
+      {pkg.isPopular && (
+        <span
+          className="absolute -top-[11px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-black tracking-wider text-black"
+          style={{ background: GREEN }}
+        >MÁS ELEGIDO</span>
+      )}
+      <div className="flex w-full items-center justify-between gap-2">
+        <span
+          className="rounded-full px-3 py-1 text-[11.5px] font-black tracking-wide"
+          style={{ background: 'rgba(126,226,62,.14)', color: GREEN }}
+        >{pkg.chances} {pkg.chances === 1 ? 'CHANCE' : 'CHANCES'}</span>
+        <Clover className="h-5 w-5" style={{ color: GREEN }} fill="currentColor" />
+      </div>
+
+      <div className="mt-4 text-[34px] font-black leading-none">{money(pkg.price)}</div>
+      <div className="mt-1.5 text-[13px]" style={{ color: GREEN }}>
+        {pkg.chances} {pkg.chances === 1 ? 'NÚMERO' : 'NÚMEROS'}
+      </div>
+
+      <button
+        onClick={onBuy} disabled={disabled}
+        className="mt-4 w-full rounded-lg py-2.5 text-[13.5px] font-black tracking-wide transition disabled:opacity-40"
+        style={pkg.isPopular
+          ? { background: GREEN, color: '#000' }
+          : { border: `1px solid ${GREEN}`, color: '#fff' }}
+      >COMPRAR</button>
     </div>
   );
 }
 
 function Faq({ q, a }: { q: string; a: string }) {
   return (
-    <>
-      <h4 className="mb-2 mt-6 text-[11px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,.5)' }}>{q}</h4>
-      <div
-        className="rounded-2xl px-5 py-4 text-center font-bold"
-        style={{ background: PANEL, border: `2px solid ${GREEN}` }}
-      >{a}</div>
-    </>
-  );
-}
-
-function Carousel({ images }: { images: string[] }) {
-  const [i, setI] = useState(0);
-  const go = (d: number) => setI((prev) => (prev + d + images.length) % images.length);
-
-  useEffect(() => {
-    if (images.length < 2) return;
-    const t = setInterval(() => setI((prev) => (prev + 1) % images.length), 6000);
-    return () => clearInterval(t);
-  }, [images.length]);
-
-  return (
-    <div>
-      <div className="relative aspect-[3/4] overflow-hidden rounded-[18px]" style={{ background: PANEL }}>
-        <span
-          className="absolute right-3.5 top-3.5 z-10 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold tracking-wider text-white"
-          style={{ background: GREEN }}
-        >🍀 PREMIO EXCLUSIVO</span>
-
-        {images.length ? (
-          <img src={images[i]} alt="Premio" className="h-full w-full object-cover" />
-        ) : (
-          <div className="grid h-full place-items-center px-6 text-center text-[13px]" style={{ color: 'rgba(255,255,255,.4)' }}>
-            Cargá las fotos del premio desde el panel del CRM (pestaña Sorteo → Configuración)
-          </div>
-        )}
-
-        {images.length > 1 && (
-          <>
-            <button onClick={() => go(-1)} aria-label="Anterior" className="absolute left-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-white" style={{ background: 'rgba(0,0,0,.6)' }}>
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button onClick={() => go(1)} aria-label="Siguiente" className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-white" style={{ background: 'rgba(0,0,0,.6)' }}>
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
-      </div>
-      {images.length > 1 && (
-        <div className="mt-3.5 flex justify-center gap-2">
-          {images.map((_, j) => (
-            <button
-              key={j} onClick={() => setI(j)} aria-label={`Foto ${j + 1}`}
-              className="h-2 w-2 rounded-full"
-              style={{ background: j === i ? GREEN : '#2c4436' }}
-            />
-          ))}
-        </div>
-      )}
+    <div className="rounded-2xl px-6 py-5" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+      <h4 className="text-[14px] font-black" style={{ color: GREEN }}>{q}</h4>
+      <p className="mt-1.5 text-[14px]" style={{ color: 'rgba(255,255,255,.75)' }}>{a}</p>
     </div>
   );
 }
 
-// ---------------------------- comprar ----------------------------
+// ---------------------------------- comprar ----------------------------------
 
 function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClose: () => void }) {
   const [form, setForm] = useState({ buyerName: '', buyerEmail: '', buyerPhone: '', holderName: '' });
@@ -358,52 +604,51 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
   return (
     <div
       className="fixed inset-0 z-50 grid overflow-y-auto p-5"
-      style={{ background: 'rgba(0,0,0,.8)', placeItems: 'center' }}
+      style={{ background: 'rgba(0,0,0,.82)', placeItems: 'center' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-[430px] rounded-2xl p-6" style={{ background: '#0a1610', border: `1px solid ${LINE}` }}>
+      <div className="relative w-full max-w-[440px] rounded-2xl p-6" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
         <button onClick={onClose} aria-label="Cerrar" className="absolute right-4 top-3" style={{ color: 'rgba(255,255,255,.5)' }}>
           <X className="h-5 w-5" />
         </button>
 
         {done ? (
           <div className="text-center">
-            <div className="text-[44px]">✅</div>
-            <h3 className="text-[24px] font-black" style={{ color: WHATSAPP }}>¡Listo!</h3>
-            <p className="my-3 text-[14px]" style={{ color: 'rgba(255,255,255,.6)' }}>
+            <Clover className="mx-auto h-12 w-12" style={{ color: GREEN }} fill="currentColor" />
+            <h3 className="mt-2 text-[24px] font-black" style={{ color: GREEN }}>¡LISTO!</h3>
+            <p className="my-3 text-[14px]" style={{ color: 'rgba(255,255,255,.7)' }}>
               Tu compra <b style={{ color: '#fff' }}>{done.orderNumber}</b> quedó registrada. Apenas verificamos la
               transferencia te asignamos tus {pkg.chances} números y te avisamos.
             </p>
             <a
               href={waLink} target="_blank" rel="noopener noreferrer"
-              className="block rounded-lg px-5 py-3 font-bold text-white"
+              className="block rounded-lg px-5 py-3 font-black text-white"
               style={{ background: WHATSAPP }}
             >Avisar por WhatsApp</a>
           </div>
         ) : (
           <>
-            <h3 className="text-center text-[24px] font-black uppercase">Completá tu compra</h3>
+            <h3 className="text-center text-[23px] font-black uppercase">Completá tu compra</h3>
             <p className="text-center text-[13px]" style={{ color: 'rgba(255,255,255,.55)' }}>
               Transferí y cargá el comprobante
             </p>
 
-            <div className="my-4 rounded-[10px] p-3.5 text-center" style={{ background: '#14251b' }}>
+            <div className="my-4 rounded-xl p-4 text-center" style={{ background: PANEL_2 }}>
               <div className="text-[12px]" style={{ color: 'rgba(255,255,255,.55)' }}>Total a transferir</div>
               <div className="text-[34px] font-black" style={{ color: GREEN }}>{money(pkg.price)}</div>
               <div className="text-[12px]" style={{ color: 'rgba(255,255,255,.55)' }}>{pkg.chances} chances</div>
             </div>
 
-            <div className="mb-4 rounded-[10px] p-3.5" style={{ border: `1px solid ${LINE}` }}>
+            <div className="mb-4 rounded-xl p-4" style={{ border: `1px solid ${LINE}` }}>
               <label className="mb-2 block text-[11px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,.5)' }}>Alias</label>
               <div className="flex gap-2.5">
-                <code
-                  className="flex-1 rounded-lg px-3.5 py-2.5 font-bold"
-                  style={{ background: '#14251b', border: `1px solid ${LINE}`, color: GREEN }}
-                >{data.paymentAlias}</code>
+                <code className="flex-1 rounded-lg px-3.5 py-2.5 font-bold" style={{ background: PANEL_2, border: `1px solid ${LINE}`, color: GREEN }}>
+                  {data.paymentAlias}
+                </code>
                 <button
                   onClick={() => { navigator.clipboard.writeText(data.paymentAlias); setCopied(true); setTimeout(() => setCopied(false), 1600); }}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 text-[13px] font-bold text-white"
-                  style={{ border: `1px solid ${GREEN}` }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 text-[13px] font-bold"
+                  style={{ border: `1px solid ${GREEN}`, color: GREEN }}
                 >{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? 'Copiado' : 'Copiar'}</button>
               </div>
               {data.paymentHolder && (
@@ -418,8 +663,8 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
               <Field placeholder="Titular de la cuenta que transfirió (opcional)" value={form.holderName} onChange={(v) => setForm({ ...form, holderName: v })} />
 
               <label
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-[14px] font-bold text-white"
-                style={{ background: WHATSAPP }}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-[13.5px] font-black text-black"
+                style={{ background: GREEN }}
               >
                 <Upload className="h-4 w-4" />
                 {file ? file.name.slice(0, 28) : 'SUBÍ EL COMPROBANTE (opcional)'}
@@ -435,7 +680,7 @@ function BuyModal({ pkg, data, onClose }: { pkg: Pkg; data: PublicSorteo; onClos
               </button>
               <button
                 onClick={submit} disabled={busy}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 font-bold text-white disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 font-black text-black disabled:opacity-50"
                 style={{ background: GREEN }}
               >{busy && <Loader2 className="h-4 w-4 animate-spin" />} Finalizar compra</button>
             </div>
@@ -451,12 +696,12 @@ function Field({ placeholder, value, onChange, type = 'text' }: { placeholder: s
     <input
       type={type} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
       className="w-full rounded-lg px-3.5 py-2.5 text-[15px] outline-none"
-      style={{ background: '#14251b', border: `1px solid ${LINE}`, color: '#f2f2f5' }}
+      style={{ background: PANEL_2, border: `1px solid ${LINE}`, color: '#f4f6f4' }}
     />
   );
 }
 
-// -------------------------- mis números --------------------------
+// -------------------------------- mis números --------------------------------
 
 const STATUS_TEXT: Record<string, string> = {
   PENDIENTE: 'Estamos verificando tu transferencia. Apenas la confirmemos te asignamos los números.',
@@ -478,24 +723,24 @@ function Consulta() {
   };
 
   return (
-    <section id="consulta" className="py-14">
-      <h2 className="mb-2 text-center text-[clamp(26px,4vw,42px)] font-black">Consultá tus números</h2>
+    <section id="consulta" className="py-12">
+      <h2 className="mb-2 text-center text-[clamp(24px,3.4vw,36px)] font-black">CONSULTÁ TUS NÚMEROS</h2>
       <p className="mb-6 text-center text-[14px]" style={{ color: 'rgba(255,255,255,.55)' }}>
         Buscá con el mismo email o WhatsApp que usaste al comprar
       </p>
 
-      <div className="mx-auto flex max-w-[520px] flex-wrap justify-center gap-2.5">
+      <div className="mx-auto flex max-w-[540px] flex-wrap justify-center gap-2.5">
         <input
           placeholder="Email o teléfono" value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && search()}
           className="min-w-0 flex-1 rounded-lg px-3.5 py-2.5 text-[15px] outline-none"
-          style={{ background: '#14251b', border: `1px solid ${LINE}`, color: '#f2f2f5' }}
+          style={{ background: PANEL_2, border: `1px solid ${LINE}`, color: '#f4f6f4' }}
         />
         <button
           onClick={search} disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 font-bold text-white disabled:opacity-50"
-          style={{ background: GREEN_DARK }}
+          className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 font-black text-black disabled:opacity-50"
+          style={{ background: GREEN }}
         >{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Consultar</button>
       </div>
 
@@ -508,7 +753,7 @@ function Consulta() {
       <div className="mx-auto mt-8 max-w-[560px] space-y-5">
         {rows?.map((o) => (
           <div key={o.id} className="rounded-md p-6" style={{ background: '#fff', color: '#111', border: '3px solid #111' }}>
-            <h3 className="mb-4 border-b-[3px] pb-2.5 text-center text-[22px] font-black" style={{ borderColor: GOLD }}>
+            <h3 className="mb-4 border-b-[3px] pb-2.5 text-center text-[22px] font-black" style={{ borderColor: '#4bb814' }}>
               COMPROBANTE DE COMPRA
             </h3>
             <p className="mb-3">¡Estás participando por una <b>{o.prize}</b>!</p>
@@ -521,7 +766,7 @@ function Consulta() {
                 <p className="mt-3 font-bold">Tus Números:</p>
                 <div className="mt-2 flex flex-wrap gap-2.5">
                   {o.numbers.map((n: number) => (
-                    <span key={n} className="rounded-md px-4 py-2 text-[18px] font-extrabold" style={{ background: GOLD }}>{n}</span>
+                    <span key={n} className="rounded-md px-4 py-2 text-[18px] font-extrabold text-black" style={{ background: '#a8ef70' }}>{n}</span>
                   ))}
                 </div>
               </>

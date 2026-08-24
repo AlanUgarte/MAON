@@ -1235,6 +1235,14 @@ model SorteoSettings {
   /// Premios secundarios: numeros fijos que elige el admin de antemano.
   blessedNumbers Int[]    @default([])
   blessedPrize   String   @default("")
+  /// Marca que se ve en el header y el footer de la landing.
+  brandName      String   @default("TREBOL MOTOS")
+  /// Video mostrando el premio (mp4 subido a Blob). Vacio = no se muestra el panel.
+  videoUrl       String   @default("")
+  email          String   @default("")
+  instagramUrl   String   @default("")
+  facebookUrl    String   @default("")
+  tiktokUrl      String   @default("")
   paymentAlias   String   @default("Alan.ugarte7")
   paymentHolder  String   @default("")
   whatsappNumber String   @default("5493413807110")

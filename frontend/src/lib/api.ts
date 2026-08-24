@@ -61,6 +61,20 @@ export async function uploadSorteoReceipt(file: File, sorteoOrderId: string): Pr
   return url;
 }
 
+/** Sube un archivo grande (video del premio) directo del navegador a Vercel Blob,
+ * sin pasar por la función serverless — ver src/app/api/blob-upload/route.ts. */
+export async function uploadLargeFile(file: File, onProgress?: (pct: number) => void): Promise<string> {
+  const { upload } = await import('@vercel/blob/client');
+  const token = getToken();
+  const blob = await upload(`sorteo/${file.name}`, file, {
+    access: 'public',
+    handleUploadUrl: '/api/blob-upload',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    onUploadProgress: onProgress ? (p) => onProgress(Math.round(p.percentage)) : undefined,
+  });
+  return blob.url;
+}
+
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);

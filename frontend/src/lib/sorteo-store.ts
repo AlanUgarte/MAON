@@ -12,6 +12,12 @@ export type SorteoOrderStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 
 export interface SorteoSettings {
   edition: number;
+  brandName: string;
+  videoUrl: string;
+  email: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  tiktokUrl: string;
   title: string;
   prize: string;
   images: string[];
@@ -52,6 +58,12 @@ export interface SorteoOrder {
 
 export const DEFAULT_SORTEO_SETTINGS: SorteoSettings = {
   edition: 1,
+  brandName: '',
+  videoUrl: '',
+  email: '',
+  instagramUrl: '',
+  facebookUrl: '',
+  tiktokUrl: '',
   title: '',
   prize: '',
   images: [],
@@ -69,6 +81,12 @@ export const DEFAULT_SORTEO_SETTINGS: SorteoSettings = {
 function sanitize(raw: any): SorteoSettings {
   return {
     edition: Number(raw?.edition ?? 1),
+    brandName: raw?.brandName ?? '',
+    videoUrl: raw?.videoUrl ?? '',
+    email: raw?.email ?? '',
+    instagramUrl: raw?.instagramUrl ?? '',
+    facebookUrl: raw?.facebookUrl ?? '',
+    tiktokUrl: raw?.tiktokUrl ?? '',
     title: raw?.title ?? '',
     prize: raw?.prize ?? '',
     images: Array.isArray(raw?.images) ? raw.images : [],
