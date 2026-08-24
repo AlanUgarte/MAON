@@ -8,7 +8,7 @@ export default function SorteoLayout({ children }: { children: React.ReactNode }
     <>
       {/* El body lo pinta el tema del CRM (claro por defecto) y se filtra por debajo de
           la landing, que es oscura. Se pinta acá para que valga solo en esta ruta. */}
-      <style>{'body{background:#07070b}'}</style>
+      <style>{'body{background:#05100a}'}</style>
       {children}
     </>
   );
