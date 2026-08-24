@@ -4,7 +4,7 @@
 // del tema del CRM, mismo criterio que /insumos y /vyno: colores hardcodeados acá.
 // El flujo es: elegir paquete -> transferir al alias -> cargar el comprobante. Los
 // números NO se asignan al comprar: se asignan cuando el admin verifica el pago.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Clover, Trophy, Copy, Check, X, Upload, Search, Loader2, Play, ShieldCheck, Lock,
   Ticket, CreditCard, Smartphone, ShoppingCart, Mail, Instagram, Facebook, Music2, MessageCircle,
@@ -505,6 +505,19 @@ function Placeholder({ text }: { text: string }) {
 /** Video del premio: arranca solo, mudo y en loop — es la vidriera de la moto. Con
  * controles para que el que quiera le suba el volumen o lo pause. */
 function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+  const youtubeId = getYouTubeId(src);
+  if (youtubeId) {
+    return (
+      <iframe
+        src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}&playsinline=1&rel=0`}
+        title="Video del premio"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        className="h-full w-full"
+        style={{ border: 0 }}
+      />
+    );
+  }
   return (
     <video
       src={src} poster={poster}
@@ -512,6 +525,15 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
       className="h-full w-full object-cover"
     />
   );
+}
+
+/** Saca el id de un link de YouTube — watch?v=, youtu.be/ y /shorts/. Devuelve null si
+ * no es de YouTube, y ahi el video se trata como archivo directo (mp4). */
+function getYouTubeId(url: string): string | null {
+  const m = url.match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i,
+  );
+  return m ? m[1] : null;
 }
 
 /** Fotos reales de la moto. Al tocar una se abre en grande para verla en detalle. */

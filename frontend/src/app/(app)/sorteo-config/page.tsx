@@ -574,6 +574,16 @@ function ImageField({
 function VideoField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
   const [pct, setPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState('');
+
+  const usarLink = () => {
+    const limpio = link.trim();
+    if (!limpio) return;
+    if (!/^https?:\/\//i.test(limpio)) { setError('El link tiene que empezar con http:// o https://'); return; }
+    setError(null);
+    onChange(limpio);
+    setLink('');
+  };
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
@@ -589,20 +599,41 @@ function VideoField({ url, onChange }: { url: string; onChange: (url: string) =>
       <label className="block text-[11px] uppercase tracking-wide text-muted">Video de la moto</label>
       {url ? (
         <div className="space-y-2">
-          <video src={url} controls className="w-full max-w-[320px] rounded-lg" />
+          {isYouTube(url)
+            ? <p className="text-[13px] text-content">Video de YouTube cargado: <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline">ver</a></p>
+            : <video src={url} controls className="w-full max-w-[320px] rounded-lg" />}
           <Button variant="danger" size="sm" onClick={() => onChange('')}>
             <Trash2 className="h-3.5 w-3.5" /> Quitar video
           </Button>
         </div>
       ) : (
-        <label className="flex h-20 w-full max-w-[320px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line/30 text-[12px] text-muted hover:bg-surface-2">
-          <Video className="h-5 w-5" />
-          {pct === null ? 'Subir video (mp4, hasta 200MB)' : `Subiendo… ${pct}%`}
-          <input
-            type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden"
-            onChange={(e) => pick(e.target.files?.[0])}
-          />
-        </label>
+        <div className="space-y-2">
+          <label className="flex h-20 w-full max-w-[320px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line/30 text-[12px] text-muted hover:bg-surface-2">
+            <Video className="h-5 w-5" />
+            {pct === null ? 'Subir video (mp4, hasta 200MB)' : `Subiendo… ${pct}%`}
+            <input
+              type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden"
+              onChange={(e) => pick(e.target.files?.[0])}
+            />
+          </label>
+
+          <div className="max-w-[320px]">
+            <div className="my-1 text-center text-[11.5px] font-semibold text-muted">O PEGÁ EL LINK</div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://youtube.com/... o link .mp4"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && usarLink()}
+              />
+              <Button size="sm" variant="outline" onClick={usarLink}>Usar</Button>
+            </div>
+            <p className="mt-1 text-[11.5px] text-muted">
+              Anda con YouTube (incluye Shorts) y con links directos a un archivo .mp4.
+              Los de TikTok e Instagram no se pueden incrustar.
+            </p>
+          </div>
+        </div>
       )}
       {error && <p className="text-[13px] text-rose">{error}</p>}
     </div>
@@ -655,4 +686,10 @@ function ComprobanteButtons({ orderId, orderNumber }: { orderId: string; orderNu
       )}
     </div>
   );
+}
+
+/** YouTube (incluye youtu.be y Shorts) se muestra embebido; el resto va como archivo
+ * de video directo. */
+function isYouTube(url: string) {
+  return /(?:youtube\.com|youtu\.be)/i.test(url);
 }
