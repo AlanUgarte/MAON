@@ -1,5 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppSender } from '../whatsapp/whatsapp.sender';
 import { pickFreeNumbers } from './pick-numbers';
 import {
   CreateSorteoOrderDto, CreateSorteoWinnerDto, ReplaceSorteoPackagesDto, UpdateSorteoSettingsDto,
@@ -9,7 +10,12 @@ const SINGLETON_ID = 'singleton';
 
 @Injectable()
 export class SorteoService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SorteoService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly whatsapp: WhatsAppSender,
+  ) {}
 
   /** Fila única de config: se crea con los defaults del schema la primera vez. */
   settings() {
@@ -278,7 +284,9 @@ export class SorteoService {
             data: { status: 'APROBADO', approvedById: adminUserId, approvedAt: new Date() },
           }),
         ]);
-        return this.orderWithNumbers(id);
+        const approved = await this.orderWithNumbers(id);
+        this.notifyApproved(order.id, order.buyerPhone, order.buyerName, assigned, s.prize);
+        return approved;
       } catch (err: any) {
         // P2002 = otro admin aprobó una compra al mismo tiempo y se quedó con alguno
         // de estos números. Se reintenta con la foto actualizada de los ocupados.
@@ -286,6 +294,38 @@ export class SorteoService {
       }
     }
     throw new BadRequestException('No se pudieron asignar los números, probá de nuevo');
+  }
+
+  /**
+   * Avisa al comprador con el comprobante de sus numeros. La imagen la genera la web
+   * en /api/sorteo/comprobante/<id> a partir de la orden, asi que WhatsApp la baja
+   * sola y no hay que guardar ningun archivo.
+   *
+   * A proposito no se hace await ni se corta la aprobacion si falla: los numeros ya
+   * quedaron asignados y el admin los ve en el panel; que WhatsApp no responda no
+   * puede deshacer una aprobacion.
+   */
+  private notifyApproved(orderId: string, phone: string, name: string, numbers: number[], prize: string) {
+    if (!phone) return;
+    const web = process.env.PUBLIC_WEB_URL || process.env.CORS_ORIGIN;
+    if (!web) {
+      this.logger.warn('PUBLIC_WEB_URL sin configurar: no se manda el comprobante del sorteo');
+      return;
+    }
+    const caption =
+      `Hola ${name}! Confirmamos tu pago 🍀
+
+` +
+      `Ya estas participando por la ${prize}.
+` +
+      `Tus numeros: ${numbers.join(' - ')}
+
+` +
+      'Mucha suerte y siempre con fe!';
+
+    this.whatsapp
+      .sendImage(phone, `${web.replace(/\/$/, '')}/api/sorteo/comprobante/${orderId}`, caption)
+      .catch((err) => this.logger.error(`No se pudo avisar la aprobacion de ${orderId}: ${err?.message}`));
   }
 
   async rejectOrder(id: string) {
