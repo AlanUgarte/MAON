@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   ClipboardList, Search, Trophy, Settings, ExternalLink, Check, X, Upload, Trash2, Ticket, Plus, Video,
+  Copy, Download,
 } from 'lucide-react';
 import { Topbar } from '@/components/app/topbar';
 import { Button } from '@/components/ui/button';
@@ -146,6 +147,7 @@ function ComprasTab() {
                       </Button>
                     </div>
                   )}
+                  {o.status === 'APROBADO' && <ComprobanteButtons orderId={o.id} orderNumber={o.orderNumber} />}
                 </td>
               </tr>
             ))}
@@ -588,6 +590,54 @@ function VideoField({ url, onChange }: { url: string; onChange: (url: string) =>
         </label>
       )}
       {error && <p className="text-[13px] text-rose">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Comprobante en PNG de una compra aprobada. Lo genera la web en
+ * /api/sorteo/comprobante/<id>; acá se copia al portapapeles para pegarlo directo en
+ * WhatsApp, o se baja el archivo si el navegador no deja escribir imágenes.
+ */
+function ComprobanteButtons({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
+  const url = `/api/sorteo/comprobante/${orderId}`;
+  const [state, setState] = useState<'idle' | 'copiando' | 'copiado' | 'error'>('idle');
+
+  const copiar = async () => {
+    setState('copiando');
+    try {
+      // El fetch va adentro del ClipboardItem: Safari exige que la promesa se le pase
+      // en el mismo gesto del click, no después de un await.
+      const item = new ClipboardItem({
+        'image/png': fetch(url).then((r) => {
+          if (!r.ok) throw new Error('No se pudo generar el comprobante');
+          return r.blob();
+        }),
+      });
+      await navigator.clipboard.write([item]);
+      setState('copiado');
+      setTimeout(() => setState('idle'), 2500);
+    } catch {
+      setState('error');
+      setTimeout(() => setState('idle'), 4000);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <div className="flex gap-1.5">
+        <Button size="sm" variant="outline" onClick={copiar} disabled={state === 'copiando'}>
+          {state === 'copiado' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {state === 'copiado' ? 'Copiado' : 'Copiar PNG'}
+        </Button>
+        <a
+          href={url} download={`${orderNumber}.png`} target="_blank" rel="noopener noreferrer"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-line/15 px-3 text-xs text-content hover:bg-surface-2"
+        ><Download className="h-3.5 w-3.5" /> Ver</a>
+      </div>
+      {state === 'error' && (
+        <span className="text-[11px] text-rose">No se pudo copiar — usá &quot;Ver&quot; y guardá la imagen.</span>
+      )}
     </div>
   );
 }
