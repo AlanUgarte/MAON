@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, MessageSquareText, Package,
-  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, ScissorsLineDashed,
+  Megaphone, BellRing, ReceiptText, Menu, X, LogOut, Store, Bot, ClipboardList, ExternalLink, Zap, ScissorsLineDashed, Ticket,
 } from 'lucide-react';
 import { cn, initials } from '@/lib/utils';
 import { getUser, logout, type AuthUser } from '@/lib/api';
@@ -20,6 +20,7 @@ const FULL_NAV: NavItem[] = [
   { href: '/facturacion', label: 'Facturación', icon: ReceiptText },
   { href: '/tienda-config', label: 'Tienda', icon: Store },
   { href: '/insumos-config', label: 'Insumos', icon: ScissorsLineDashed },
+  { href: '/sorteo-config', label: 'Sorteo', icon: Ticket },
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/automatizaciones', label: 'Automatiz.', icon: Bot },
   { href: '/seguimientos', label: 'Seguimientos', icon: BellRing, badge: 12 },

@@ -30,6 +30,7 @@ import { VynoOrdersModule } from './vyno-orders/vyno-orders.module';
 import { InsumosSettingsModule } from './insumos-settings/insumos-settings.module';
 import { InsumosProductsModule } from './insumos-products/insumos-products.module';
 import { InsumosOrdersModule } from './insumos-orders/insumos-orders.module';
+import { SorteoModule } from './sorteo/sorteo.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { InsumosOrdersModule } from './insumos-orders/insumos-orders.module';
     InsumosSettingsModule,
     InsumosProductsModule,
     InsumosOrdersModule,
+    SorteoModule,
   ],
 })
 export class AppModule {}

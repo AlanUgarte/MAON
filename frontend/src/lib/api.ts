@@ -46,6 +46,21 @@ export async function uploadImage(file: File): Promise<string> {
   return url;
 }
 
+/** Comprobante del sorteo: el comprador no tiene login, lo que habilita la subida es
+ * el id de su compra recién creada. */
+export async function uploadSorteoReceipt(file: File, sorteoOrderId: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('sorteoOrderId', sorteoOrderId);
+  const res = await fetch('/api/upload', { method: 'POST', body: form });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.message || `Error ${res.status}`);
+  }
+  const { url } = await res.json();
+  return url;
+}
+
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);
@@ -260,6 +275,32 @@ export const api = {
   approveInsumosOrder: (id: string) => request<any>(`/insumos-orders/${id}/approve`, { method: 'PATCH' }),
   setInsumosOrderStatus: (id: string, dto: { status: string; trackingNumber?: string; carrier?: string }) =>
     request<any>(`/insumos-orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(dto) }),
+
+  // Modulo SORTEO — rifa por numeros con transferencia y aprobacion manual.
+  sorteoPublic: () => request<any>('/sorteo/public'),
+  sorteoLookup: (q: string) => request<any[]>(`/sorteo/lookup?q=${encodeURIComponent(q)}`),
+  sorteoOrderPublic: (id: string) => request<any>(`/sorteo/orders/${id}/public`),
+  createSorteoOrder: (dto: any) => request<any>('/sorteo/orders', { method: 'POST', body: JSON.stringify(dto) }),
+  attachSorteoReceipt: (id: string, dto: { receiptUrl?: string; holderName?: string }) =>
+    request<any>(`/sorteo/orders/${id}/receipt`, { method: 'POST', body: JSON.stringify(dto) }),
+
+  sorteoSettings: () => request<any>('/sorteo/settings'),
+  updateSorteoSettings: (dto: any) => request<any>('/sorteo/settings', { method: 'PATCH', body: JSON.stringify(dto) }),
+  sorteoNextEdition: () => request<any>('/sorteo/settings/next-edition', { method: 'POST' }),
+  sorteoPackages: () => request<any[]>('/sorteo/packages'),
+  replaceSorteoPackages: (packages: { chances: number; price: number; isPopular?: boolean }[]) =>
+    request<any[]>('/sorteo/packages', { method: 'PUT', body: JSON.stringify({ packages }) }),
+  sorteoOrders: (status?: string, q?: string) => {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (q) qs.set('q', q);
+    return request<any[]>(`/sorteo/orders${qs.toString() ? `?${qs}` : ''}`);
+  },
+  approveSorteoOrder: (id: string) => request<any>(`/sorteo/orders/${id}/approve`, { method: 'PATCH' }),
+  rejectSorteoOrder: (id: string) => request<any>(`/sorteo/orders/${id}/reject`, { method: 'PATCH' }),
+  sorteoNumberOwner: (n: number) => request<any>(`/sorteo/numbers/${n}`),
+  createSorteoWinner: (dto: any) => request<any>('/sorteo/winners', { method: 'POST', body: JSON.stringify(dto) }),
+  deleteSorteoWinner: (id: string) => request<any>(`/sorteo/winners/${id}`, { method: 'DELETE' }),
 
   // Comprobantes (facturas, remitos, notas de crédito)
   comprobantes: (params = '') => request<any>(`/comprobantes${params}`),

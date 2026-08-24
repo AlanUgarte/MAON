@@ -208,6 +208,7 @@ model User {
   supremaSales           SupremaSale[]
   vynoOrdersApproved     VynoOrder[]    @relation("VynoOrderApprovedBy")
   insumosOrdersApproved  InsumosOrder[] @relation("InsumosOrderApprovedBy")
+  sorteoOrdersApproved   SorteoOrder[]  @relation("SorteoOrderApprovedBy")
 
   @@index([role])
 }
@@ -460,20 +461,20 @@ model AIAnalysis {
 // ------------------------ PRODUCTS ---------------------------
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  sku          String   @unique
-  category     String?
+  id              String   @id @default(cuid())
+  name            String
+  sku             String   @unique
+  category        String?
   /// Sub-rubro dentro de la categoría (ej: "CEREALES" dentro de "Alimentos") — viene
   /// del Excel del proveedor (columna "Línea"), se usa en el desplegable de categorías.
-  line         String?
-  brand        String?
+  line            String?
+  brand           String?
   /// Unidades por bulto (ej: 24 en "24*200 GR")
-  unitsPerBulk Int?
+  unitsPerBulk    Int?
   /// Margen de ganancia % de este artículo (si es null usa el general del negocio)
-  marginPct    Float?
-  price        Decimal  @db.Decimal(12, 2)
-  cost         Decimal? @db.Decimal(12, 2)
+  marginPct       Float?
+  price           Decimal  @db.Decimal(12, 2)
+  cost            Decimal? @db.Decimal(12, 2)
   /// Precio de costo por unidad suelta (no null = el artículo también se vende por unidad,
   /// además de por bulto cerrado — ej. Landy Oritas, Chocolates, Vinos).
   unitPrice       Decimal? @db.Decimal(12, 2)
@@ -484,12 +485,12 @@ model Product {
   unitsPerZuncho  Int?
   /// Unidades sueltas que trae un display (solo informativo).
   unitsPerDisplay Int?
-  stock        Int      @default(0)
-  description  String?
-  images       String[] @default([])
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  stock           Int      @default(0)
+  description     String?
+  images          String[] @default([])
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   interestedClients Client[]
   saleItems         SaleItem[]
@@ -928,26 +929,26 @@ model SupremaBatch {
 /// autocompleta por clientType (editable solo por admin) y costPerKg queda grabado con
 /// el costo vigente al momento de la venta (mismo criterio que SupremaBatch).
 model SupremaSale {
-  id            String                @id @default(cuid())
+  id            String               @id @default(cuid())
   clientId      String
-  client        Client                @relation(fields: [clientId], references: [id])
+  client        Client               @relation(fields: [clientId], references: [id])
   sellerId      String?
-  seller        User?                 @relation(fields: [sellerId], references: [id])
+  seller        User?                @relation(fields: [sellerId], references: [id])
   clientType    SupremaClientType
-  kg            Decimal               @db.Decimal(12, 3)
-  pricePerKg    Decimal               @db.Decimal(12, 2)
-  costPerKg     Decimal               @db.Decimal(12, 2)
-  total         Decimal               @db.Decimal(12, 2)
-  cost          Decimal               @db.Decimal(12, 2)
-  profit        Decimal               @db.Decimal(12, 2)
-  marginPct     Decimal               @db.Decimal(6, 2)
+  kg            Decimal              @db.Decimal(12, 3)
+  pricePerKg    Decimal              @db.Decimal(12, 2)
+  costPerKg     Decimal              @db.Decimal(12, 2)
+  total         Decimal              @db.Decimal(12, 2)
+  cost          Decimal              @db.Decimal(12, 2)
+  profit        Decimal              @db.Decimal(12, 2)
+  marginPct     Decimal              @db.Decimal(6, 2)
   paymentMethod SupremaPaymentMethod
   observaciones String?
-  fecha         DateTime              @default(now())
+  fecha         DateTime             @default(now())
   createdById   String
   updatedById   String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([clientId])
   @@index([fecha])
@@ -1010,15 +1011,15 @@ model VynoOrder {
   total        Decimal @db.Decimal(12, 2)
 
   // Envio
-  province      String
-  city          String
-  postalCode    String
-  street        String
-  streetNumber  String
-  floorApt      String?
-  shippingNotes String?
+  province         String
+  city             String
+  postalCode       String
+  street           String
+  streetNumber     String
+  floorApt         String?
+  shippingNotes    String?
   /// DNI/CUIT del comprador — opcional, algunos envios/facturas lo piden.
-  docNumber     String?
+  docNumber        String?
   /// Nombre del servicio elegido (placeholder mientras no haya Andreani real).
   shippingMethod   String?
   /// Snapshot de la cotizacion usada (placeholder hoy, respuesta real de Andreani despues).
@@ -1031,7 +1032,7 @@ model VynoOrder {
   approvedBy   User?     @relation("VynoOrderApprovedBy", fields: [approvedById], references: [id])
   approvedAt   DateTime?
 
-  createdAt DateTime @updatedAt @default(now())
+  createdAt DateTime @default(now()) @updatedAt
   updatedAt DateTime @updatedAt
 
   items        VynoOrderItem[]
@@ -1130,14 +1131,14 @@ model InsumosOrder {
   shippingCost Decimal @db.Decimal(12, 2)
   total        Decimal @db.Decimal(12, 2)
 
-  province      String
-  city          String
-  postalCode    String
-  street        String
-  streetNumber  String
-  floorApt      String?
-  shippingNotes String?
-  docNumber     String?
+  province         String
+  city             String
+  postalCode       String
+  street           String
+  streetNumber     String
+  floorApt         String?
+  shippingNotes    String?
+  docNumber        String?
   shippingMethod   String?
   shippingQuoteRaw Json?
   trackingNumber   String?
@@ -1202,4 +1203,110 @@ model InsumosSettings {
   termsAndConditions String?
   returnsPolicy      String?
   updatedAt          DateTime @updatedAt
+}
+
+// ------------------------- SORTEO ----------------------------
+// Sorteo por numeros al estilo "rifa": el comprador elige un paquete de chances,
+// transfiere al alias y sube el comprobante. Los numeros NO se asignan al comprar:
+// recien cuando el admin verifica la transferencia y aprueba la orden, el backend
+// le asigna N numeros libres al azar. El dia del sorteo el admin busca el numero
+// que salio en la quiniela y ve quien lo compro.
+
+enum SorteoOrderStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+/// Fila unica (singleton) — el sorteo activo y todos los textos de la landing.
+model SorteoSettings {
+  id             String   @id @default("singleton")
+  /// Se incrementa al cerrar un sorteo y arrancar el siguiente. Los numeros se
+  /// guardan por edicion, asi el sorteo nuevo arranca con todos los numeros libres
+  /// sin borrar el historial del anterior.
+  edition        Int      @default(1)
+  title          String   @default("PARTICIPA POR LA MOTO 0KM!")
+  prize          String   @default("MOTO 0KM")
+  images         String[] @default([])
+  /// Rango de numeros del sorteo: 1..totalNumbers.
+  totalNumbers   Int      @default(10000)
+  drawDate       String   @default("")
+  drawWhere      String   @default("")
+  /// Premios secundarios: numeros fijos que elige el admin de antemano.
+  blessedNumbers Int[]    @default([])
+  blessedPrize   String   @default("")
+  paymentAlias   String   @default("Alan.ugarte7")
+  paymentHolder  String   @default("")
+  whatsappNumber String   @default("5493413807110")
+  isActive       Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}
+
+model SorteoPackage {
+  id        String   @id @default(cuid())
+  chances   Int
+  price     Decimal  @db.Decimal(12, 2)
+  isPopular Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orders SorteoOrder[]
+}
+
+model SorteoOrder {
+  id          String            @id @default(cuid())
+  orderNumber String            @unique
+  edition     Int               @default(1)
+  status      SorteoOrderStatus @default(PENDIENTE)
+
+  buyerName  String
+  buyerEmail String @default("")
+  buyerPhone String @default("")
+
+  packageId String?
+  package   SorteoPackage? @relation(fields: [packageId], references: [id])
+  chances   Int
+  amount    Decimal        @db.Decimal(12, 2)
+
+  /// Comprobante de transferencia. Opcional igual que en Insumos: con el nombre del
+  /// titular alcanza para informar el pago.
+  receiptUrl String?
+  holderName String?
+
+  approvedById String?
+  approvedBy   User?     @relation("SorteoOrderApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  numbers SorteoNumber[]
+
+  @@index([status])
+  @@index([buyerEmail])
+  @@index([buyerPhone])
+  @@index([edition])
+}
+
+/// Un numero vendido. La PK (edicion, numero) es la que garantiza que un mismo
+/// numero no se venda dos veces en el mismo sorteo.
+model SorteoNumber {
+  edition Int
+  number  Int
+  orderId String
+  order   SorteoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@id([edition, number])
+  @@index([orderId])
+}
+
+/// Ganadores ya pagados, para la seccion "Ganadores anteriores" de la landing.
+model SorteoWinner {
+  id        String   @id @default(cuid())
+  name      String
+  number    Int?
+  prize     String   @default("")
+  photoUrl  String?
+  note      String?
+  createdAt DateTime @default(now())
 }
