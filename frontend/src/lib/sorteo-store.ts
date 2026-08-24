@@ -20,6 +20,7 @@ export interface SorteoSettings {
   tiktokUrl: string;
   title: string;
   prize: string;
+  prizeDetails: string;
   images: string[];
   totalNumbers: number;
   drawDate: string;
@@ -66,6 +67,7 @@ export const DEFAULT_SORTEO_SETTINGS: SorteoSettings = {
   tiktokUrl: '',
   title: '',
   prize: '',
+  prizeDetails: '',
   images: [],
   totalNumbers: 10000,
   drawDate: '',
@@ -89,6 +91,7 @@ function sanitize(raw: any): SorteoSettings {
     tiktokUrl: raw?.tiktokUrl ?? '',
     title: raw?.title ?? '',
     prize: raw?.prize ?? '',
+    prizeDetails: raw?.prizeDetails ?? '',
     images: Array.isArray(raw?.images) ? raw.images : [],
     totalNumbers: Number(raw?.totalNumbers ?? 10000),
     drawDate: raw?.drawDate ?? '',

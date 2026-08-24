@@ -61,6 +61,7 @@ export class SorteoService {
       brandName: s.brandName,
       title: s.title,
       prize: s.prize,
+      prizeDetails: s.prizeDetails,
       images: s.images,
       videoUrl: s.videoUrl,
       email: s.email,

@@ -1226,7 +1226,10 @@ model SorteoSettings {
   /// sin borrar el historial del anterior.
   edition        Int      @default(1)
   title          String   @default("PARTICIPA POR LA MOTO 0KM!")
-  prize          String   @default("MOTO 0KM")
+  prize          String   @default("MOTO")
+  /// Detalle del premio (marca, modelo, color, papeles...). Una linea por dato: la
+  /// landing lo muestra como lista en su propio apartado.
+  prizeDetails   String   @default("")
   images         String[] @default([])
   /// Rango de numeros del sorteo: 1..totalNumbers.
   totalNumbers   Int      @default(10000)

@@ -337,6 +337,21 @@ function ConfigTab({ settings }: { settings: ReturnType<typeof useSorteoSettings
           <LabeledInput label="Titular de la portada" value={s.title} onChange={(v) => set({ title: v })} placeholder="COMPRÁ QUE SE VAN VOLANDO!" />
           <p className="text-[11.5px] text-muted">La última palabra se resalta en verde.</p>
           <LabeledInput label="Premio principal" value={s.prize} onChange={(v) => set({ prize: v })} />
+          <p className="text-[11.5px] text-muted">Corto, aparece en los textos de la página. Ej: MOTO.</p>
+          <div>
+            <label className="mb-1 block text-[11px] uppercase tracking-wide text-muted">Detalle del premio</label>
+            <textarea
+              value={s.prizeDetails}
+              onChange={(e) => set({ prizeDetails: e.target.value })}
+              rows={5}
+              placeholder={`Honda Wave 110 0KM
+Color negro
+Patentamiento incluido
+Entrega en Rosario`}
+              className="w-full rounded-xl border border-line/15 bg-surface-2/60 px-3.5 py-2.5 text-sm text-content placeholder:text-muted/70 transition focus:border-primary/50 focus:bg-surface-2 focus:outline-none"
+            />
+            <p className="mt-1 text-[11.5px] text-muted">Una línea por dato. Se muestra en su propio apartado &quot;LA MOTO&quot;.</p>
+          </div>
           <LabeledInput label="Cuándo se sortea" value={s.drawDate} onChange={(v) => set({ drawDate: v })} placeholder="5 de septiembre de 2026" />
           <LabeledInput label="Dónde se ve el ganador" value={s.drawWhere} onChange={(v) => set({ drawWhere: v })} placeholder="Quiniela de Buenos Aires — La Previa 10:15 hs" />
           <LabeledInput

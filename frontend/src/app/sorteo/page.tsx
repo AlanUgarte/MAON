@@ -21,11 +21,10 @@ const GREEN_SOFT = '#a8ef70';
 const WHATSAPP = '#22c55e';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
-const miles = (n: number) => Number(n).toLocaleString('es-AR');
 
 interface Pkg { id: string; chances: number; price: number; isPopular: boolean }
 interface PublicSorteo {
-  brandName: string; title: string; prize: string; images: string[]; videoUrl: string;
+  brandName: string; title: string; prize: string; prizeDetails: string; images: string[]; videoUrl: string;
   drawDate: string; drawWhere: string;
   blessedPrize: string; blessedNumbers: { number: number; sold: boolean }[];
   paymentAlias: string; paymentHolder: string; whatsappNumber: string;
@@ -37,6 +36,7 @@ interface PublicSorteo {
 
 const NAV = [
   { label: 'Inicio', href: '#inicio' },
+  { label: 'La moto', href: '#la-moto' },
   { label: 'Cómo funciona', href: '#como-funciona' },
   { label: 'Premios', href: '#premios' },
   { label: 'Preguntas frecuentes', href: '#faq' },
@@ -171,10 +171,6 @@ export default function SorteoPage() {
                     <b className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px]">{data.percentSold}%</b>
                   </div>
                 </div>
-                <p className="mt-3 text-[19px] font-black">
-                  <span style={{ color: GREEN }}>{miles(data.sold)}</span>
-                  <span style={{ color: 'rgba(255,255,255,.5)' }}> / {miles(data.totalNumbers)}</span>
-                </p>
               </div>
               <div className="sm:max-w-[240px]">
                 <h4 className="text-[15px] font-black" style={{ color: GREEN }}>¡VAMOS POR MÁS!</h4>
@@ -211,6 +207,31 @@ export default function SorteoPage() {
             );
           })}
         </section>
+
+        {/* ------------------------------ el premio ------------------------------ */}
+        {!!data.prizeDetails.trim() && (
+          <section id="la-moto" className="py-12">
+            <h2 className="mb-8 flex items-center justify-center gap-3 text-center text-[clamp(24px,3.4vw,36px)] font-black">
+              <Clover className="h-7 w-7" style={{ color: GREEN }} fill="currentColor" /> LA {data.prize}
+            </h2>
+            <div className="mx-auto grid max-w-[900px] gap-5 sm:grid-cols-2">
+              {data.images[0] && (
+                <img src={data.images[0]} alt={data.prize} className="h-full w-full rounded-2xl object-cover" style={{ border: `1px solid ${LINE}` }} />
+              )}
+              <div className="rounded-2xl p-7" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                <h3 className="mb-4 text-[13px] font-black tracking-widest" style={{ color: GREEN }}>DETALLE DEL PREMIO</h3>
+                <ul className="space-y-2.5">
+                  {data.prizeDetails.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean).map((linea, i) => (
+                    <li key={i} className="flex gap-2.5 text-[15px]" style={{ color: 'rgba(255,255,255,.8)' }}>
+                      <Clover className="mt-1 h-4 w-4 shrink-0" style={{ color: GREEN }} fill="currentColor" />
+                      {linea}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ---------------------------- cómo funciona ---------------------------- */}
         <section id="como-funciona" className="py-12">

@@ -22,6 +22,7 @@ export class CreateSorteoOrderDto {
 export class UpdateSorteoSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) title?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) prize?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) prizeDetails?: string;
   @ApiPropertyOptional() @IsOptional() @IsArray() @IsString({ each: true }) images?: string[];
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) totalNumbers?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) drawDate?: string;
