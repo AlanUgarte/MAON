@@ -27,6 +27,7 @@ export class UpdateSorteoSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) totalNumbers?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) drawDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) drawWhere?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) drawUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsArray() @IsInt({ each: true }) blessedNumbers?: number[];
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) blessedPrize?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) brandName?: string;

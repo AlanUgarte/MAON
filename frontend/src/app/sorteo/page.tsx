@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import {
   Clover, Trophy, Copy, Check, X, Upload, Search, Loader2, Play, ShieldCheck, Lock,
   Ticket, CreditCard, Smartphone, ShoppingCart, Mail, Instagram, Facebook, Music2, MessageCircle,
-  Maximize2, ChevronLeft, ChevronRight,
+  Maximize2, ChevronLeft, ChevronRight, ExternalLink,
 } from 'lucide-react';
 import { api, uploadSorteoReceipt } from '@/lib/api';
 
@@ -25,7 +25,7 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR');
 interface Pkg { id: string; chances: number; price: number; isPopular: boolean }
 interface PublicSorteo {
   brandName: string; title: string; prize: string; prizeDetails: string; images: string[]; videoUrl: string;
-  drawDate: string; drawWhere: string;
+  drawDate: string; drawWhere: string; drawUrl: string;
   blessedPrize: string; blessedNumbers: { number: number; sold: boolean }[];
   paymentAlias: string; paymentHolder: string; whatsappNumber: string;
   email: string; instagramUrl: string; facebookUrl: string; tiktokUrl: string;
@@ -297,7 +297,7 @@ export default function SorteoPage() {
           <h2 className="mb-8 text-center text-[clamp(24px,3.4vw,36px)] font-black">PREGUNTAS FRECUENTES</h2>
           <div className="mx-auto max-w-[760px] space-y-4">
             <Faq q="¿Cuándo se realiza el sorteo?" a={data.drawDate || 'A confirmar'} />
-            <Faq q="¿En dónde vemos el ganador?" a={data.drawWhere || 'A confirmar'} />
+            <Faq q="¿En dónde vemos el ganador?" a={data.drawWhere || 'A confirmar'} link={data.drawUrl} linkLabel="Ver los resultados oficiales de la quiniela" />
             <Faq q="¿Cómo recibo mis números?" a="Apenas verificamos tu transferencia te asignamos los números al azar y te avisamos. También podés consultarlos acá abajo con tu email o tu WhatsApp." />
             <Faq q="¿Cómo pago?" a={`Por transferencia bancaria al alias ${data.paymentAlias}. Después cargás el comprobante en el formulario de compra.`} />
           </div>
@@ -674,11 +674,18 @@ function PackageCard({ pkg, disabled, onBuy }: { pkg: Pkg; disabled: boolean; on
   );
 }
 
-function Faq({ q, a }: { q: string; a: string }) {
+function Faq({ q, a, link, linkLabel }: { q: string; a: string; link?: string; linkLabel?: string }) {
   return (
     <div className="rounded-2xl px-6 py-5" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
       <h4 className="text-[14px] font-black" style={{ color: GREEN }}>{q}</h4>
       <p className="mt-1.5 text-[14px]" style={{ color: 'rgba(255,255,255,.75)' }}>{a}</p>
+      {link && (
+        <a
+          href={link} target="_blank" rel="noopener noreferrer"
+          className="mt-2.5 inline-flex items-center gap-1.5 text-[13.5px] font-bold underline"
+          style={{ color: GREEN }}
+        >{linkLabel || 'Ver más'} <ExternalLink className="h-3.5 w-3.5" /></a>
+      )}
     </div>
   );
 }

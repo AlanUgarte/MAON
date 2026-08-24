@@ -25,6 +25,7 @@ export interface SorteoSettings {
   totalNumbers: number;
   drawDate: string;
   drawWhere: string;
+  drawUrl: string;
   blessedNumbers: number[];
   blessedPrize: string;
   paymentAlias: string;
@@ -72,6 +73,7 @@ export const DEFAULT_SORTEO_SETTINGS: SorteoSettings = {
   totalNumbers: 10000,
   drawDate: '',
   drawWhere: '',
+  drawUrl: '',
   blessedNumbers: [],
   blessedPrize: '',
   paymentAlias: '',
@@ -96,6 +98,7 @@ function sanitize(raw: any): SorteoSettings {
     totalNumbers: Number(raw?.totalNumbers ?? 10000),
     drawDate: raw?.drawDate ?? '',
     drawWhere: raw?.drawWhere ?? '',
+    drawUrl: raw?.drawUrl ?? '',
     blessedNumbers: Array.isArray(raw?.blessedNumbers) ? raw.blessedNumbers.map(Number) : [],
     blessedPrize: raw?.blessedPrize ?? '',
     paymentAlias: raw?.paymentAlias ?? '',

@@ -355,6 +355,13 @@ Entrega en Rosario`}
           <LabeledInput label="Cuándo se sortea" value={s.drawDate} onChange={(v) => set({ drawDate: v })} placeholder="5 de septiembre de 2026" />
           <LabeledInput label="Dónde se ve el ganador" value={s.drawWhere} onChange={(v) => set({ drawWhere: v })} placeholder="Quiniela de Buenos Aires — La Previa 10:15 hs" />
           <LabeledInput
+            label="Link a los resultados de la quiniela"
+            value={s.drawUrl}
+            onChange={(v) => set({ drawUrl: v })}
+            placeholder="https://www.loteriasmundiales.com.ar/Quinielas/santa-fe"
+          />
+          <p className="text-[11.5px] text-muted">Aparece en Preguntas frecuentes para que cualquiera verifique el número ganador.</p>
+          <LabeledInput
             label="Cantidad total de números" value={String(s.totalNumbers)} inputMode="numeric"
             onChange={(v) => set({ totalNumbers: Number(v.replace(/\D/g, '')) || 1 })}
           />

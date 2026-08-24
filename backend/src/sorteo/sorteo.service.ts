@@ -70,6 +70,7 @@ export class SorteoService {
       tiktokUrl: s.tiktokUrl,
       drawDate: s.drawDate,
       drawWhere: s.drawWhere,
+      drawUrl: s.drawUrl,
       blessedPrize: s.blessedPrize,
       blessedNumbers: s.blessedNumbers.map((n) => ({ number: n, sold: soldBlessed.has(n) })),
       paymentAlias: s.paymentAlias,

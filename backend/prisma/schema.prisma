@@ -1235,6 +1235,9 @@ model SorteoSettings {
   totalNumbers   Int      @default(10000)
   drawDate       String   @default("")
   drawWhere      String   @default("QUINIELA DE SANTA FE - LA PREVIA")
+  /// Link a los resultados oficiales de la quiniela, para que cualquiera pueda
+  /// verificar el numero ganador por su cuenta.
+  drawUrl        String   @default("")
   /// Premios secundarios: numeros fijos que elige el admin de antemano.
   blessedNumbers Int[]    @default([])
   blessedPrize   String   @default("")
